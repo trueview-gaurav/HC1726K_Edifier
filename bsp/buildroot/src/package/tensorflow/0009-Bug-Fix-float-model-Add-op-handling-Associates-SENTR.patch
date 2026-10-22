@@ -1,0 +1,30 @@
+From 7bee036e4e1821483bd91fbe3f5bd743c0203d44 Mon Sep 17 00:00:00 2001
+From: "YuShiun.Wang" <yuhsunw@qti.qualcomm.com>
+Date: Sat, 13 Jun 2026 08:29:07 -0700
+Subject: [PATCH 9/9] [Bug] Fix float model Add op handling (Associates:
+ SENTRY-3796)
+
+---
+ tensorflow/lite/kernels/add.cc | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/tensorflow/lite/kernels/add.cc b/tensorflow/lite/kernels/add.cc
+index fa886dae..ccd0325a 100644
+--- a/tensorflow/lite/kernels/add.cc
++++ b/tensorflow/lite/kernels/add.cc
+@@ -418,9 +418,10 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   if (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
+       output->type == kTfLiteInt64) {
+     EvalAdd<kernel_type>(context, node, params, data, input1, input2, output);
+-  }
+-  #endif
++  } else if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
++  #else
+   if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
++  #endif
+              output->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_OK(context,
+                       EvalAddQuantized<kernel_type>(context, node, params, data,
+-- 
+2.34.1
+

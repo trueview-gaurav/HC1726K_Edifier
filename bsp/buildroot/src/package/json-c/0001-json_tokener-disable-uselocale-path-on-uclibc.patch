@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Carl Su <xuyusu@qti.qualcomm.com>
+Date: Mon, 25 May 2026 16:00:00 +0800
+Subject: [PATCH] json_tokener: disable uselocale path on uClibc
+
+json-c 0.18 uses duplocale(uselocale(NULL)) before parsing JSON when
+HAVE_USELOCALE is detected.  With this uClibc toolchain, uselocale(NULL)
+returns LC_GLOBAL_LOCALE ((locale_t)-1), and duplocale() dereferences that
+sentinel and segfaults under qemu-arm.
+
+uClibc also provides setlocale(), so force json_tokener.c to use the existing
+setlocale fallback path on uClibc targets.  This keeps JSON parsing in the C
+numeric locale without calling the broken duplocale() implementation, and
+fixes all target applications linked against libjson-c.
+
+Signed-off-by: Carl Su <xuyusu@qti.qualcomm.com>
+---
+ json_tokener.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/json_tokener.c b/json_tokener.c
+index 2d0d5d4..8d9b10d 100644
+--- a/json_tokener.c
++++ b/json_tokener.c
+@@ -41,6 +41,20 @@
+ #include <strings.h>
+ #endif /* HAVE_STRINGS_H */
+ 
++/*
++ * uClibc exposes uselocale()/duplocale(), so json-c's configure enables
++ * HAVE_USELOCALE.  However, this toolchain's uselocale(NULL) returns the
++ * LC_GLOBAL_LOCALE sentinel ((locale_t)-1), and duplocale() dereferences it,
++ * causing json_tokener_parse_ex() to segfault under qemu-arm.
++ *
++ * Use json-c's existing setlocale() fallback on uClibc instead.  That still
++ * forces LC_NUMERIC to "C" while parsing, but avoids the broken duplocale()
++ * path for every target application using libjson-c.
++ */
++#if defined(__UCLIBC__) && defined(HAVE_USELOCALE)
++#undef HAVE_USELOCALE
++#endif
++
+ #define jt_hexdigit(x) (((x) <= '9') ? (x) - '0' : ((x)&7) + 9)
+ 
+ #if !HAVE_STRNCASECMP && defined(_MSC_VER)
+-- 
+2.34.1

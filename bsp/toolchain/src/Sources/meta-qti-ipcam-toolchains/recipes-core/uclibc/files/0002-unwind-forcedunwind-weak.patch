@@ -1,0 +1,33 @@
+--- a/libpthread/nptl/sysdeps/pthread/unwind-forcedunwind.c
++++ b/libpthread/nptl/sysdeps/pthread/unwind-forcedunwind.c
+@@ -24,6 +24,12 @@
+ #include <libgcc_s.h>
+ #include <unwind-resume.h>
+ 
++/* If libgcc provides these, avoid multiple-definition at link time.
++ * Make our fallback weak so libgcc's strong symbols win. */
++#ifndef UCLIBC_WEAK
++# define UCLIBC_WEAK __attribute__((weak))
++#endif
++
+ #define __libc_dlopen(x)        dlopen(x, (RTLD_LOCAL | RTLD_LAZY))
+ #define __libc_dlsym            dlsym
+ #define __libc_dlclose		dlclose
+@@ -114,7 +120,7 @@
+   return libgcc_s_personality PERSONALITY_ARGS;
+ }
+ 
+-_Unwind_Reason_Code attribute_hidden
++_Unwind_Reason_Code UCLIBC_WEAK attribute_hidden
+ _Unwind_ForcedUnwind (struct _Unwind_Exception *exc, _Unwind_Stop_Fn stop,
+ 		      void *stop_argument)
+ {
+@@ -124,7 +130,7 @@
+   return libgcc_s_forcedunwind (exc, stop, stop_argument);
+ }
+ 
+-_Unwind_Word attribute_hidden
++_Unwind_Word UCLIBC_WEAK attribute_hidden
+ _Unwind_GetCFA (struct _Unwind_Context *context)
+ {
+   if (__builtin_expect (libgcc_s_handle == NULL, 0))

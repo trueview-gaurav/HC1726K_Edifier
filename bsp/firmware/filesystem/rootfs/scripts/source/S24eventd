@@ -1,0 +1,47 @@
+#!/bin/sh
+
+EVENTD_PIDFILE=/var/run/eventd.pid
+EVENTD_BIN=/system/bin/eventd
+LOCK_PATH=/tmp/eventd.lock
+#Debug dump flag.
+Debug_dump_flag="/usrdata/debug_dump_flag"
+
+start() {
+
+	# get Timezone
+	export TZ=$(cat /etc/TZ)
+	# Check Debug_dump_flag has been removed
+	rm -f $Debug_dump_flag
+
+	printf "Start event daemon: "
+	start-stop-daemon -S -m -b -p $EVENTD_PIDFILE \
+		-x $EVENTD_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stop event daemon: "
+	start-stop-daemon -K -q -p $EVENTD_PIDFILE \
+		-x $EVENTD_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	rm "$LOCK_PATH"
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

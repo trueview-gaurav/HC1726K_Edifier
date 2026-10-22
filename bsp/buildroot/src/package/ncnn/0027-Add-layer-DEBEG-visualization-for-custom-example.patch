@@ -1,0 +1,66 @@
+From ab806261b1d1d1ae1c20e17b00b64c3819c57ef6 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 11 Dec 2023 16:59:56 +0800
+Subject: [PATCH 27/54] Add layer DEBEG visualization for custom example
+
+---
+ examples/custom.cpp | 36 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/examples/custom.cpp b/examples/custom.cpp
+index 055478e1..7023d18a 100755
+--- a/examples/custom.cpp
++++ b/examples/custom.cpp
+@@ -38,7 +38,7 @@ static int detect(const cv::Mat& bgr, std::vector<float>& cls_scores, const char
+ 
+ 	// https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe
+ 	// models can be downloaded from https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe/releases
+-	fprintf(stderr, "file path: %s", paramfile);
++	fprintf(stderr, "file path: %s\n", paramfile);
+ 	if (model.load_param(paramfile))
+ 		exit(-1);
+ 	if (model.load_model(binfile))
+@@ -57,6 +57,40 @@ static int detect(const cv::Mat& bgr, std::vector<float>& cls_scores, const char
+ 
+ 	ex.input("images", in);
+ 
++    // ----- DEBUG POOLING -----
++
++//    ncnn::Mat conv_out;
++//    ex.extract("/conv1/conv1.2/Relu_output_0", conv_out);
++//
++//    for(int q=0; q<std::min(conv_out.c, 1); q++){
++//        const float* ptr = conv_out.channel(q);
++//        for(int y=0; y<std::min(conv_out.h, 30); y++){
++//            for(int x=0; x<std::min(conv_out.w, 30); x++){
++//                printf("%.1f ", ptr[x]);
++//            }
++//            ptr += conv_out.w;
++//            printf("\n");
++//        }
++//        printf("----------------\n");
++//    }
++//
++//    ncnn::Mat conv_out2;
++//    ex.extract("/stage2/stage2.0/branch2/branch2.2/Relu_output_0", conv_out2);
++//
++//    for(int q=0; q<std::min(conv_out2.c, 1); q++){
++//        const float* ptr = conv_out2.channel(q);
++//        for(int y=0; y<std::min(conv_out2.h, 30); y++){
++//            for(int x=0; x<std::min(conv_out2.w, 30); x++){
++//                printf("%.1f ", ptr[x]);
++//            }
++//            ptr += conv_out2.w;
++//            printf("\n");
++//        }
++//        printf("----------------\n");
++//    }
++
++    // -------------------------
++
+ 	ncnn::Mat out;
+ 	ex.extract("output0", out);
+ 
+-- 
+2.47.1
+

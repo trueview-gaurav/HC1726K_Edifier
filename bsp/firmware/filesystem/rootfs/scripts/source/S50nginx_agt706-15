@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Start/stop nginx
+#
+
+NGINX_PIDFILE=/var/run/nginx.pid
+ENCRYPTED_PRIVATE_KEY="private_key" # object ID of prv. key in the secure storage
+ENCRYPTED_CERT="certificate" # object ID of cert. in the secure storage
+TMP_PRIVATE_KEY="/tmp/key.pem"
+TMP_CERT="/tmp/cert.pem"
+SECURE_STORAGE="/system/bin/optee_example_secure_storage_agtx"
+
+TEE_AUTHENTICATION="/system/bin/tee_auth"
+AUTH_PIDFILE=/var/run/tee_auth.pid
+
+
+case "$1" in
+  start)
+	echo "Starting nginx..."
+	# Run SECURE STORAGE to decrypt files
+	$SECURE_STORAGE -readfile $ENCRYPTED_PRIVATE_KEY $TMP_PRIVATE_KEY > /dev/null
+	$SECURE_STORAGE -readfile $ENCRYPTED_CERT $TMP_CERT > /dev/null
+
+	mkdir -p /var/log/nginx /var/tmp/nginx
+	start-stop-daemon -S -x /usr/sbin/nginx -p $NGINX_PIDFILE
+	start-stop-daemon -S -b -m -x $TEE_AUTHENTICATION -p $AUTH_PIDFILE -- -l
+	rm $TMP_PRIVATE_KEY
+	rm $TMP_CERT
+	;;
+  stop)
+	printf "Stopping nginx..."
+	start-stop-daemon -K -o -p $NGINX_PIDFILE
+	start-stop-daemon -K -o -p $AUTH_PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

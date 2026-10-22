@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop msg cgi
+#
+
+PIDFILE_1=/var/run/msg_cgi.pid
+PIDFILE_4=/var/run/web_cgi.pid
+
+case "$1" in
+start)
+	echo "Starting msg cgi..."
+	/usr/bin/spawn-fcgi -f /system/www/cgi-bin/msg.cgi -a 127.0.0.1 -p 9000 -P $PIDFILE_1
+	/usr/bin/spawn-fcgi -f /system/www/cgi-bin/web.cgi -a 127.0.0.1 -p 9003 -P $PIDFILE_4
+	;;
+stop)
+	echo "Stopping msg cgi..."
+	start-stop-daemon -K -o -p $PIDFILE_1
+	start-stop-daemon -K -o -p $PIDFILE_4
+	;;
+restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

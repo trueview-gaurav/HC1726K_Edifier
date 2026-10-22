@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  S00agt800-20_usb_device_mode - tb006 GPIO setting script
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script sets switch IC for USB
+#  *
+#  * Author: Hungte.Cheng <Hungte.Cheng@augentix.com>
+#
+
+#  Set GPIO_52 output = 1 for tb006 USB switch IC pins.
+#  Switch to Micro-B connector and makes Std-A connector unusable.
+
+USBSW_ID=52
+GPIO_SYSFS_DIR=/sys/class/gpio
+
+set_gpio() {
+	id=$1
+	direction=$2
+	value=$3
+	echo $id > $GPIO_SYSFS_DIR/export
+	echo "$direction" > $GPIO_SYSFS_DIR/gpio$id/direction
+	if [ $direction = "out" ]; then
+		echo $value > $GPIO_SYSFS_DIR/gpio$id/value
+	fi
+    echo $id > $GPIO_SYSFS_DIR/unexport
+}
+
+case "$1" in
+	start)
+		set_gpio $USBSW_ID "out" 1
+	;;
+	stop|restart|reload)
+	;;
+	*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

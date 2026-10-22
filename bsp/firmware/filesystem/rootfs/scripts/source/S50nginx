@@ -1,0 +1,72 @@
+#!/bin/sh
+#
+# Start/stop nginx
+#
+
+PIDFILE=/var/run/nginx.pid
+KEYFILE=/etc/nginx/ssl/device_pri_key.pem
+CERT_INSTALLER=/system/www/cgi-bin/installCrt.sh
+SDK_FILE="/etc/sdk-version"
+
+case "$1" in
+  start)
+	echo "Starting nginx..."
+	# Read SDK build time from file
+	build_time=$(grep -E '^SDK build time:' "$SDK_FILE" | cut -d':' -f2- | xargs)
+
+	if [ -z "$build_time" ]; then
+		echo "ERROR: Failed to read SDK build time from $SDK_FILE"
+	fi
+
+	# Set system time
+	if date -s "$build_time"; then
+		echo "System time updated to $build_time"
+	else
+		echo "ERROR: Failed to set system time"
+	fi
+	# check device private key
+	if [ ! -s "$KEYFILE" ]; then
+		echo "  [$KEYFILE] not found or empty. Running installer..."
+		if [ -x "$CERT_INSTALLER" ]; then
+			"$CERT_INSTALLER" || { echo "  ERROR: installer failed.";}
+		elif [ -f "$CERT_INSTALLER" ]; then
+			sh "$CERT_INSTALLER" || { echo "  ERROR: installer failed.";}
+		else
+		echo "  ERROR: installer not found at [$CERT_INSTALLER]."
+		exit 1
+		fi
+		
+		 # wait for key file to appear (max 10 seconds)
+		echo "  Waiting for $KEYFILE to be created..."
+		for i in $(seq 1 10); do
+			if [ -s "$KEYFILE" ]; then
+				echo "  Key file found."
+				break
+			fi
+			sleep 1
+		done
+
+		# re-check after installer
+		if [ ! -s "$KEYFILE" ]; then
+		echo "  ERROR: [$KEYFILE] still missing after install."
+		exit 1
+		fi
+		echo "  Installer succeeded. Key present."
+	fi
+
+	mkdir -p /var/log/nginx /var/tmp/nginx
+	start-stop-daemon -S -x /usr/sbin/nginx -p $PIDFILE
+	;;
+  stop)
+	printf "Stopping nginx..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+

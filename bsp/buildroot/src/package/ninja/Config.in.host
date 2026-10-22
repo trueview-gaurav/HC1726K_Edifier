@@ -1,0 +1,5 @@
+config BR2_PACKAGE_HOST_NINJA
+    bool "host ninja"
+    help
+      Build the Ninja build system as a host tool.
+

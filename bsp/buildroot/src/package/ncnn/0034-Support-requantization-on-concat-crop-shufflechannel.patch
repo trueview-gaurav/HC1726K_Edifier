@@ -1,0 +1,131 @@
+From fa2b98be9f1b13ba1a4cbca62a315537578aad6c Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Tue, 19 Dec 2023 10:31:19 +0800
+Subject: [PATCH 34/54] Support requantization on concat/crop/shufflechannel
+ ncnn2int8
+
+---
+ tools/quantize/ncnn2int8.cpp | 107 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
+
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index d841bcc7..714dd295 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -660,6 +660,113 @@ int NetQuantize::fuse_requantize()
+         }
+     }
+ 
++    for (size_t i = 0; i < layer_count; i++)
++    {
++        if (layers[i]->type != "Convolution" && layers[i]->type != "ConvolutionDepthWise")
++            continue;
++
++        // Convolution/ConvolutionDepthWise - (Pooling/ Split/ Concat/ ShuffleChannel/ Crop) * N - Convolution/ConvolutionDepthWise
++        int top_blob_index = layers[i]->tops[0];
++
++        size_t j = i + 1;
++
++
++        while (j < layer_count && layers[j]->type != "Convolution" && layers[j]->type != "ConvolutionDepthWise")
++        {
++            if (layers[j]->type != "Pooling" && layers[j]->type != "Split" && layers[j]->type != "Concat" && layers[j]->type != "ShuffleChannel" && layers[j]->type != "Crop") {
++                j++;
++                continue;
++            } // == Pooling || == Split .....
++            if(layers[j]->bottoms[0] != top_blob_index){
++                j++;
++                continue;
++            }
++
++            if(layers[j]->type == "Pooling"){
++                ncnn::Pooling* temp_layer = (ncnn::Pooling*)layers[j];
++                printf("Find Pooling %d\n", (int)j);
++            }else if(layers[j]->type == "Split"){
++                ncnn::Split* temp_layer = (ncnn::Split*)layers[j];
++                printf("Find Split %d\n", (int)j);
++            }else if(layers[j]->type == "Concat"){
++                ncnn::Concat* temp_layer = (ncnn::Concat*)layers[j];
++                printf("Find Concat %d\n", (int)j);
++            }else if(layers[j]->type == "ShuffleChannel"){
++                ncnn::ShuffleChannel* temp_layer = (ncnn::ShuffleChannel*)layers[j];
++                printf("Find ShuffleChannel %d\n", (int)j);
++            }else if(layers[j]->type == "Crop"){
++                ncnn::Crop* temp_layer = (ncnn::Crop*)layers[j];
++                printf("Find Crop %d\n", (int)j);
++            }
++            top_blob_index = temp_layer->tops[0];
++
++            if (++j == layer_count){
++                break;
++            }
++//            if(layers[j]->type == "Convolution" || layers[j]->type == "ConvolutionDepthWise"){
++//                break;
++//            }
++        }
++
++        if (j == layer_count)
++            continue;
++        if(layers[j]->type != "Convolution" && layers[j]->type != "ConvolutionDepthWise"){
++            printf("Something Wrong!!!\n");
++            continue;
++        }
++        // ---------------------------
++
++//        j = blobs[split->tops[0]].consumer;
++
++        // fuse requantize
++        fprintf(stderr, "fuse_requantize %s %s\n", layers[i]->name.c_str(), split->name.c_str());
++
++        if (layers[i]->type == "Convolution" && layers[j]->type == "Convolution")
++        {
++            ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
++            ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "Convolution" && layers[j]->type == "ConvolutionDepthWise")
++        {
++            ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
++            ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "ConvolutionDepthWise" && layers[j]->type == "Convolution")
++        {
++            ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
++            ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "ConvolutionDepthWise" && layers[j]->type == "ConvolutionDepthWise")
++        {
++            ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
++            ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++    }
++
+     return 0;
+ }
+ 
+-- 
+2.47.1
+

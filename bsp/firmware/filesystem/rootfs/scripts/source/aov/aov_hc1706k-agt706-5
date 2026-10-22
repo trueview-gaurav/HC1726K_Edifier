@@ -1,0 +1,22 @@
+#!/bin/sh
+
+wifi_suspend() {
+	. /etc/fastboot_video suspend
+}
+
+wifi_resume() {
+	. /etc/fastboot_video resume
+}
+
+case "$1" in
+	suspend)
+		wifi_suspend
+	;;
+	resume)
+		wifi_resume
+	;;
+	*)
+		echo "Usage: $0 {suspend|resume}"
+		exit 1
+esac
+exit 0

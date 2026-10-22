@@ -1,0 +1,29 @@
+menu "library"
+
+config LIBFOO
+	bool "libfoo"
+	default n
+	help
+	  Reference library.
+
+config LIBGPIO
+	bool "libgpio"
+	default n
+
+config LIBPWM
+	bool "libpwm"
+	default n
+
+config LIBSQL
+	bool "libsql"
+	default n
+
+config LIBTZ
+	bool "libtz"
+	default n
+
+config LIBUTILS
+	bool "libutils"
+	default y
+
+endmenu

@@ -1,0 +1,37 @@
+From 24d838ac00ef93f6f251fa2de6ece31f115a1a52 Mon Sep 17 00:00:00 2001
+From: "Dave.Yu im294" <Dave.Yu@augentix.com>
+Date: Thu, 22 May 2025 09:25:33 +0800
+Subject: [PATCH] Explicitly include pthread.h for uClibc builds
+
+---
+ src/slot.c | 1 +
+ src/util.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/src/slot.c b/src/slot.c
+index 775aa0b..1f34f43 100644
+--- a/src/slot.c
++++ b/src/slot.c
+@@ -3,6 +3,7 @@
+
+ #include "provider.h"
+ #include <string.h>
++#include <pthread.h>
+
+ struct p11prov_slot {
+     CK_SLOT_ID id;
+diff --git a/src/util.c b/src/util.c
+index 194fd56..96a73cd 100644
+--- a/src/util.c
++++ b/src/util.c
+@@ -8,6 +8,7 @@
+ #include "platform/endian.h"
+ #include <openssl/bn.h>
+ #include <openssl/x509.h>
++#include <pthread.h>
+
+ CK_RV p11prov_fetch_attributes(P11PROV_CTX *ctx, P11PROV_SESSION *session,
+                                CK_OBJECT_HANDLE object,
+--
+2.47.1
+

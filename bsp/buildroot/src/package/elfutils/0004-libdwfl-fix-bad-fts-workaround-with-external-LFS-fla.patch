@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Carl Su <xuyusu@qti.qualcomm.com>
+Date: Wed, 27 May 2026 00:00:00 +0800
+Subject: [PATCH] libdwfl: fix bad fts workaround with external LFS flags
+
+elfutils has a BAD_FTS workaround for older glibc fts.h headers that
+cannot be included with large-file support enabled. The workaround
+includes fts.h before config.h because config.h may define
+_FILE_OFFSET_BITS.
+
+Buildroot passes _FILE_OFFSET_BITS=64 in CPPFLAGS, so the macro is
+already defined before config.h is included. This defeats the BAD_FTS
+workaround and fails the build with older glibc soft-float toolchains:
+
+  fts.h:41:3: error: #error "<fts.h> cannot be used with -D_FILE_OFFSET_BITS==64"
+
+Temporarily undefine _FILE_OFFSET_BITS around the early fts.h include in
+the BAD_FTS path, then restore it for the rest of the translation unit.
+This preserves the intent of the existing workaround when large-file
+support is injected by the build system instead of config.h.
+
+Upstream: N/A, Buildroot-specific external CPPFLAGS interaction
+Signed-off-by: Carl Su <xuyusu@qti.qualcomm.com>
+---
+ libdwfl/linux-kernel-modules.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/libdwfl/linux-kernel-modules.c b/libdwfl/linux-kernel-modules.c
+index 86c895c..d0601c3 100644
+--- a/libdwfl/linux-kernel-modules.c
++++ b/libdwfl/linux-kernel-modules.c
+@@ -33,7 +33,15 @@
+    contained. */
+ #ifdef BAD_FTS
++  #ifdef _FILE_OFFSET_BITS
++    #define ELFUTILS_RESTORE_FILE_OFFSET_BITS _FILE_OFFSET_BITS
++    #undef _FILE_OFFSET_BITS
++  #endif
+   #include <sys/types.h>
+   #include <fts.h>
++  #ifdef ELFUTILS_RESTORE_FILE_OFFSET_BITS
++    #define _FILE_OFFSET_BITS ELFUTILS_RESTORE_FILE_OFFSET_BITS
++    #undef ELFUTILS_RESTORE_FILE_OFFSET_BITS
++  #endif
+ #endif
+ 
+ #include <config.h>
+-- 
+2.34.1

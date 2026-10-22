@@ -1,0 +1,12 @@
+/dts-v1/;
+/ {
+	model = "Keys";
+	compatible = "augentix";
+	signature {
+		key-key3 {
+			required = "image";
+			algo = "sha256,rsa2048";
+			key-name-hint = "key3";
+		};
+	};
+};

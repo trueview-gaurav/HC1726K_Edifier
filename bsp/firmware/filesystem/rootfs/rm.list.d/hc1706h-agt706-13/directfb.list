@@ -1,0 +1,70 @@
+# directfb, directfb-examples
+/usr/bin/df_andi
+/usr/bin/df_andi3d
+/usr/bin/df_bltload
+/usr/bin/df_cpuload
+/usr/bin/df_databuffer
+/usr/bin/df_dioload
+/usr/bin/df_dok
+/usr/bin/df_drivertest
+/usr/bin/df_drivertest2
+/usr/bin/df_fire
+/usr/bin/df_flip
+/usr/bin/df_fonts
+/usr/bin/df_input
+/usr/bin/df_joystick
+/usr/bin/df_knuckles
+/usr/bin/df_layer
+/usr/bin/df_matrix
+/usr/bin/df_matrix_water
+/usr/bin/df_neo
+/usr/bin/df_netload
+/usr/bin/df_palette
+/usr/bin/df_particle
+/usr/bin/df_porter
+/usr/bin/df_stereo3d
+/usr/bin/df_stress
+/usr/bin/df_texture
+/usr/bin/df_texture3d
+/usr/bin/df_video
+/usr/bin/df_video_particle
+/usr/bin/df_window
+/usr/bin/dfbplay
+/usr/bin/dfbshow
+/usr/bin/dfbswitch
+/usr/bin/pss
+/usr/bin/spacedream
+/usr/lib/directfb-*/
+/usr/lib/lib++dfb-1.7.so.*
+/usr/lib/lib++dfb.so
+/usr/lib/libdirect-1.7.so.*
+/usr/lib/libdirect.so
+/usr/lib/libdirectfb-1.7.so.*
+/usr/lib/libdirectfb.so
+/usr/lib/libfusion-1.7.so.*
+/usr/lib/libfusion.so
+/usr/share/directfb-*/
+
+# DirectFB utils
+/usr/bin/fbdump
+/usr/bin/fbgrab
+/usr/sbin/fbset
+
+# libsvg -> directfb
+/usr/lib/libsvg.so
+/usr/lib/libsvg.so.*
+
+# lvgl
+/usr/lib/liblv_drivers.so
+/usr/lib/liblvgl.so
+
+# sdl2
+/usr/lib/libSDL2-2.0.so.*
+/usr/lib/libSDL2.so
+
+# sdl2_ttf
+/usr/lib/libSDL2_ttf-2.0.so.*
+/usr/lib/libSDL2_ttf.so
+
+#
+/etc/directfbrc

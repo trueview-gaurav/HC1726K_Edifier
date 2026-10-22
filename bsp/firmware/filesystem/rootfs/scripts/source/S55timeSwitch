@@ -1,0 +1,74 @@
+#! /bin/sh
+
+NAME=TimeSwitch
+
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
+
+#crond file path
+path="/var/spool/cron/crontabs"
+
+#TimeSwitch_conf path
+TimeSwitch_conf="/usrdata/active_setting/TimeSwitch.conf"
+
+# Read config file if it is present.
+if [ -r /etc/default/$NAME ]
+then
+  . /etc/default/$NAME
+fi
+
+case "$1" in
+	start)
+		printf "Starting $NAME: "
+
+		source "$TimeSwitch_conf"
+		if [ $TimeSwitch_enabled = 0 ]; then
+			if [ -f "$path/root" ]; then
+				sed -i '/switch_day_night_mode/d' $path/root
+			fi
+
+		elif [ $TimeSwitch_enabled = 1 ]; then
+			mkdir -p /var/db
+			touch /var/db/ntp-kod
+
+			#Get the TimeSwitch config
+			mkdir -p "$path"
+				if [ -f "$path/root" ]; then
+					sed -i '/switch_day_night_mode/d' $path/root
+				fi
+				#Day mode
+				echo "$TimeStartMin $TimeStartHr * * * /system/bin/switch_day_night_mode -d1" >> "$path/root"
+				[ $? = 0 ] && echo "OK" || echo "FAIL"
+				#Night mode
+				echo "$TimeEndMin $TimeEndHr * * * /system/bin/switch_day_night_mode -d2" >> "$path/root"
+				[ $? = 0 ] && echo "OK" || echo "FAIL"
+				echo "Enable auto time switch."
+		fi
+	;;
+	stop)
+		echo "Stopping $NAME: "
+		sed -i '/switch_day_night_mode/d' $path/root
+		echo "OK"
+	;;
+	restart|reload)
+		echo "Restarting $NAME: "
+		$0 stop
+		sleep 1
+		$0 start
+	;;
+	reset)
+		echo "Reseting $NAME: "
+		mkdir -p "$path"
+		sed -i '/switch_day_night_mode/d' $path/root
+		echo "30 06 * * * /system/bin/switch_day_night_mode -d1 " >> "$path/root"
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		_echo "30 18 * * * /system/bin/switch_day_night_mode -d2 " >> "$path/root"
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload|reset}" >&2
+		exit 1
+	;;
+esac
+
+exit 0

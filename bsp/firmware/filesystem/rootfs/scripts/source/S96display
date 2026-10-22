@@ -1,0 +1,57 @@
+#!/bin/sh
+#
+# start/stop X server or DirectFB
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE_XSERVER=/var/run/X_server.pid
+PIDFILE_DIRECTFB=/var/run/directfb.pid
+XSERVER_START=/usr/bin/startx
+DIRECTFB=/usr/bin/dfbshow
+DFB_DEMO_FILE=/system/bin/dfb_demo/cursor_red.bmp
+DIRECTFB_OPTS="--dfb:system=fbdev $DFB_DEMO_FILE"
+
+rundisp() {
+        if [ -f $XSERVER_START ]; then
+                echo "Starting X server..."
+                export DISPLAY=:0
+                start-stop-daemon -Smbp $PIDFILE_XSERVER -x $XSERVER_START
+                sleep 5
+                echo "Starting Midori Web Browser..."
+                midori -e fullscreen http://localhost/demo/license_plate_number/ &
+
+        elif [ -f $DIRECTFB ]; then
+                printf "Starting DirectFB...\n"
+                start-stop-daemon -Smbp $PIDFILE_DIRECTFB -x $DIRECTFB -- $DIRECTFB_OPTS
+        else
+                echo "Neither X server nor DirectFB could be found."
+        fi
+}
+
+stopdisp() {
+        if [ -f $XSERVER_START ]; then
+                echo "Stopping X server..."
+                start-stop-daemon -Kop $PIDFILE_XSERVER
+        elif [ -f $DIRECTFB ]; then
+                echo "Stopping DirectFB..."
+                start-stop-daemon -Kop $PIDFILE_DIRECTFB
+        fi
+}
+
+case "$1" in
+  start)
+    rundisp
+    ;;
+  stop)
+    stopdisp
+    ;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

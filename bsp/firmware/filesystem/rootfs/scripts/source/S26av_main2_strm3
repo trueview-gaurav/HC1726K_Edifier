@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Start/stop av_main2
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /usrdata/active_setting/TZ)
+
+AV_MAIN2_BIN=/system/bin/av_main2
+PIDFILE_AVMAIN=/var/run/av_main2.pid
+
+case "$1" in
+  start)
+    echo "Starting av_main2..."
+    sh /system/mpp/script/load_mpp.sh -i
+    start-stop-daemon -S -m -b -x $AV_MAIN2_BIN -p $PIDFILE_AVMAIN
+    ;;
+  stop)
+    printf "Stopping av_main2..."
+    killall -s TERM av_main2
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+

@@ -1,0 +1,171 @@
+From a496063722b1ade9610fda0fdf9f78e8c40bafb1 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 11 Dec 2023 16:54:44 +0800
+Subject: [PATCH 25/54] Support requantization for conv-pooling-split-conv
+
+---
+ tools/quantize/ncnn2int8.cpp | 148 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 148 insertions(+)
+
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index f712306b..d841bcc7 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -512,6 +512,154 @@ int NetQuantize::fuse_requantize()
+         }
+     }
+ 
++    for (size_t i = 0; i < layer_count; i++)
++    {
++        if (layers[i]->type != "Convolution" && layers[i]->type != "ConvolutionDepthWise")
++            continue;
++
++        // Convolution/ConvolutionDepthWise - Pooling - Split - Convolution/ConvolutionDepthWise
++        int top_blob_index = layers[i]->tops[0];
++
++        size_t j = i + 1;
++        for (; j < layer_count; j++)
++        {
++            if (layers[j]->type != "Pooling")
++                continue;
++
++            if (layers[j]->bottoms.size() != 1)
++                continue;
++
++            if (layers[j]->bottoms[0] == top_blob_index)
++                break;
++        }
++
++        if (j == layer_count)
++            continue;
++
++        ncnn::Pooling* pooling = (ncnn::Pooling*)layers[j++];
++        int pooling_top_blob_index = pooling->tops[0];
++
++        // ---------------------------
++
++        for (; j < layer_count; j++)
++        {
++            if (layers[j]->type != "Split")
++                continue;
++
++            if (layers[j]->bottoms.size() != 1)
++                continue;
++
++            if (layers[j]->bottoms[0] == pooling_top_blob_index)
++                break;
++        }
++
++        if (j == layer_count)
++            continue;
++
++        // ---------------------------
++
++        ncnn::Split* split = (ncnn::Split*)layers[j];
++
++        bool all_conv = true;
++        for (size_t p = 0; p < split->tops.size(); p++)
++        {
++            int split_top_blob_index = split->tops[p];
++
++            size_t k = j + 1;
++            for (; k < layer_count; k++)
++            {
++                if (layers[k]->type != "Convolution" && layers[k]->type != "ConvolutionDepthWise")
++                    continue;
++
++                if (layers[k]->bottoms.size() != 1)
++                    continue;
++
++                if (layers[k]->bottoms[0] == split_top_blob_index)
++                    break;
++            }
++
++            if (k == layer_count)
++            {
++                all_conv = false;
++                break;
++            }
++
++            if (layers[k]->type == "Convolution")
++            {
++                ncnn::Convolution* convolution = (ncnn::Convolution*)layers[k];
++                if (convolution->weight_data.elemsize != 1u)
++                {
++                    all_conv = false;
++                    break;
++                }
++                NCNN_LOGE("Convolution bottom_blob_int8_scales: %f", convolution->bottom_blob_int8_scales);
++            }
++            if (layers[k]->type == "ConvolutionDepthWise")
++            {
++                ncnn::ConvolutionDepthWise* convolution = (ncnn::ConvolutionDepthWise*)layers[k];
++                if (convolution->weight_data.elemsize != 1u)
++                {
++                    all_conv = false;
++                    break;
++                }
++                NCNN_LOGE("ConvolutionDepthWise bottom_blob_int8_scales: %f", convolution->bottom_blob_int8_scales);
++            }
++        }
++
++        if (!all_conv)
++            continue;
++
++        j = blobs[split->tops[0]].consumer;
++
++        // fuse requantize
++        fprintf(stderr, "fuse_requantize %s %s\n", layers[i]->name.c_str(), split->name.c_str());
++
++        if (layers[i]->type == "Convolution" && layers[j]->type == "Convolution")
++        {
++            ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
++            ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "Convolution" && layers[j]->type == "ConvolutionDepthWise")
++        {
++            ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
++            ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "ConvolutionDepthWise" && layers[j]->type == "Convolution")
++        {
++            ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
++            ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++        if (layers[i]->type == "ConvolutionDepthWise" && layers[j]->type == "ConvolutionDepthWise")
++        {
++            ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
++            ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
++
++            if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
++                continue;
++
++            convolution1->int8_scale_term += 100;
++            convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
++        }
++    }
++
+     return 0;
+ }
+ 
+-- 
+2.47.1
+

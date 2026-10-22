@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop av_main2 for AGT001-27
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /etc/TZ)
+
+
+case "$1" in
+  start)
+    echo "Starting mpi_stream..."
+    sh /system/mpp/script/load_mpp.sh -i
+    
+    /system/bin/mpi_stream -d /system/mpp/case_config/case_config_DVN105 > /dev/null &
+    ;;
+  stop)
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

@@ -1,0 +1,43 @@
+From 6c6c40edb37d672c65e17c0ad7db336b4909b7f8 Mon Sep 17 00:00:00 2001
+From: nihui <nihuini@tencent.com>
+Date: Fri, 27 Oct 2023 19:07:39 +0800
+Subject: [PATCH 04/54] fix deconvolution x86 unaligned bias load (#5112)
+
+---
+ src/layer/x86/deconvolution_x86.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/layer/x86/deconvolution_x86.cpp b/src/layer/x86/deconvolution_x86.cpp
+index 60e46350..fa959dca 100644
+--- a/src/layer/x86/deconvolution_x86.cpp
++++ b/src/layer/x86/deconvolution_x86.cpp
+@@ -300,7 +300,7 @@ int Deconvolution_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
+                     }
+                     else
+                     {
+-                        outm.fill(_mm512_load_ps((const float*)bias_data + p * 16));
++                        outm.fill(_mm512_loadu_ps((const float*)bias_data + p * 16));
+                     }
+ 
+                     for (int u = 0; u < kernel_h; u++)
+@@ -344,7 +344,7 @@ int Deconvolution_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
+                     }
+                     else
+                     {
+-                        outm.fill(_mm256_load_ps((const float*)bias_data + p * 8));
++                        outm.fill(_mm256_loadu_ps((const float*)bias_data + p * 8));
+                     }
+ 
+                     for (int u = 0; u < kernel_h; u++)
+@@ -388,7 +388,7 @@ int Deconvolution_x86::forward(const Mat& bottom_blob, Mat& top_blob, const Opti
+                     }
+                     else
+                     {
+-                        outm.fill(_mm_load_ps((const float*)bias_data + p * 4));
++                        outm.fill(_mm_loadu_ps((const float*)bias_data + p * 4));
+                     }
+ 
+                     for (int u = 0; u < kernel_h; u++)
+-- 
+2.47.1
+

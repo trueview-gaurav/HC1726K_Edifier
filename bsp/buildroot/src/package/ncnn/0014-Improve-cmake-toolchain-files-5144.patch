@@ -1,0 +1,1476 @@
+From 54e58bfaf59577830030a90958bf7394e703a968 Mon Sep 17 00:00:00 2001
+From: Zhuo Zhang <imzhuo@foxmail.com>
+Date: Mon, 13 Nov 2023 17:25:08 +0800
+Subject: [PATCH 14/54] Improve cmake toolchain files (#5144)
+
+* [style] Use same style for cmake `set` command
+* [build] Specify CMAKE_FIND_ROOT_PATH_MODE_PACKAGE in xxx.toolchain.cmake
+* [build] Allow user passing args for cmake find cmds
+---
+ .../aarch64-linux-gnu-c.toolchain.cmake       | 15 ++++++++--
+ toolchains/aarch64-linux-gnu.toolchain.cmake  | 15 ++++++++--
+ .../arm-linux-gnueabi-c.toolchain.cmake       | 15 ++++++++--
+ toolchains/arm-linux-gnueabi.toolchain.cmake  | 15 ++++++++--
+ ...-linux-gnueabihf-vfpv3-d16.toolchain.cmake | 15 ++++++++--
+ .../arm-linux-gnueabihf.toolchain.cmake       | 15 ++++++++--
+ toolchains/c906-v222.toolchain.cmake          | 16 +++++++---
+ toolchains/c906-v223.toolchain.cmake          | 16 +++++++---
+ toolchains/c906-v226.toolchain.cmake          | 16 +++++++---
+ toolchains/c906-v240.toolchain.cmake          | 16 +++++++---
+ toolchains/c910-v240.toolchain.cmake          | 16 +++++++---
+ toolchains/himix100.toolchain.cmake           | 27 +++++++++++------
+ toolchains/himix200.toolchain.cmake           | 29 ++++++++++++-------
+ toolchains/hisiv300.toolchain.cmake           | 29 ++++++++++++-------
+ toolchains/hisiv500.toolchain.cmake           | 29 ++++++++++++-------
+ toolchains/hisiv600.toolchain.cmake           | 27 +++++++++++------
+ toolchains/host-c.clang.toolchain.cmake       | 18 ++++++------
+ toolchains/host-c.gcc.toolchain.cmake         | 18 ++++++------
+ toolchains/host.gcc.toolchain.cmake           | 18 ++++++------
+ toolchains/ingenic-x2000.toolchain.cmake      | 15 ++++++++--
+ toolchains/iossimxc-x64.toolchain.cmake       | 10 +++----
+ toolchains/iossimxc.toolchain.cmake           | 10 +++----
+ toolchains/iosxc-arm64.toolchain.cmake        | 10 +++----
+ toolchains/iosxc.toolchain.cmake              | 10 +++----
+ toolchains/jetson.toolchain.cmake             | 13 +++++++++
+ .../loongarch64-linux-gnu.toolchain.cmake     | 15 ++++++++--
+ ...ngarch64-unknown-linux-gnu.toolchain.cmake | 15 ++++++++--
+ .../loongson2f-linux-gnuabi64.toolchain.cmake | 15 ++++++++--
+ toolchains/mips-mti-linux-gnu.toolchain.cmake | 15 ++++++++--
+ toolchains/mips32r2-linux-gnu.toolchain.cmake | 15 ++++++++--
+ .../mips64el-linux-gnuabi64.toolchain.cmake   | 15 ++++++++--
+ toolchains/mipsel-linux-gnu.toolchain.cmake   | 15 ++++++++--
+ .../mipsisa32r6el-linux-gnu.toolchain.cmake   | 15 ++++++++--
+ ...psisa64r6el-linux-gnuabi64.toolchain.cmake | 15 ++++++++--
+ toolchains/pi3.toolchain.cmake                | 13 +++++++++
+ ...wer8le-linux-gnu-vsx.clang.toolchain.cmake | 15 ++++++++--
+ .../power8le-linux-gnu-vsx.toolchain.cmake    | 15 ++++++++--
+ ...wer9le-linux-gnu-vsx.clang.toolchain.cmake | 15 ++++++++--
+ .../power9le-linux-gnu-vsx.toolchain.cmake    | 15 ++++++++--
+ toolchains/powerpc-linux-gnu.toolchain.cmake  | 15 ++++++++--
+ .../powerpc64le-linux-gnu.toolchain.cmake     | 15 ++++++++--
+ toolchains/qnx700.toolchain.cmake             | 19 ++++++++----
+ toolchains/qnx710.toolchain.cmake             | 19 ++++++++----
+ .../riscv32-unknown-elf.toolchain.cmake       | 15 ++++++++--
+ toolchains/riscv64-linux-gnu.toolchain.cmake  | 15 ++++++++--
+ .../riscv64-unknown-elf.toolchain.cmake       | 15 ++++++++--
+ ...v64-unknown-linux-gnu.llvm-toolchain.cmake | 15 ++++++++--
+ .../riscv64-unknown-linux-gnu.toolchain.cmake | 15 ++++++++--
+ toolchains/th1520-v240.toolchain.cmake        | 16 +++++++---
+ toolchains/v831.toolchain.cmake               | 27 +++++++++++------
+ 50 files changed, 608 insertions(+), 219 deletions(-)
+
+diff --git a/toolchains/aarch64-linux-gnu-c.toolchain.cmake b/toolchains/aarch64-linux-gnu-c.toolchain.cmake
+index cde92c07..e455e261 100644
+--- a/toolchains/aarch64-linux-gnu-c.toolchain.cmake
++++ b/toolchains/aarch64-linux-gnu-c.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR aarch64)
+ set(CMAKE_C_COMPILER "aarch64-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "aarch64-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv8-a")
+ set(CMAKE_CXX_FLAGS "-march=armv8-a")
+diff --git a/toolchains/aarch64-linux-gnu.toolchain.cmake b/toolchains/aarch64-linux-gnu.toolchain.cmake
+index b9b9f6c4..a04f4b24 100644
+--- a/toolchains/aarch64-linux-gnu.toolchain.cmake
++++ b/toolchains/aarch64-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR aarch64)
+ set(CMAKE_C_COMPILER "aarch64-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "aarch64-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv8-a")
+ set(CMAKE_CXX_FLAGS "-march=armv8-a")
+diff --git a/toolchains/arm-linux-gnueabi-c.toolchain.cmake b/toolchains/arm-linux-gnueabi-c.toolchain.cmake
+index 703edb63..1c3a2c91 100644
+--- a/toolchains/arm-linux-gnueabi-c.toolchain.cmake
++++ b/toolchains/arm-linux-gnueabi-c.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
+ set(CMAKE_C_COMPILER "arm-linux-gnueabi-gcc")
+ set(CMAKE_CXX_COMPILER "arm-linux-gnueabi-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon")
+ set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon")
+diff --git a/toolchains/arm-linux-gnueabi.toolchain.cmake b/toolchains/arm-linux-gnueabi.toolchain.cmake
+index eed03122..e96e0a9b 100644
+--- a/toolchains/arm-linux-gnueabi.toolchain.cmake
++++ b/toolchains/arm-linux-gnueabi.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
+ set(CMAKE_C_COMPILER "arm-linux-gnueabi-gcc")
+ set(CMAKE_CXX_COMPILER "arm-linux-gnueabi-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon")
+ set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon")
+diff --git a/toolchains/arm-linux-gnueabihf-vfpv3-d16.toolchain.cmake b/toolchains/arm-linux-gnueabihf-vfpv3-d16.toolchain.cmake
+index 872b7395..88d7c675 100644
+--- a/toolchains/arm-linux-gnueabihf-vfpv3-d16.toolchain.cmake
++++ b/toolchains/arm-linux-gnueabihf-vfpv3-d16.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
+ set(CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc")
+ set(CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=vfpv3-d16")
+ set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=vfpv3-d16")
+diff --git a/toolchains/arm-linux-gnueabihf.toolchain.cmake b/toolchains/arm-linux-gnueabihf.toolchain.cmake
+index 74ed5bf9..9a8cee7a 100644
+--- a/toolchains/arm-linux-gnueabihf.toolchain.cmake
++++ b/toolchains/arm-linux-gnueabihf.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
+ set(CMAKE_C_COMPILER "arm-linux-gnueabihf-gcc")
+ set(CMAKE_CXX_COMPILER "arm-linux-gnueabihf-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=neon")
+ set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=neon")
+diff --git a/toolchains/c906-v222.toolchain.cmake b/toolchains/c906-v222.toolchain.cmake
+index 1067326e..02c065e5 100644
+--- a/toolchains/c906-v222.toolchain.cmake
++++ b/toolchains/c906-v222.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+diff --git a/toolchains/c906-v223.toolchain.cmake b/toolchains/c906-v223.toolchain.cmake
+index 3e27d18a..d20d2d52 100644
+--- a/toolchains/c906-v223.toolchain.cmake
++++ b/toolchains/c906-v223.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+diff --git a/toolchains/c906-v226.toolchain.cmake b/toolchains/c906-v226.toolchain.cmake
+index 038799db..aab3dd60 100644
+--- a/toolchains/c906-v226.toolchain.cmake
++++ b/toolchains/c906-v226.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+diff --git a/toolchains/c906-v240.toolchain.cmake b/toolchains/c906-v240.toolchain.cmake
+index 6cdd1668..e2a402d1 100644
+--- a/toolchains/c906-v240.toolchain.cmake
++++ b/toolchains/c906-v240.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c906 -DC906=1 -static")
+diff --git a/toolchains/c910-v240.toolchain.cmake b/toolchains/c910-v240.toolchain.cmake
+index 9d845f90..3b63f6b3 100644
+--- a/toolchains/c910-v240.toolchain.cmake
++++ b/toolchains/c910-v240.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcxtheadc -mabi=lp64d -mtune=c910 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcxtheadc -mabi=lp64d -mtune=c910 -DC906=1 -static")
+diff --git a/toolchains/himix100.toolchain.cmake b/toolchains/himix100.toolchain.cmake
+index 17600a13..10c60020 100644
+--- a/toolchains/himix100.toolchain.cmake
++++ b/toolchains/himix100.toolchain.cmake
+@@ -1,18 +1,27 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR aarch64 )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR aarch64)
+ # when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/aarch64-himix100-linux/bin/aarch64-himix100-linux-gcc" )
+-SET ( CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/aarch64-himix100-linux/bin/aarch64-himix100-linux-g++" )
+-SET ( CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/aarch64-himix100-linux" )
++set(CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/aarch64-himix100-linux/bin/aarch64-himix100-linux-gcc")
++set(CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/aarch64-himix100-linux/bin/aarch64-himix100-linux-g++")
++set(CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/aarch64-himix100-linux")
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CMAKE_CXX_FLAGS "-march=armv8-a ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv8-a ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/himix200.toolchain.cmake b/toolchains/himix200.toolchain.cmake
+index 8be51499..cf172c6d 100644
+--- a/toolchains/himix200.toolchain.cmake
++++ b/toolchains/himix200.toolchain.cmake
+@@ -1,21 +1,30 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR arm )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
+ # when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER /opt/hisi-linux/x86-arm/arm-himix200-linux/bin/arm-himix200-linux-gcc )
+-SET ( CMAKE_CXX_COMPILER /opt/hisi-linux/x86-arm/arm-himix200-linux/bin/arm-himix200-linux-g++ )
++set(CMAKE_C_COMPILER /opt/hisi-linux/x86-arm/arm-himix200-linux/bin/arm-himix200-linux-gcc)
++set(CMAKE_CXX_COMPILER /opt/hisi-linux/x86-arm/arm-himix200-linux/bin/arm-himix200-linux-g++)
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CROSS_COMPILATION_ARM himix200 )
+-SET ( CROSS_COMPILATION_ARCHITECTURE armv7-a )
++set(CROSS_COMPILATION_ARM himix200)
++set(CROSS_COMPILATION_ARCHITECTURE armv7-a)
+ 
+ # set g++ param
+-SET ( CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/hisiv300.toolchain.cmake b/toolchains/hisiv300.toolchain.cmake
+index 7f57b940..60496d39 100644
+--- a/toolchains/hisiv300.toolchain.cmake
++++ b/toolchains/hisiv300.toolchain.cmake
+@@ -1,18 +1,27 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR arm )
+-# when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv300-linux/target/bin/arm-hisiv300-linux-gcc" )
+-SET ( CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv300-linux/target/bin/arm-hisiv300-linux-g++" )
+-SET ( CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv300-linux" )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
++# when hislicon SDK was installed, toolchain was installed in the path as below:
++set(CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv300-linux/target/bin/arm-hisiv300-linux-gcc")
++set(CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv300-linux/target/bin/arm-hisiv300-linux-g++")
++set(CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv300-linux" )
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/hisiv500.toolchain.cmake b/toolchains/hisiv500.toolchain.cmake
+index 7a5e5e67..a66477bb 100644
+--- a/toolchains/hisiv500.toolchain.cmake
++++ b/toolchains/hisiv500.toolchain.cmake
+@@ -1,18 +1,27 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR arm )
+-# when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv500-linux/target/bin/arm-hisiv500-linux-gcc" )
+-SET ( CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv500-linux/target/bin/arm-hisiv500-linux-g++" )
+-SET ( CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv500-linux" )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
++# when hislicon SDK was installed, toolchain was installed in the path as below:
++set(CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv500-linux/target/bin/arm-hisiv500-linux-gcc")
++set(CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv500-linux/target/bin/arm-hisiv500-linux-g++")
++set(CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv500-linux")
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon-vfpv4 ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/hisiv600.toolchain.cmake b/toolchains/hisiv600.toolchain.cmake
+index 7dd123b5..2fd30630 100644
+--- a/toolchains/hisiv600.toolchain.cmake
++++ b/toolchains/hisiv600.toolchain.cmake
+@@ -1,18 +1,27 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR arm )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
+ # when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv600-linux/target/bin/arm-hisiv600-linux-gcc" )
+-SET ( CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv600-linux/target/bin/arm-hisiv600-linux-g++" )
+-SET ( CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv600-linux" )
++set(CMAKE_C_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv600-linux/target/bin/arm-hisiv600-linux-gcc")
++set(CMAKE_CXX_COMPILER "/opt/hisi-linux/x86-arm/arm-hisiv600-linux/target/bin/arm-hisiv600-linux-g++")
++set(CMAKE_FIND_ROOT_PATH "/opt/hisi-linux/x86-arm/arm-hisiv600-linux")
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=softfp -mfpu=neon ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/host-c.clang.toolchain.cmake b/toolchains/host-c.clang.toolchain.cmake
+index 88a856ff..1b5a40b7 100755
+--- a/toolchains/host-c.clang.toolchain.cmake
++++ b/toolchains/host-c.clang.toolchain.cmake
+@@ -1,19 +1,19 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR x86 )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR x86)
+ # if gcc/g++ was installed:
+-SET ( CMAKE_C_COMPILER "clang" )
+-SET ( CMAKE_CXX_COMPILER "clang++" )
++set(CMAKE_C_COMPILER "clang")
++set(CMAKE_CXX_COMPILER "clang++")
+ 
+ # set searching rules
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag
+-SET ( CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+ 
+-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -nostdinc++ -lc" )
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -nostdinc++ -lc")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/host-c.gcc.toolchain.cmake b/toolchains/host-c.gcc.toolchain.cmake
+index 9dd9f242..655df5fd 100755
+--- a/toolchains/host-c.gcc.toolchain.cmake
++++ b/toolchains/host-c.gcc.toolchain.cmake
+@@ -1,19 +1,19 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR x86 )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR x86)
+ # if gcc/g++ was installed:
+-SET ( CMAKE_C_COMPILER "gcc" )
+-SET ( CMAKE_CXX_COMPILER "g++" )
++set(CMAKE_C_COMPILER "gcc")
++set(CMAKE_CXX_COMPILER "g++")
+ 
+ # set searching rules
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag
+-SET ( CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+ 
+-set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -nostdinc++ -lc" )
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -nostdinc++ -lc")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+diff --git a/toolchains/host.gcc.toolchain.cmake b/toolchains/host.gcc.toolchain.cmake
+index 510a0138..ad46a86f 100644
+--- a/toolchains/host.gcc.toolchain.cmake
++++ b/toolchains/host.gcc.toolchain.cmake
+@@ -1,14 +1,14 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR x86 )
+-# if gcc/g++ was installed: 
+-SET ( CMAKE_C_COMPILER "gcc" )
+-SET ( CMAKE_CXX_COMPILER "g++" )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR x86)
++# if gcc/g++ was installed:
++set(CMAKE_C_COMPILER "gcc")
++set(CMAKE_CXX_COMPILER "g++")
+ 
+ # set searching rules
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag
+-SET ( CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+diff --git a/toolchains/ingenic-x2000.toolchain.cmake b/toolchains/ingenic-x2000.toolchain.cmake
+index 4c80f3af..6c3cdfbc 100644
+--- a/toolchains/ingenic-x2000.toolchain.cmake
++++ b/toolchains/ingenic-x2000.toolchain.cmake
+@@ -14,9 +14,18 @@ set(CMAKE_CXX_COMPILER "${MIPS_ROOT_PATH}/bin/mips-linux-gnu-g++")
+ 
+ set(CMAKE_FIND_ROOT_PATH "${MIPS_ROOT_PATH}/mips-linux-gnu")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=xburst2 -mtune=xburst2 -mfp64 -mnan=2008")
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=xburst2 -mtune=xburst2 -mfp64 -mnan=2008")
+diff --git a/toolchains/iossimxc-x64.toolchain.cmake b/toolchains/iossimxc-x64.toolchain.cmake
+index a4c8a869..bfd4f867 100644
+--- a/toolchains/iossimxc-x64.toolchain.cmake
++++ b/toolchains/iossimxc-x64.toolchain.cmake
+@@ -2,11 +2,11 @@
+ # set(UNIX True)
+ # set(Darwin True)
+ # set(IOS True)
+-set (CMAKE_SYSTEM_NAME Darwin)
+-set (CMAKE_SYSTEM_VERSION 1)
+-set (UNIX True)
+-set (APPLE True)
+-set (IOS True)
++set(CMAKE_SYSTEM_NAME Darwin)
++set(CMAKE_SYSTEM_VERSION 1)
++set(UNIX True)
++set(APPLE True)
++set(IOS True)
+ 
+ # suppress -rdynamic
+ # set(CMAKE_SYSTEM_NAME Generic)
+diff --git a/toolchains/iossimxc.toolchain.cmake b/toolchains/iossimxc.toolchain.cmake
+index 2d30581e..75c59ef9 100644
+--- a/toolchains/iossimxc.toolchain.cmake
++++ b/toolchains/iossimxc.toolchain.cmake
+@@ -2,11 +2,11 @@
+ # set(UNIX True)
+ # set(Darwin True)
+ # set(IOS True)
+-set (CMAKE_SYSTEM_NAME Darwin)
+-set (CMAKE_SYSTEM_VERSION 1)
+-set (UNIX True)
+-set (APPLE True)
+-set (IOS True)
++set(CMAKE_SYSTEM_NAME Darwin)
++set(CMAKE_SYSTEM_VERSION 1)
++set(UNIX True)
++set(APPLE True)
++set(IOS True)
+ 
+ # suppress -rdynamic
+ # set(CMAKE_SYSTEM_NAME Generic)
+diff --git a/toolchains/iosxc-arm64.toolchain.cmake b/toolchains/iosxc-arm64.toolchain.cmake
+index 9f270d61..acc1d4ec 100644
+--- a/toolchains/iosxc-arm64.toolchain.cmake
++++ b/toolchains/iosxc-arm64.toolchain.cmake
+@@ -2,11 +2,11 @@
+ # set(UNIX True)
+ # set(Darwin True)
+ # set(IOS True)
+-set (CMAKE_SYSTEM_NAME Darwin)
+-set (CMAKE_SYSTEM_VERSION 1)
+-set (UNIX True)
+-set (APPLE True)
+-set (IOS True)
++set(CMAKE_SYSTEM_NAME Darwin)
++set(CMAKE_SYSTEM_VERSION 1)
++set(UNIX True)
++set(APPLE True)
++set(IOS True)
+ 
+ # suppress -rdynamic
+ # set(CMAKE_SYSTEM_NAME Generic)
+diff --git a/toolchains/iosxc.toolchain.cmake b/toolchains/iosxc.toolchain.cmake
+index 1631b3dc..922f036b 100644
+--- a/toolchains/iosxc.toolchain.cmake
++++ b/toolchains/iosxc.toolchain.cmake
+@@ -2,11 +2,11 @@
+ # set(UNIX True)
+ # set(Darwin True)
+ # set(IOS True)
+-set (CMAKE_SYSTEM_NAME Darwin)
+-set (CMAKE_SYSTEM_VERSION 1)
+-set (UNIX True)
+-set (APPLE True)
+-set (IOS True)
++set(CMAKE_SYSTEM_NAME Darwin)
++set(CMAKE_SYSTEM_VERSION 1)
++set(UNIX True)
++set(APPLE True)
++set(IOS True)
+ 
+ # suppress -rdynamic
+ # set(CMAKE_SYSTEM_NAME Generic)
+diff --git a/toolchains/jetson.toolchain.cmake b/toolchains/jetson.toolchain.cmake
+index 993de04c..4d4eeab3 100644
+--- a/toolchains/jetson.toolchain.cmake
++++ b/toolchains/jetson.toolchain.cmake
+@@ -4,6 +4,19 @@ set(CMAKE_SYSTEM_PROCESSOR aarch64)
+ set(CMAKE_C_COMPILER "aarch64-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "aarch64-linux-gnu-g++")
+ 
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
++
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+ # -march=armv8-a could work on Jetson, but will compile without some extra cpu features
+ set(CMAKE_C_FLAGS "-march=native ${CMAKE_C_FLAGS}")
+diff --git a/toolchains/loongarch64-linux-gnu.toolchain.cmake b/toolchains/loongarch64-linux-gnu.toolchain.cmake
+index 7cdfd9db..564115c1 100644
+--- a/toolchains/loongarch64-linux-gnu.toolchain.cmake
++++ b/toolchains/loongarch64-linux-gnu.toolchain.cmake
+@@ -14,9 +14,18 @@ set(CMAKE_CXX_COMPILER "${LOONGARCH64_ROOT_PATH}/bin/loongarch64-linux-gnu-g++")
+ 
+ set(CMAKE_FIND_ROOT_PATH "${LOONGARCH64_ROOT_PATH}/loongarch64-linux-gnu")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=loongarch64")
+ set(CMAKE_CXX_FLAGS "-march=loongarch64")
+diff --git a/toolchains/loongarch64-unknown-linux-gnu.toolchain.cmake b/toolchains/loongarch64-unknown-linux-gnu.toolchain.cmake
+index 45edc8c9..a65865d3 100644
+--- a/toolchains/loongarch64-unknown-linux-gnu.toolchain.cmake
++++ b/toolchains/loongarch64-unknown-linux-gnu.toolchain.cmake
+@@ -14,9 +14,18 @@ set(CMAKE_CXX_COMPILER "${LOONGARCH64_ROOT_PATH}/bin/loongarch64-unknown-linux-g
+ 
+ set(CMAKE_FIND_ROOT_PATH "${LOONGARCH64_ROOT_PATH}/loongarch64-unknown-linux-gnu")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=loongarch64")
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=loongarch64")
+diff --git a/toolchains/loongson2f-linux-gnuabi64.toolchain.cmake b/toolchains/loongson2f-linux-gnuabi64.toolchain.cmake
+index c0acb30d..c4742046 100644
+--- a/toolchains/loongson2f-linux-gnuabi64.toolchain.cmake
++++ b/toolchains/loongson2f-linux-gnuabi64.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mips64el)
+ set(CMAKE_C_COMPILER "mips64el-linux-gnuabi64-gcc")
+ set(CMAKE_CXX_COMPILER "mips64el-linux-gnuabi64-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-mabi=64 -march=mips3 -mtune=loongson2f -mloongson-mmi")
+ set(CMAKE_CXX_FLAGS "-mabi=64 -march=mips3 -mtune=loongson2f -mloongson-mmi")
+diff --git a/toolchains/mips-mti-linux-gnu.toolchain.cmake b/toolchains/mips-mti-linux-gnu.toolchain.cmake
+index 395398f2..2ed45ce2 100644
+--- a/toolchains/mips-mti-linux-gnu.toolchain.cmake
++++ b/toolchains/mips-mti-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mips)
+ set(CMAKE_C_COMPILER "mips-mti-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "mips-mti-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips32r6")
+ set(CMAKE_CXX_FLAGS "-march=mips32r6")
+diff --git a/toolchains/mips32r2-linux-gnu.toolchain.cmake b/toolchains/mips32r2-linux-gnu.toolchain.cmake
+index 038072a5..7d7f11ca 100644
+--- a/toolchains/mips32r2-linux-gnu.toolchain.cmake
++++ b/toolchains/mips32r2-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mips32el)
+ set(CMAKE_C_COMPILER "mips-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "mips-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips32r2 -mabi=32 -mnan=2008 -mfp64")
+ set(CMAKE_CXX_FLAGS "-march=mips32r2 -mabi=32 -mnan=2008 -mfp64")
+diff --git a/toolchains/mips64el-linux-gnuabi64.toolchain.cmake b/toolchains/mips64el-linux-gnuabi64.toolchain.cmake
+index 4d41abc7..69550ac0 100644
+--- a/toolchains/mips64el-linux-gnuabi64.toolchain.cmake
++++ b/toolchains/mips64el-linux-gnuabi64.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mips64el)
+ set(CMAKE_C_COMPILER "mips64el-linux-gnuabi64-gcc")
+ set(CMAKE_CXX_COMPILER "mips64el-linux-gnuabi64-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips64")
+ set(CMAKE_CXX_FLAGS "-march=mips64")
+diff --git a/toolchains/mipsel-linux-gnu.toolchain.cmake b/toolchains/mipsel-linux-gnu.toolchain.cmake
+index 3c9c5d92..8fda6078 100644
+--- a/toolchains/mipsel-linux-gnu.toolchain.cmake
++++ b/toolchains/mipsel-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mipsel)
+ set(CMAKE_C_COMPILER "mipsel-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "mipsel-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips32")
+ set(CMAKE_CXX_FLAGS "-march=mips32")
+diff --git a/toolchains/mipsisa32r6el-linux-gnu.toolchain.cmake b/toolchains/mipsisa32r6el-linux-gnu.toolchain.cmake
+index 156fb3b9..174c8947 100644
+--- a/toolchains/mipsisa32r6el-linux-gnu.toolchain.cmake
++++ b/toolchains/mipsisa32r6el-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mipsisa32r6el)
+ set(CMAKE_C_COMPILER "mipsisa32r6el-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "mipsisa32r6el-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips32r6")
+ set(CMAKE_CXX_FLAGS "-march=mips32r6")
+diff --git a/toolchains/mipsisa64r6el-linux-gnuabi64.toolchain.cmake b/toolchains/mipsisa64r6el-linux-gnuabi64.toolchain.cmake
+index baf18e03..671c068d 100644
+--- a/toolchains/mipsisa64r6el-linux-gnuabi64.toolchain.cmake
++++ b/toolchains/mipsisa64r6el-linux-gnuabi64.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR mipsisa64r6el)
+ set(CMAKE_C_COMPILER "mipsisa64r6el-linux-gnuabi64-gcc")
+ set(CMAKE_CXX_COMPILER "mipsisa64r6el-linux-gnuabi64-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=mips64r6 -mmsa -mhard-float -mfp64 -mnan=2008")
+ set(CMAKE_CXX_FLAGS "-march=mips64r6 -mmsa -mhard-float -mfp64 -mnan=2008")
+diff --git a/toolchains/pi3.toolchain.cmake b/toolchains/pi3.toolchain.cmake
+index 19e4c265..87ff45fa 100644
+--- a/toolchains/pi3.toolchain.cmake
++++ b/toolchains/pi3.toolchain.cmake
+@@ -4,6 +4,19 @@ set(CMAKE_SYSTEM_PROCESSOR armv7l)
+ set(CMAKE_C_COMPILER "gcc")
+ set(CMAKE_CXX_COMPILER "g++")
+ 
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
++
+ set(CMAKE_C_FLAGS "-march=native -mfpu=neon -mfloat-abi=hard ${CMAKE_C_FLAGS}")
+ set(CMAKE_CXX_FLAGS "-march=native -mfpu=neon -mfloat-abi=hard ${CMAKE_CXX_FLAGS}")
+ 
+diff --git a/toolchains/power8le-linux-gnu-vsx.clang.toolchain.cmake b/toolchains/power8le-linux-gnu-vsx.clang.toolchain.cmake
+index 06a18751..92d36b8e 100644
+--- a/toolchains/power8le-linux-gnu-vsx.clang.toolchain.cmake
++++ b/toolchains/power8le-linux-gnu-vsx.clang.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc64le)
+ set(CMAKE_C_COMPILER "clang")
+ set(CMAKE_CXX_COMPILER "clang++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-target powerpc64le-linux-gnu -I/usr/powerpc64le-linux-gnu/include -mcpu=power8 -mtune=power8 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+ set(CMAKE_CXX_FLAGS "-target powerpc64le-linux-gnu -I/usr/powerpc64le-linux-gnu/include -I/usr/powerpc64le-linux-gnu/include/c++/10/powerpc64le-linux-gnu -mcpu=power8 -mtune=power8 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+diff --git a/toolchains/power8le-linux-gnu-vsx.toolchain.cmake b/toolchains/power8le-linux-gnu-vsx.toolchain.cmake
+index e5870341..8785fa69 100644
+--- a/toolchains/power8le-linux-gnu-vsx.toolchain.cmake
++++ b/toolchains/power8le-linux-gnu-vsx.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc64le)
+ set(CMAKE_C_COMPILER "powerpc64le-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "powerpc64le-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-mcpu=power8 -mtune=power8 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+ set(CMAKE_CXX_FLAGS "-mcpu=power8 -mtune=power8 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+diff --git a/toolchains/power9le-linux-gnu-vsx.clang.toolchain.cmake b/toolchains/power9le-linux-gnu-vsx.clang.toolchain.cmake
+index 4a4438cf..58ed9bd9 100644
+--- a/toolchains/power9le-linux-gnu-vsx.clang.toolchain.cmake
++++ b/toolchains/power9le-linux-gnu-vsx.clang.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc64le)
+ set(CMAKE_C_COMPILER "clang")
+ set(CMAKE_CXX_COMPILER "clang++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-target powerpc64le-linux-gnu -I/usr/powerpc64le-linux-gnu/include -mcpu=power9 -mtune=power9 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+ set(CMAKE_CXX_FLAGS "-target powerpc64le-linux-gnu -I/usr/powerpc64le-linux-gnu/include -I/usr/powerpc64le-linux-gnu/include/c++/10/powerpc64le-linux-gnu -mcpu=power9 -mtune=power9 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+diff --git a/toolchains/power9le-linux-gnu-vsx.toolchain.cmake b/toolchains/power9le-linux-gnu-vsx.toolchain.cmake
+index 5c0c9d8b..6e9a51e3 100644
+--- a/toolchains/power9le-linux-gnu-vsx.toolchain.cmake
++++ b/toolchains/power9le-linux-gnu-vsx.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc64le)
+ set(CMAKE_C_COMPILER "powerpc64le-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "powerpc64le-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-mcpu=power9 -mtune=power9 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+ set(CMAKE_CXX_FLAGS "-mcpu=power9 -mtune=power9 -DNO_WARN_X86_INTRINSICS -D__MMX__ -D__SSE__ -D__SSSE3__")
+diff --git a/toolchains/powerpc-linux-gnu.toolchain.cmake b/toolchains/powerpc-linux-gnu.toolchain.cmake
+index a1be1bb9..34aeb9fd 100644
+--- a/toolchains/powerpc-linux-gnu.toolchain.cmake
++++ b/toolchains/powerpc-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc)
+ set(CMAKE_C_COMPILER "powerpc-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "powerpc-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-mcpu=powerpc")
+ set(CMAKE_CXX_FLAGS "-mcpu=powerpc")
+diff --git a/toolchains/powerpc64le-linux-gnu.toolchain.cmake b/toolchains/powerpc64le-linux-gnu.toolchain.cmake
+index 89ee6788..848b5a70 100644
+--- a/toolchains/powerpc64le-linux-gnu.toolchain.cmake
++++ b/toolchains/powerpc64le-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR powerpc64le)
+ set(CMAKE_C_COMPILER "powerpc64le-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "powerpc64le-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-mcpu=powerpc64le")
+ set(CMAKE_CXX_FLAGS "-mcpu=powerpc64le")
+diff --git a/toolchains/qnx700.toolchain.cmake b/toolchains/qnx700.toolchain.cmake
+index 71631804..bc3eaa64 100644
+--- a/toolchains/qnx700.toolchain.cmake
++++ b/toolchains/qnx700.toolchain.cmake
+@@ -6,18 +6,27 @@ set(CMAKE_SYSTEM_NAME QNX)
+ set(CMAKE_SYSTEM_PROCESSOR arm)
+ 
+ if(NOT DEFINED ENV{QNX_HOST})
+-  message(FATAL_ERROR "Please set env var `QNX_HOST` first")
++    message(FATAL_ERROR "Please set env var `QNX_HOST` first")
+ endif()
+ set(QNX_HOST "$ENV{QNX_HOST}")
+ 
+ if(NOT DEFINED ENV{QNX_TARGET})
+-  message(FATAL_ERROR "Please set env var `QNX_TARGET` first")
++    message(FATAL_ERROR "Please set env var `QNX_TARGET` first")
+ endif()
+ set(QNX_TARGET "$ENV{QNX_TARGET}")
+ 
+ set(CMAKE_C_COMPILER "${QNX_HOST}/usr/bin/aarch64-unknown-nto-qnx7.0.0-gcc-5.4.0")
+ set(CMAKE_CXX_COMPILER "${QNX_HOST}/usr/bin/aarch64-unknown-nto-qnx7.0.0-g++-5.4.0")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+\ No newline at end of file
+diff --git a/toolchains/qnx710.toolchain.cmake b/toolchains/qnx710.toolchain.cmake
+index aa3e45be..c2d74a83 100644
+--- a/toolchains/qnx710.toolchain.cmake
++++ b/toolchains/qnx710.toolchain.cmake
+@@ -10,18 +10,27 @@ set(CMAKE_SYSTEM_NAME QNX)
+ set(CMAKE_SYSTEM_PROCESSOR aarch64le)
+ 
+ if(NOT DEFINED ENV{QNX_HOST})
+-  message(FATAL_ERROR "Please set env var `QNX_HOST` first")
++    message(FATAL_ERROR "Please set env var `QNX_HOST` first")
+ endif()
+ set(QNX_HOST "$ENV{QNX_HOST}")
+ 
+ if(NOT DEFINED ENV{QNX_TARGET})
+-  message(FATAL_ERROR "Please set env var `QNX_TARGET` first")
++    message(FATAL_ERROR "Please set env var `QNX_TARGET` first")
+ endif()
+ set(QNX_TARGET "$ENV{QNX_TARGET}")
+ 
+ set(CMAKE_C_COMPILER "${QNX_HOST}/usr/bin/aarch64-unknown-nto-qnx7.1.0-gcc-8.3.0")
+ set(CMAKE_CXX_COMPILER "${QNX_HOST}/usr/bin/aarch64-unknown-nto-qnx7.1.0-g++-8.3.0")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+diff --git a/toolchains/riscv32-unknown-elf.toolchain.cmake b/toolchains/riscv32-unknown-elf.toolchain.cmake
+index 056fcc84..624886b2 100644
+--- a/toolchains/riscv32-unknown-elf.toolchain.cmake
++++ b/toolchains/riscv32-unknown-elf.toolchain.cmake
+@@ -14,6 +14,15 @@ set(CMAKE_CXX_COMPILER "${RISCV_ROOT_PATH}/bin/riscv32-unknown-elf-g++")
+ 
+ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv32-unknown-elf")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+diff --git a/toolchains/riscv64-linux-gnu.toolchain.cmake b/toolchains/riscv64-linux-gnu.toolchain.cmake
+index 7df25e19..cb534a85 100644
+--- a/toolchains/riscv64-linux-gnu.toolchain.cmake
++++ b/toolchains/riscv64-linux-gnu.toolchain.cmake
+@@ -4,9 +4,18 @@ set(CMAKE_SYSTEM_PROCESSOR riscv64)
+ set(CMAKE_C_COMPILER "riscv64-linux-gnu-gcc")
+ set(CMAKE_CXX_COMPILER "riscv64-linux-gnu-g++")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gc")
+ set(CMAKE_CXX_FLAGS "-march=rv64gc")
+diff --git a/toolchains/riscv64-unknown-elf.toolchain.cmake b/toolchains/riscv64-unknown-elf.toolchain.cmake
+index f2bebbaf..27519731 100644
+--- a/toolchains/riscv64-unknown-elf.toolchain.cmake
++++ b/toolchains/riscv64-unknown-elf.toolchain.cmake
+@@ -14,6 +14,15 @@ set(CMAKE_CXX_COMPILER "${RISCV_ROOT_PATH}/bin/riscv64-unknown-elf-g++")
+ 
+ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-elf")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+\ No newline at end of file
+diff --git a/toolchains/riscv64-unknown-linux-gnu.llvm-toolchain.cmake b/toolchains/riscv64-unknown-linux-gnu.llvm-toolchain.cmake
+index 953f21aa..e9c6ad29 100644
+--- a/toolchains/riscv64-unknown-linux-gnu.llvm-toolchain.cmake
++++ b/toolchains/riscv64-unknown-linux-gnu.llvm-toolchain.cmake
+@@ -16,9 +16,18 @@ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ set(CMAKE_C_COMPILER_TARGET "riscv64-unknown-linux-gnu")
+ set(CMAKE_CXX_COMPILER_TARGET "riscv64-unknown-linux-gnu")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # add --ld-path=${RISCV_ROOT_PATH}/bin/riscv64-unknown-linux-gnu-ld or append $RISCV_ROOT_PATH/bin to PATH.
+ set(CMAKE_C_FLAGS "--gcc-toolchain=${RISCV_ROOT_PATH} -march=rv64gc")
+diff --git a/toolchains/riscv64-unknown-linux-gnu.toolchain.cmake b/toolchains/riscv64-unknown-linux-gnu.toolchain.cmake
+index 10603262..eaf3bf4e 100644
+--- a/toolchains/riscv64-unknown-linux-gnu.toolchain.cmake
++++ b/toolchains/riscv64-unknown-linux-gnu.toolchain.cmake
+@@ -14,9 +14,18 @@ set(CMAKE_CXX_COMPILER "${RISCV_ROOT_PATH}/bin/riscv64-unknown-linux-gnu-g++")
+ 
+ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=rv64gc")
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=rv64gc")
+diff --git a/toolchains/th1520-v240.toolchain.cmake b/toolchains/th1520-v240.toolchain.cmake
+index fb9787a8..117d6a55 100644
+--- a/toolchains/th1520-v240.toolchain.cmake
++++ b/toolchains/th1520-v240.toolchain.cmake
+@@ -17,10 +17,18 @@ set(CMAKE_FIND_ROOT_PATH "${RISCV_ROOT_PATH}/riscv64-unknown-linux-gnu")
+ 
+ set(CMAKE_SYSROOT "${RISCV_ROOT_PATH}/sysroot")
+ 
+-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ set(CMAKE_C_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910 -DC906=1 -static")
+ set(CMAKE_CXX_FLAGS "-march=rv64gcv0p7_zfh_xtheadc -mabi=lp64d -mtune=c910 -DC906=1 -static")
+diff --git a/toolchains/v831.toolchain.cmake b/toolchains/v831.toolchain.cmake
+index a36b54fe..4f0fc011 100644
+--- a/toolchains/v831.toolchain.cmake
++++ b/toolchains/v831.toolchain.cmake
+@@ -1,18 +1,27 @@
+ # set cross-compiled system type, it's better not use the type which cmake cannot recognized.
+-SET ( CMAKE_SYSTEM_NAME Linux )
+-SET ( CMAKE_SYSTEM_PROCESSOR arm )
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
+ # when hislicon SDK was installed, toolchain was installed in the path as below: 
+-SET ( CMAKE_C_COMPILER "/opt/v831-toolchain/bin/arm-openwrt-linux-gcc" )
+-SET ( CMAKE_CXX_COMPILER "/opt/v831-toolchain/bin/arm-openwrt-linux-g++" )
+-SET ( CMAKE_FIND_ROOT_PATH "/opt/v831-toolchain" )
++set(CMAKE_C_COMPILER "/opt/v831-toolchain/bin/arm-openwrt-linux-gcc")
++set(CMAKE_CXX_COMPILER "/opt/v831-toolchain/bin/arm-openwrt-linux-g++")
++set(CMAKE_FIND_ROOT_PATH "/opt/v831-toolchain")
+ 
+ # set searching rules for cross-compiler
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
+-SET ( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
+ 
+ # set ${CMAKE_C_FLAGS} and ${CMAKE_CXX_FLAGS}flag for cross-compiled process
+-SET ( CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=neon ${CMAKE_CXX_FLAGS}" )
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=hard -mfpu=neon ${CMAKE_CXX_FLAGS}")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+-- 
+2.47.1
+

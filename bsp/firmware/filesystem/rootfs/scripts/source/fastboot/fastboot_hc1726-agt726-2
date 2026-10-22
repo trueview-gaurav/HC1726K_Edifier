@@ -1,0 +1,116 @@
+# please ensure VERITY_MTDID block device appear before do_mount
+do_mount() {
+	VERITY_MTDID=$(cat /proc/cmdline | awk 'BEGIN{FS="root="}{sub(/ .*/,"",$2);print $2}')
+	mount -o ro ${VERITY_MTDID} /root
+	mount -n -t tmpfs tmpfs /root/tmp
+	mount --bind /root/tmp /tmp
+}
+
+do_start_configure1() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko param_vb_size_mb=40
+	busybox modprobe audio_pcm.ko
+	export ALSA_CONFIG_PATH=/root/usr/share/alsa/alsa.conf
+
+	do_mount
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1004_FHD \
+	-ppool_idx=0 -pblock_cnt=3 -pblock_size=131088 -ppool_name=isp_TMV_0 \
+	-pchn_idx=0 -poutput_res=1920x1080 -poutput_fps=30 -pwindow_fps=30 \
+	-pchn_idx=1 -poutput_res=1024x576 -poutput_fps=30 -pwindow_fps=30 \
+	-penc_idx=0 -penc_res=1920x1080 -pmax_enc_res=1920x1080 \
+	-pgop_size=60 -penc_fps=30 -prc_mode=CBR -pbit_rate=4096 -pvenc_type=H264 \
+	-pfluc_level=0 -pmin_qp=15 -pmax_qp=40 \
+	-p record_enable=1 -p output_file=/root/tmp/%S.video -pframe_num=-150 -pmax_dumped_files=3 -psync_with_audio=1 \
+	-penc_idx=1 -penc_res=1024x576 -pmax_enc_res=1024x576 \
+	-pgop_size=60 -penc_fps=30 -prc_mode=CBR -pbit_rate=512 -pvenc_type=H264 \
+	-pfluc_level=0 -pmin_qp=15 -pmax_qp=40 \
+	-paudio_record_enable=1  -paudio_sample_rate=8000 -paudio_frame_size=1024 -pformat=1 \
+	-paudio_max_dumped_files=3 -paudio_output_file="/root/tmp/%S.audio" > /dev/null &
+
+	busybox modprobe audio_machine.ko
+}
+
+do_start_configure2() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko param_max_rd_num=1 param_rd_buf_size=0x600000 param_bsb_size=0xC00000,0x0,0x0,0x0
+
+	# Set sensor FPS to 3
+	busybox sed -i 's/^frame_rate = .*/frame_rate = 3/; s/^slow_frame_rate = .*/slow_frame_rate = 3/' /system/mpp/script/sensor_0.ini
+
+	do_mount
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1003 \
+	-pdev_idx=0 -pbayer=PHASE_R -pinput_fps=3.0 -pinput_res=1920x1080 \
+	-pchn_idx=0 -poutput_res=1920x1080 -poutput_fps=1 -pwindow_fps=1 \
+	-penc_idx=0 -penc_res=7808x4392 -pmax_enc_res=7808x4392 -penc_fps=1 \
+	-precord_enable=1 -poutput_file=/root/tmp/first_raw.jpeg -pframe_num=1 \
+	-pbit_rate=40960 -pmax_q_factor=95 \
+	> /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+
+do_start_configure3() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+
+	# Set sensor FPS to 20
+	busybox sed -i 's/^frame_rate = .*/frame_rate = 20/; s/^slow_frame_rate = .*/slow_frame_rate = 20/' /system/mpp/script/sensor_0.ini
+
+	# AGT726-2 does not support dual-sensor fastboot.
+	# Therefore, boot with a single sensor configuration and then restart mpi_stream
+	# using the 3rd configuration as a workaround.
+
+	do_mount
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1004_FHD > /dev/null &
+	sleep 1;
+	kill -2 $(busybox ps | grep mpi | busybox head -n 1 | awk '{print $1}');
+	sleep 3;
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/DFN203-1 \
+	-pdev_idx=0 -pinput_fps=20.0 \
+	-ppath_idx=1 -pinput_res=2048x1536 \
+	-pchn_idx=0 -poutput_res=1920x1080 -poutput_fps=20 -pwindow_fps=20 \
+	-pchn_idx=1 -poutput_res=960x544 -poutput_fps=20 -pwindow_fps=20 \
+	-pchn_idx=2 -poutput_res=2048x1536 -poutput_fps=20 -pwindow_fps=20 \
+	-pchn_idx=3 -poutput_res=960x544 -poutput_fps=20 -pwindow_fps=20 \
+	-penc_idx=0 -pmax_enc_res=1920x1080 -penc_res=1920x1080 -pvenc_type=H264 \
+	-pvenc_profile=HIGH -pgop_size=40 -penc_fps=20 -pmax_bit_rate=4096 \
+	-penc_idx=1 -pmax_enc_res=960x544 -penc_res=960x544 -pvenc_type=H264 \
+	-pvenc_profile=HIGH -pgop_size=40 -penc_fps=20 -pmax_bit_rate=512 \
+	-penc_idx=2 -pmax_enc_res=2048x1536 -penc_res=2048x1536 -pvenc_type=H264 \
+	-pvenc_profile=HIGH -pgop_size=40 -penc_fps=20 -pmax_bit_rate=4096 \
+	-penc_idx=3 -pmax_enc_res=960x544 -penc_res=960x544 -pvenc_type=H264 \
+	-pvenc_profile=HIGH -pgop_size=40 -penc_fps=20 -pmax_bit_rate=512 \
+	> /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+
+case "$1" in
+	start)
+		prod_config=$(awk 'BEGIN{FS="prod_config="}{print $2}' /proc/cmdline | awk '{print $1}')
+
+		case $prod_config in
+			1)
+				do_start_configure1
+				;;
+			3)
+				do_start_configure3
+				;;
+			*)
+				do_start_configure2
+				;;
+		esac
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac

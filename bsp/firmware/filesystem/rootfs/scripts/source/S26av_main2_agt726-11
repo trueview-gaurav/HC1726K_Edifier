@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# Start/stop av_main2 and agtx-rtsp-server 
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /etc/TZ)
+
+RTSP_SERVER_BIN="/system/bin/agtx-rtsp-server"
+PIDFILE_RTSP_SERVER="/var/run/agtx-rtsp-server.pid"
+
+do_start_rtsp_server() {
+	local pidfile=$PIDFILE_RTSP_SERVER
+	echo "Starting RTSP Server ..."
+	start-stop-daemon --start --background --make-pidfile \
+                        --pidfile "$pidfile" \
+                        --exec "$RTSP_SERVER_BIN" \
+                        -- -S
+
+	echo "Started RTSP Server."
+}
+
+do_stop_rtsp_server() {
+	local pidfile=$PIDFILE_RTSP_SERVER
+	start-stop-daemon -K -o -p $pidfile
+        if [ $? = 1 ]; then
+                echo "Failed to stop rtsp server ch"
+                exit 1
+        fi
+        if [ -f "$pidfile" ]; then
+                PID=$(cat "$pidfile")
+                while kill -0 "$PID" 2>/dev/null; do
+                        sleep 1
+            done
+        else
+                echo "PID file does not exist."
+        fi
+
+}
+
+
+case "$1" in
+  start)
+    echo "Starting av_main2..."
+    sh /system/mpp/script/load_mpp.sh -i
+    av_main2 &
+    sleep 1
+    do_start_rtsp_server
+    ;;
+  stop)
+    printf "Stopping av_main2..."
+    killall -s TERM av_main2
+    do_stop_rtsp_server
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

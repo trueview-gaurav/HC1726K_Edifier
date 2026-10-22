@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Play a cue tone as a hint about factory reset was done
+#
+
+play_cuetone="/tmp/cuetone"
+
+
+case "$1" in
+start)
+        ;;
+stop)
+        if [ -e $play_cuetone ];
+        then
+		aplay -t raw -f mu-law -r 8000 -c 1 /system/factory_default/two.ul
+                echo "Play cuetone file"
+        fi
+        ;;
+restart|reload)
+        "$0" stop
+        "$0" start
+        ;;
+*)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit $?
+

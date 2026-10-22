@@ -1,0 +1,65 @@
+#!/bin/sh
+
+UNICORN_PIDFILE=/var/run/unicorn
+UNICORN_BIN=/system/bin/unicorn
+UNICORN_USER_TYPE=usb0
+
+# Access mode
+MODE=/system/bin/mode
+# Production tool flag
+run_prod_tool="/mnt/sdcard/RunProductionTool"
+
+start() {
+
+	# get Timezone
+	export TZ=$(cat /etc/TZ)
+
+	printf "Start unicorn daemon: "
+	start-stop-daemon -S -m -b -p $UNICORN_PIDFILE \
+		-x $UNICORN_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+start_user() {
+
+	# get Timezone
+	export TZ=$(cat /etc/TZ)
+
+	printf "Start unicorn daemon: "
+	start-stop-daemon -S -m -b -p $UNICORN_PIDFILE \
+		-x $UNICORN_BIN -- -c $UNICORN_USER_TYPE
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stop unicorn daemon: "
+	start-stop-daemon -K -q -p $UNICORN_PIDFILE \
+		-x $UNICORN_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+	start)
+		mode=$($MODE)
+		# Production tool to be skipped on user mode unless invoked
+		#if [ $mode == "user" ] && [ ! -f $run_prod_tool ]; then
+		if [ $mode == "user" ]; then
+			start_user
+		else
+			start
+		fi
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

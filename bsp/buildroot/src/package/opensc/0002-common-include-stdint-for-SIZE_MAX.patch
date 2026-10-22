@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Wed Jun 3 00:00:00 2026
+From: Carl Su <xuyusu@qti.qualcomm.com>
+Date: Wed, 3 Jun 2026 00:00:00 +0800
+Subject: [PATCH] common: include stdint.h for SIZE_MAX
+
+compat_overflow.c uses SIZE_MAX when GCC/Clang overflow builtins are not
+available.  Some glibc toolchains, such as gcc-linaro 4.9.4 arm-linux-gnueabi,
+do not expose SIZE_MAX from the currently included headers, so the fallback
+implementation fails to build with:
+
+  compat_overflow.c:44:61: error: 'SIZE_MAX' undeclared
+
+Include stdint.h, which is the standard header that defines SIZE_MAX.
+
+Signed-off-by: Carl Su <xuyusu@qti.qualcomm.com>
+Upstream: Not submitted
+---
+ src/common/compat_overflow.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/common/compat_overflow.c b/src/common/compat_overflow.c
+index d89212231..0a7d21731 100644
+--- a/src/common/compat_overflow.c
++++ b/src/common/compat_overflow.c
+@@ -27,6 +27,7 @@
+ #ifndef HAVE_BUILTIN_OVERFLOW
+ #include <limits.h>
+ #include <stdbool.h>
++#include <stdint.h>
+ #include <stddef.h>
+ 
+ #define ADD_OVERFLOW(func, type, max) \
+-- 
+2.34.1

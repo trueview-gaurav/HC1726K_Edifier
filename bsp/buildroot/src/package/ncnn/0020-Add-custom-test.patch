@@ -1,0 +1,292 @@
+From 864ecee23bf12ba0825d8b913446a15b228946ba Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 20 Nov 2023 14:04:45 +0800
+Subject: [PATCH 20/54] Add custom test
+
+---
+ examples/custom.cpp            | 139 +++++++++++++++++++++++++++++++++
+ examples/shufflenetv2_test.cpp | 126 ++++++++++++++++++++++++++++++
+ 2 files changed, 265 insertions(+)
+ create mode 100755 examples/custom.cpp
+ create mode 100644 examples/shufflenetv2_test.cpp
+
+diff --git a/examples/custom.cpp b/examples/custom.cpp
+new file mode 100755
+index 00000000..055478e1
+--- /dev/null
++++ b/examples/custom.cpp
+@@ -0,0 +1,139 @@
++// Tencent is pleased to support the open source community by making ncnn available.
++//
++// Copyright (C) 2018 THL A29 Limited, a Tencent company. All rights reserved.
++//
++// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
++// in compliance with the License. You may obtain a copy of the License at
++//
++// https://opensource.org/licenses/BSD-3-Clause
++//
++// Unless required by applicable law or agreed to in writing, software distributed
++// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
++// CONDITIONS OF ANY KIND, either express or implied. See the License for the
++// specific language governing permissions and limitations under the License.
++
++#include "net.h"
++
++#include <algorithm>
++#if defined(USE_NCNN_SIMPLEOCV)
++#include "simpleocv.h"
++#else
++#include <opencv2/core/core.hpp>
++#include <opencv2/highgui/highgui.hpp>
++#endif
++#include <stdio.h>
++#include <vector>
++
++static int detect(const cv::Mat& bgr, std::vector<float>& cls_scores, const char* paramfile, const char* binfile)
++{
++	ncnn::Net model;
++
++	model.opt.use_vulkan_compute = false;
++	model.opt.use_int8_inference = true;
++	model.opt.use_a53_a55_optimized_kernel = true;
++	model.opt.use_fp16_packed = false;
++	model.opt.use_fp16_storage = false;
++	model.opt.use_fp16_arithmetic = false;
++	model.opt.num_threads = 1;
++
++	// https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe
++	// models can be downloaded from https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe/releases
++	fprintf(stderr, "file path: %s", paramfile);
++	if (model.load_param(paramfile))
++		exit(-1);
++	if (model.load_model(binfile))
++		exit(-1);
++
++	ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR2GRAY, bgr.cols, bgr.rows, 192, 192);
++
++	//const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
++	// in.substract_mean_normalize(0, norm_vals);
++
++	const float mean_vals[1] = { 0.44f*255.f }; // 112.2
++	const float norm_vals[1] = { 1 / 0.265f / 255.f }; // 0.014798382
++	in.substract_mean_normalize(mean_vals, norm_vals);
++
++	ncnn::Extractor ex = model.create_extractor();
++
++	ex.input("images", in);
++
++	ncnn::Mat out;
++	ex.extract("output0", out);
++
++	// manually call softmax on the fc output
++	// convert result into probability
++	// skip if your model already has softmax operation
++	{
++		// ncnn::Layer* softmax = ncnn::create_layer("Softmax");
++		ncnn::Layer* sigmoid = ncnn::create_layer("Sigmoid");
++
++		ncnn::ParamDict pd;
++		sigmoid->load_param(pd);
++
++		sigmoid->forward_inplace(out, model.opt);
++
++		delete sigmoid;
++	}
++
++	out = out.reshape(out.w * out.h * out.c);
++
++	cls_scores.resize(out.w);
++	for (int j = 0; j < out.w; j++)
++	{
++		cls_scores[j] = out[j];
++	}
++
++	return 0;
++}
++
++static int print_topk(const std::vector<float>& cls_scores, int topk)
++{
++	// partial sort topk with index
++	int size = cls_scores.size();
++	std::vector<std::pair<float, int> > vec;
++	vec.resize(size);
++	for (int i = 0; i < size; i++)
++	{
++		vec[i] = std::make_pair(cls_scores[i], i);
++	}
++
++	std::partial_sort(vec.begin(), vec.begin() + topk, vec.end(),
++		std::greater<std::pair<float, int> >());
++
++	// print topk and score
++	for (int i = 0; i < topk; i++)
++	{
++		float score = vec[i].first;
++		int index = vec[i].second;
++		fprintf(stderr, "%d = %f\n", index, score);
++	}
++
++	return 0;
++}
++
++int main(int argc, char** argv)
++{
++	if (argc != 4)
++	{
++		fprintf(stderr, "Usage: %s [imagepath]\n", argv[0]);
++		return -1;
++	}
++
++	const char* imagepath = argv[3];
++	const char* paramfile = argv[1];
++	const char* binfile = argv[2];
++
++	cv::Mat m = cv::imread(imagepath, 1);
++	if (m.empty())
++	{
++		fprintf(stderr, "cv::imread %s failed\n", imagepath);
++		return -1;
++	}
++
++	std::vector<float> cls_scores;
++	detect(m, cls_scores, paramfile, binfile);
++
++	print_topk(cls_scores, 1);
++
++	return 0;
++}
+diff --git a/examples/shufflenetv2_test.cpp b/examples/shufflenetv2_test.cpp
+new file mode 100644
+index 00000000..912148e6
+--- /dev/null
++++ b/examples/shufflenetv2_test.cpp
+@@ -0,0 +1,126 @@
++// Tencent is pleased to support the open source community by making ncnn available.
++//
++// Copyright (C) 2018 THL A29 Limited, a Tencent company. All rights reserved.
++//
++// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
++// in compliance with the License. You may obtain a copy of the License at
++//
++// https://opensource.org/licenses/BSD-3-Clause
++//
++// Unless required by applicable law or agreed to in writing, software distributed
++// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
++// CONDITIONS OF ANY KIND, either express or implied. See the License for the
++// specific language governing permissions and limitations under the License.
++
++#include "net.h"
++
++#include <algorithm>
++#if defined(USE_NCNN_SIMPLEOCV)
++#include "simpleocv.h"
++#else
++#include <opencv2/core/core.hpp>
++#include <opencv2/highgui/highgui.hpp>
++#endif
++#include <stdio.h>
++#include <vector>
++
++static int detect_shufflenetv2(const cv::Mat& bgr, std::vector<float>& cls_scores)
++{
++    ncnn::Net shufflenetv2;
++
++    shufflenetv2.opt.use_vulkan_compute = true;
++
++    // https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe
++    // models can be downloaded from https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe/releases
++    if (shufflenetv2.load_param("shufflenet_v2_x0.5.param"))
++        exit(-1);
++    if (shufflenetv2.load_model("shufflenet_v2_x0.5.bin"))
++        exit(-1);
++
++    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR2GRAY, bgr.cols, bgr.rows, 192, 192);
++
++    const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
++    in.substract_mean_normalize(0, norm_vals);
++
++    ncnn::Extractor ex = shufflenetv2.create_extractor();
++
++    ex.input("images", in);
++
++    ncnn::Mat out;
++    ex.extract("output0", out);
++
++    // manually call softmax on the fc output
++    // convert result into probability
++    // skip if your model already has softmax operation
++    {
++        // ncnn::Layer* softmax = ncnn::create_layer("Softmax");
++        ncnn::Layer* softmax = ncnn::create_layer("Sigmoid");
++
++        ncnn::ParamDict pd;
++        softmax->load_param(pd);
++
++        softmax->forward_inplace(out, shufflenetv2.opt);
++
++        delete softmax;
++    }
++
++    out = out.reshape(out.w * out.h * out.c);
++
++    cls_scores.resize(out.w);
++    for (int j = 0; j < out.w; j++)
++    {
++        cls_scores[j] = out[j];
++    }
++
++    return 0;
++}
++
++static int print_topk(const std::vector<float>& cls_scores, int topk)
++{
++    // partial sort topk with index
++    int size = cls_scores.size();
++    std::vector<std::pair<float, int> > vec;
++    vec.resize(size);
++    for (int i = 0; i < size; i++)
++    {
++        vec[i] = std::make_pair(cls_scores[i], i);
++    }
++
++    std::partial_sort(vec.begin(), vec.begin() + topk, vec.end(),
++                      std::greater<std::pair<float, int> >());
++
++    // print topk and score
++    for (int i = 0; i < topk; i++)
++    {
++        float score = vec[i].first;
++        int index = vec[i].second;
++        fprintf(stderr, "%d = %f\n", index, score);
++    }
++
++    return 0;
++}
++
++int main(int argc, char** argv)
++{
++    if (argc != 2)
++    {
++        fprintf(stderr, "Usage: %s [imagepath]\n", argv[0]);
++        return -1;
++    }
++
++    const char* imagepath = argv[1];
++
++    cv::Mat m = cv::imread(imagepath, 1);
++    if (m.empty())
++    {
++        fprintf(stderr, "cv::imread %s failed\n", imagepath);
++        return -1;
++    }
++
++    std::vector<float> cls_scores;
++    detect_shufflenetv2(m, cls_scores);
++
++    print_topk(cls_scores, 1);
++
++    return 0;
++}
+-- 
+2.47.1
+

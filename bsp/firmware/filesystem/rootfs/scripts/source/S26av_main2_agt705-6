@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# Start/stop av_main2 on AGT705-6
+#
+
+TZ=$(cat /etc/TZ)
+export TZ
+
+AV_MAIN2_BIN=/system/bin/av_main2
+PIDFILE_AV_MAIN2=/var/run/av_main2.pid
+RTSP_PID=0
+
+do_start_av_main2() {
+	echo 3 > /proc/sys/kernel/printk
+	start-stop-daemon -S -m -b -x $AV_MAIN2_BIN -p $PIDFILE_AV_MAIN2
+	if [ $? = 1 ]; then
+		echo "Failed to start av_main2."
+		exit 1
+	fi
+}
+
+do_stop_av_main2() {
+	start-stop-daemon -K -o -p $PIDFILE_AV_MAIN2
+	if [ $? = 1 ]; then
+		echo "Failed to stop av_main2."
+		exit 1
+	fi
+	if [ -f "$PIDFILE_AV_MAIN2" ]; then
+		PID=$(cat "$PIDFILE_AV_MAIN2")
+		while kill -0 "$PID" 2>/dev/null; do
+			sleep 1
+	    done
+	else
+		echo "PID file does not exist."
+	fi
+	sh /system/mpp/script/load_mpp.sh -e
+}
+
+do_start() {
+	echo "Starting av_main2..."
+	do_start_av_main2
+	sleep 1
+}
+
+do_stop() {
+	printf "Stopping av_main2..."
+	do_stop_av_main2
+}
+
+do_restart() {
+	"$0" stop
+	# wait for VB clean
+	sleep 3
+	"$0" start
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	restart|reload)
+		do_restart
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

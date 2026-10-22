@@ -1,0 +1,30 @@
+do_start() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/DBN204-1 \
+	-pchn_idx=0 -poutput_fps=15 -pwindow_fps=15 \
+	-pchn_idx=1 -poutput_fps=15 -pwindow_fps=15 \
+	-pchn_idx=2 -poutput_fps=15 -pwindow_fps=15 \
+	-pchn_idx=3 -poutput_fps=15 -pwindow_fps=15 \
+	-penc_idx=0 -pgop_size=15 -penc_fps=15 \
+	-penc_idx=1 -pgop_size=15 -penc_fps=15 \
+	-penc_idx=2 -pgop_size=15 -penc_fps=15 \
+	-penc_idx=3 -pgop_size=15 -penc_fps=15 \
+	> /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac
+

@@ -1,0 +1,1 @@
+../template/sdc_ut02.sh

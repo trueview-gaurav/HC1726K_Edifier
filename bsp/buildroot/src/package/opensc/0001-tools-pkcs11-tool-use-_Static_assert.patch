@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Wed Jun 3 00:00:00 2026
+From: Carl Su <xuyusu@qti.qualcomm.com>
+Date: Wed, 3 Jun 2026 00:00:00 +0800
+Subject: [PATCH] tools: pkcs11-tool: use _Static_assert
+
+pkcs11-tool uses static_assert without including a header that provides
+it as a macro.  With uClibc, this leaves static_assert undeclared, so the
+compiler emits a call to an implicit function and the link fails with:
+
+  undefined reference to `static_assert'
+
+Use the C11 _Static_assert keyword directly.  The configure script already
+checks for _Static_assert support and the affected toolchains support it,
+so this avoids relying on libc header support for the static_assert macro.
+
+Signed-off-by: Carl Su <xuyusu@qti.qualcomm.com>
+Upstream: Not submitted
+---
+ src/tools/pkcs11-tool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/tools/pkcs11-tool.c b/src/tools/pkcs11-tool.c
+index 9404affaf..a9c2652dd 100644
+--- a/src/tools/pkcs11-tool.c
++++ b/src/tools/pkcs11-tool.c
+@@ -844,7 +844,7 @@ int main(int argc, char * argv[])
+ 	char *s = NULL;
+ 	CK_RV rv;
+ 
+-	static_assert(sizeof(options) / sizeof(options[0]) == sizeof(option_help) / sizeof(option_help[0]),
++	_Static_assert(sizeof(options) / sizeof(options[0]) == sizeof(option_help) / sizeof(option_help[0]),
+ 			"Inconsistent size of the options and options_help structures!");
+ 
+ #ifdef _WIN32
+-- 
+2.34.1

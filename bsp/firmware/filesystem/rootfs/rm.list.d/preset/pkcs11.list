@@ -1,0 +1,38 @@
+# opensc
+/etc/opensc.conf
+/usr/bin/dnie-tool
+/usr/bin/cardos-tool
+/usr/bin/pkcs11-register
+/usr/bin/opensc-explorer
+/usr/bin/egk-tool
+/usr/bin/pkcs15-crypt
+/usr/bin/sc-hsm-tool
+/usr/bin/netkey-tool
+/usr/bin/iasecc-tool
+/usr/bin/piv-tool
+/usr/bin/pkcs15-init
+/usr/bin/gids-tool
+/usr/bin/cryptoflex-tool
+/usr/bin/eidenv
+/usr/bin/pkcs15-tool
+/usr/bin/goid-tool
+/usr/bin/dtrust-tool
+/usr/bin/westcos-tool
+/usr/bin/opensc-tool
+/usr/bin/opensc-asn1
+/usr/bin/openpgp-tool
+/usr/bin/pkcs11-tool
+/usr/lib/libopensc.so*
+/usr/lib/pkcs11-spy.so*
+/usr/lib/opensc-pkcs11.so*
+/usr/lib/onepin-opensc-pkcs11.so*
+/usr/lib/libsmm-local.so*
+/usr/share/opensc
+
+# libp11
+/usr/lib/engines-3/pkcs11.so*
+/usr/lib/engines-3/libpkcs11.so*
+/usr/lib/libp11.so*
+
+# pkcs11-provider
+/usr/lib/ossl-modules/pkcs11.so

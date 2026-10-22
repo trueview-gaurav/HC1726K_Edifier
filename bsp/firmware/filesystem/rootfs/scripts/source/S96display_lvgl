@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# Start/stop LVGL Demo
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE_LVGL=/var/run/lvgl.pid
+LVGL_DEMO=/system/bin/lvgl_demo
+
+start_lvgl_demo() {
+	start-stop-daemon -Smbp $PIDFILE_LVGL -x $LVGL_DEMO
+}
+
+stop_lvgl_demo() {
+	start-stop-daemon -Kop $PIDFILE_LVGL
+}
+
+case "$1" in
+	start)
+		start_lvgl_demo
+	;;
+	stop)
+		stop_lvgl_demo
+	;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

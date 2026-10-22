@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Start/stop flv_server
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE=/var/run/flv_server.pid
+FLV_BIN=/system/bin/flv_server
+ENCRYPTED_PRIVATE_KEY="private_key" # object ID of prv. key in the secure storage
+ENCRYPTED_CERT="certificate" # object ID of cert. in the secure storage
+TMP_PRIVATE_KEY="/tmp/key.pem"
+TMP_CERT="/tmp/cert.pem"
+SECURE_STORAGE="/system/bin/optee_example_secure_storage_agtx"
+
+case "$1" in
+  start)
+	echo "Starting flv_server..."
+	# Run SECURE STORAGE to decrypt files
+	$SECURE_STORAGE -readfile $ENCRYPTED_PRIVATE_KEY $TMP_PRIVATE_KEY > /dev/null
+	$SECURE_STORAGE -readfile $ENCRYPTED_CERT $TMP_CERT > /dev/null
+
+	start-stop-daemon -S -m -b -p $PIDFILE -x $FLV_BIN -- -s -c $TMP_CERT -k $TMP_PRIVATE_KEY -a 127.0.0.1
+	;;
+  stop)
+	printf "Stopping flv_server..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

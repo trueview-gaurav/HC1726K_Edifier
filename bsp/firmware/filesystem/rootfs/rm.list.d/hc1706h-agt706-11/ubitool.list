@@ -1,0 +1,5 @@
+/usr/sbin/ubiattach
+/usr/sbin/ubidetach
+/usr/sbin/ubiformat
+/usr/sbin/ubimkvol
+/usr/sbin/ubinfo

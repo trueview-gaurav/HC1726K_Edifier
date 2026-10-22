@@ -1,0 +1,68 @@
+#!/bin/sh
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  S00tb003usbgpio - EVB GPIO setting script
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script sets switch IC for USB
+#  *
+#  * Author: ShihChieh Lin <shihchieh.lin@augentix.com>
+#
+
+# Set GPIO output = 0 for EVB USB switch IC pins USBSW_OE and USBSW_S
+
+USBSW_OE_ID=11
+USBSW_S=12
+
+set_gpio() {
+	id=$1
+	direction=$2
+	value=$3
+	echo $id > /sys/class/gpio/export
+	echo "$direction" > /sys/class/gpio/gpio$id/direction
+	if [ $direction = "out" ]; then
+		echo $value > /sys/class/gpio/gpio$id/value
+	fi
+}
+
+case "$1" in
+	start)
+		set_gpio $USBSW_OE_ID "out" 0
+		set_gpio $USBSW_S     "out" 0
+	;;
+	stop|restart|reload)
+	;;
+	*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+# set gpio 30 (data0) pull-up
+devmem 0x800000CA 16 0x0005
+
+# set gpio 31 (data1) pull-up
+devmem 0x800000CE 16 0x0005
+
+# set gpio 32 (data3) pull-up
+devmem 0x800000D2 16 0x0005
+
+# set gpio 33 (data2) pull-up
+devmem 0x800000D6 16 0x0005
+
+# set gpio 34 (clock) pull-up
+devmem 0x800000DA 16 0x0005
+
+# set gpio 35 (command) pull-up
+devmem 0x800000DE 16 0x0005
+
+# set gpio 36 (write protect) pull-down
+# devmem 0x800000E2 16 0x0009
+
+# set gpio 37 (card detection) pull-up
+devmem 0x800000E6 16 0x0005
+

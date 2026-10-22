@@ -1,0 +1,20 @@
+#!/bin/sh
+
+do_usb_storage() {
+	# Load g_mass_storage.ko if file does exist
+	if [ -f /lib/modules/`uname -r`/kernel/drivers/usb/gadget/legacy/g_mass_storage.ko ] && 
+	   [ -e /dev/mmcblk0 ]
+	then
+		modprobe g_mass_storage file=/dev/mmcblk0 stall=0 removable=1
+	fi
+}
+
+case "$1" in
+	start)
+		do_usb_storage &
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+esac

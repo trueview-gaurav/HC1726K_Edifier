@@ -1,0 +1,6 @@
+/etc/ssh/sshd_config
+/etc/profile.d/coredump.sh
+/etc/directfbrc
+/usr/bin/pin-info.sh
+/usr/bin/repair_db.sh
+/system/lib/libaftr*

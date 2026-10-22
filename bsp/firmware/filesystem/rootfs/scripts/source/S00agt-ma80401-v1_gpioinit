@@ -1,0 +1,84 @@
+#!/bin/sh -f
+
+# export_gpio(): export GPIO pin
+export_gpio() {
+	echo $1 > /sys/class/gpio/export
+}
+
+# unexport_gpio(): unexport GPIO pin
+unexport_gpio() {
+	echo $1 > /sys/class/gpio/unexport
+}
+
+# set_gpio(): GPIO setting function
+set_gpio() {
+	GPIO_ID=$1
+	DIRECTION=$2
+	VALUE=$3
+
+	export_gpio $GPIO_ID
+
+	if [ $DIRECTION = "out" ]; then
+		echo "out" > /sys/class/gpio/gpio$GPIO_ID/direction
+		if [ ! $VALUE ]; then # Output level not specified
+			echo "GPIO output level not specified!"
+			exit 1;
+		elif [ $VALUE = "1" ]; then # HIGH
+			echo 1 > /sys/class/gpio/gpio$GPIO_ID/value
+		elif [ $VALUE = "0" ]; then # LOW
+			echo 0 > /sys/class/gpio/gpio$GPIO_ID/value
+		else #INVALID
+			echo "Invalid GPIO value!"
+			exit 1;
+		fi
+	elif [ $DIRECTION = "in" ]; then
+		echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	fi
+
+    unexport_gpio $GPIO_ID
+}
+
+# for XM ext. board SD card detect
+# gpio input, default pull-up, for SD card detect
+# High : No SD card; Low : SD card insert
+set_gpio 6 "in"
+# set gpio 6 pull-up
+devmem 0x80000068 32 0x00050000
+
+set_gpio 8 "in"
+# set gpio 8 pull-up
+devmem 0x80000070 32 0x00050000
+
+set_gpio 12 "in"
+# set gpio 12 pull-up
+devmem 0x80000080 32 0x00050000
+
+# Alarm input
+set_gpio 57 "in"
+# set gpio 57 pull-up
+devmem 0x80000134 32 0x00050000
+
+# set gpio 30 (data0) pull-up
+devmem 0x800000CA 16 0x0005
+
+# set gpio 31 (data1) pull-up
+devmem 0x800000CE 16 0x0005
+
+# set gpio 32 (data3) pull-up
+devmem 0x800000D2 16 0x0005
+
+# set gpio 33 (data2) pull-up
+devmem 0x800000D6 16 0x0005
+
+# set gpio 34 (clock) pull-up
+devmem 0x800000DA 16 0x0005
+
+# set gpio 35 (command) pull-up
+devmem 0x800000DE 16 0x0005
+
+# set gpio 36 (write protect) pull-down
+devmem 0x800000E2 16 0x0009
+
+# set gpio 37 (card detection) pull-up
+devmem 0x800000E6 16 0x0005
+

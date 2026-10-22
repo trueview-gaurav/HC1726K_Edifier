@@ -1,0 +1,45 @@
+#!/bin/sh
+
+do_start() {
+	ext4_resized=$(fw_printenv ext4_resized | awk -F= '{print $2}')
+
+	if [ "$ext4_resized" == 1 ]; then
+		echo "Filesystem already resized."
+		return 0
+	fi
+
+	# Iterate through each mount point we want to find
+	for TARGET in /usrdata /calib; do
+
+		# Get the corresponding device using mount
+		mount_info=$(mount | grep "on $TARGET type")
+
+		if [ -z "$mount_info" ]; then
+			echo "  Skipping: $TARGET not found in mount list."
+			continue
+		fi
+
+		# Parse device from mount line
+		device=$(echo "$mount_info" | awk '{print $1}')
+		fs_type=$(echo "$mount_info" | awk '{print $5}')
+
+		echo "Resizing $device mounted on $TARGET..."
+		resize2fs "$device" > /dev/null 2>&1
+	done
+
+	fw_setenv ext4_resized 1
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

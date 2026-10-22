@@ -1,0 +1,17 @@
+[core]
+rcK
+rcS
+S00aon_watchd.sh
+S00overlay.sh
+S01fastboot_agt301-23.sh
+S03logging.sh
+S10mdev.sh
+S19mode.sh
+[factory]
+S23tb007_ircut_init
+S50sshd
+S50telnet
+[develop]
+S23tb007_ircut_init
+[user]
+S23tb007_ircut_init

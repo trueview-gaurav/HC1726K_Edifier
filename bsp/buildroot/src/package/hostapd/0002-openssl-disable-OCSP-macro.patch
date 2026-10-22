@@ -1,0 +1,13 @@
+--- a/src/crypto/tls_openssl.c	2024-11-11 12:29:51.261845115 +0800
++++ b/src/crypto/tls_openssl.c	2024-11-11 12:30:58.355147435 +0800
+@@ -60,8 +60,10 @@
+ 
+ #ifdef SSL_set_tlsext_status_type
+ #ifndef OPENSSL_NO_TLSEXT
++#ifndef OPENSSL_NO_OCSP
+ #define HAVE_OCSP
+ #include <openssl/ocsp.h>
++#endif /*OPENSSL_NO_OCSP*/
+ #endif /* OPENSSL_NO_TLSEXT */
+ #endif /* SSL_set_tlsext_status_type */
+ 

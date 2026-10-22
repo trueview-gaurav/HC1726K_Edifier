@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# Start/stop tuya Service
+#
+# Pairing Mode: 0 = AUTO (qrCode/wifi monitor).
+# Pairing Mode: 1 = WIFI AP Mode.
+# Pairing Mode: 2 = DEBUG MODE
+PAIR_MODE=0
+TUYA_BIN=/system/bin/tuya_service
+AMAZON_ECHO=1
+GOOGLE_CHROMECAST=1
+# Access mode
+MODE=/system/bin/mode
+# Production tool flag
+run_prod_tool="/mnt/sdcard/RunProductionTool"
+
+do_start() {
+	/sbin/sysctl -w net.core.rmem_default=524288
+	/sbin/sysctl -w net.core.wmem_default=524288
+	/sbin/sysctl -w net.core.rmem_max=624288
+	/sbin/sysctl -w net.core.wmem_max=724288
+	/sbin/ifconfig lo up
+	$TUYA_BIN -m $PAIR_MODE -E $AMAZON_ECHO -G $GOOGLE_CHROMECAST &
+}
+
+do_stop() {
+    pid=`ps | grep "tuya_service" | grep -v "grep" | awk '{print $1}'`
+    kill -9 $pid
+}
+case "$1" in
+  start)
+	mode=$($MODE)
+	# Production tool
+	if [ -f $run_prod_tool ] && [ $mode == "user" ]; then
+		echo " - Skip Tuya service..."
+		return 0
+	fi
+
+	echo "Starting tuya_service [AP mode]"
+    do_start
+	;;
+  stop)
+	echo "Stop tuya_service [AP mode]"
+    do_stop
+	;;
+  restart|reload)
+    do_stop
+    do_start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

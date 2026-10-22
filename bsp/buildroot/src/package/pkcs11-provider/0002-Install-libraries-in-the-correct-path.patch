@@ -1,0 +1,25 @@
+From 7df4350de4d2032019f14ed4d1b9573e394b93ee Mon Sep 17 00:00:00 2001
+From: "Dave.Yu im294" <Dave.Yu@augentix.com>
+Date: Thu, 22 May 2025 15:42:41 +0800
+Subject: [PATCH] Install libraries in the correct path
+
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index b50d1a3..b34b1c4 100644
+--- a/meson.build
++++ b/meson.build
+@@ -46,7 +46,7 @@ conf.set('PACKAGE_MAJOR', major_version)
+ conf.set('PACKAGE_MINOR', minor_version)
+
+ libcrypto = dependency('libcrypto', version: '>= 3.0.7')
+-provider_path = libcrypto.get_variable(pkgconfig: 'modulesdir')
++provider_path = '/usr/lib/ossl-modules/'
+ libssl = dependency('libssl', version: '>= 3.0.7')
+
+ host_system = host_machine.system()
+--
+2.47.1
+

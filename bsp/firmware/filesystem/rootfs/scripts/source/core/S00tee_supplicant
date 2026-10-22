@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop tee-supplicant
+#
+
+TEE_SUPPLICANT=/system/bin/tee-supplicant
+TEE_PIDFILE=/var/run/tee-supplicant.pid
+
+case "$1" in
+  start)
+    echo "Starting tee-supplicant..."
+    mkdir -p /var/run
+    start-stop-daemon -S -b -m -x $TEE_SUPPLICANT -p $TEE_PIDFILE -- -d
+    ;;
+  stop)
+    echo "Stopping tee-supplicant..."
+    start-stop-daemon -K -o -p $TEE_PIDFILE
+    ;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+

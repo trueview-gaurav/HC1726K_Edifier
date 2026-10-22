@@ -1,0 +1,5 @@
+config BR2_PACKAGE_HOST_MESON
+	bool "host meson"
+        select BR2_PACKAGE_HOST_NINJA
+	help
+            Build the Meson build system as a host tool.

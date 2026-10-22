@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Pre-load MPP
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+case "$1" in
+	start)
+		/system/mpp/script/load_mpp.sh -i
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?
+

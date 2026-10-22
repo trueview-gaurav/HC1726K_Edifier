@@ -1,0 +1,41 @@
+#!/bin/sh -f
+
+NFS_IP=192.168.10.87
+NFS_NAME=ethnfs
+NFS_DIR=/mnt/nfs/$NFS_NAME
+
+start() {
+	if [ -d $NFS_DIR ]; then
+		ping -c 1 -w 2 $NFS_IP
+		if [ $? -eq 0 ]; then
+			mount -o port=2049,nolock,proto=tcp -t nfs $NFS_IP:/$NFS_NAME $NFS_DIR
+		else
+			echo "Warning: Failed to connect to NFS server."
+		fi
+	else
+		echo "Warning: Target directory $NFS_DIR does not exist!"
+	fi
+}
+
+stop() {
+	umount $NFS_DIR
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

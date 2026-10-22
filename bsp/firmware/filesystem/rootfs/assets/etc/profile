@@ -1,0 +1,52 @@
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+if [ "$PS1" ]; then
+	if [ "`id -u`" -eq 0 ]; then
+		export PS1='[\u@\h:\w]\# '
+	else
+		export PS1='[\u@\h:\w]\$ '
+	fi
+fi
+
+export PAGER='/bin/more '
+export EDITOR='/bin/vi'
+export TZ=$(cat /etc/TZ)
+export LD_LIBRARY_PATH='/system/lib'
+export DISPLAY=:0
+export HOME=/usrdata/root
+export LIBGL_ALWAYS_SOFTWARE=1
+export LIBGL_ALWAYS_INDIRECT=0
+
+# Set terminal env
+set_path_before()
+{
+	[ -d $1 ] && PATH="$1:$PATH"
+}
+
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:/root:/root/bin:/root/ppp:/root/pppoe:/root/snmp:/root/wifi:/smart/bin:/var/untar/bin"
+set_path_before /usr/local/sbin
+set_path_before /usr/local/bin
+
+LD_LIBRARY_PATH="/usr/local/lib:/usr/lib:/root:/root/lib:/root/ext_libs:/root/pppoe:/root/wifi:/smart/lib:/var/untar/lib:/media/lib"
+
+export PATH
+export LD_LIBRARY_PATH
+
+
+# Set directoty and file default create permission
+# ANSI COLORS
+CRE="
+[K"
+NORMAL="[0;39m"
+RED="[1;31m"
+GREEN="[1;32m"
+YELLOW="[1;33m"
+BLUE="[1;34m"
+MAGENTA="[1;35m"
+CYAN="[1;36m"
+WHITE="[1;37m"
+
+umask 077
+
+echo "${GREEN}Welcome to JZLinux.${NORMAL}"
+echo 2 >/proc/sys/kernel/randomize_va_space

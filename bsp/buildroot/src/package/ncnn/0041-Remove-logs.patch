@@ -1,0 +1,67 @@
+From 920d9e5629560caeae5de589ba468e16d958c696 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 27 Dec 2023 15:32:49 +0800
+Subject: [PATCH 41/54] Remove logs
+
+---
+ src/layer/arm/binaryop_arm.cpp |  8 --------
+ src/layer/binaryop.cpp         | 10 ----------
+ 2 files changed, 18 deletions(-)
+
+diff --git a/src/layer/arm/binaryop_arm.cpp b/src/layer/arm/binaryop_arm.cpp
+index 2f261101..ebce60a1 100644
+--- a/src/layer/arm/binaryop_arm.cpp
++++ b/src/layer/arm/binaryop_arm.cpp
+@@ -42,7 +42,6 @@ template<typename Op>
+ static void binary_op_vector_no_broadcast(const float* ptr, const float* ptr1, float* outptr, int size)
+ {
+     const Op op;
+-    NCNN_LOGE("binary_op_vector_no_broadcast");
+     int i = 0;
+ #if __ARM_NEON
+     for (; i + 3 < size; i += 4)
+@@ -352,7 +351,6 @@ static void binary_op_broadcast(const Mat& a, const Mat& b, Mat& c, int op_type,
+ 
+     if (a.dims == b.dims && a.w == b.w && a.h == b.h && a.d == b.d && a.c == b.c && a.elempack == b.elempack)
+     {
+-        NCNN_LOGE("a shape == b shape");
+         return binary_op_no_broadcast(a, b, c, op_type, opt);
+     }
+ 
+@@ -672,12 +670,6 @@ static void binary_op_vector_no_broadcast_int8(const signed char* ptr, const sig
+ 
+     int i = 0;
+ 
+-//    const float bottom_blob_int8_scale_1 = 1.2;
+-//    const float bottom_blob_int8_scale_2 = 3.4;
+-//    const float top_blob_int8_scale = 5.6;
+-
+-    NCNN_LOGE("ADD: inscale = %f %f outscale = %f", in_scale_1, in_scale_2, out_scale);
+-
+ #if __ARM_NEON
+     for (; i + 7 < size; i += 8)
+     {
+diff --git a/src/layer/binaryop.cpp b/src/layer/binaryop.cpp
+index a4ae9f3c..635ceac0 100644
+--- a/src/layer/binaryop.cpp
++++ b/src/layer/binaryop.cpp
+@@ -28,16 +28,6 @@ int BinaryOp::load_param(const ParamDict& pd)
+     with_scalar = pd.get(1, 0);
+     b = pd.get(2, 0.f);
+     int8_scale_term = pd.get(8, 0);
+-#if NCNN_INT8
+-    if (int8_scale_term==0)
+-    {
+-        NCNN_LOGE("int8_scale_term not found in param file");
+-    }
+-    else
+-    {
+-        NCNN_LOGE("int8_scale_term found in param file");
+-    }
+-#endif
+ 
+     if (with_scalar != 0)
+     {
+-- 
+2.47.1
+

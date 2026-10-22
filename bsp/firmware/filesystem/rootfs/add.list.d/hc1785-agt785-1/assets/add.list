@@ -1,0 +1,6 @@
+/etc/network/interfaces
+/system/mpp/script/MIPI_Controller.sh
+/system/mpp/script/Phy_board.sh
+/system/mpp/script/OV5647_command.sh
+/system/mpp/script/run_video.sh
+/system/mpp/case_config/agt785-1_640x480

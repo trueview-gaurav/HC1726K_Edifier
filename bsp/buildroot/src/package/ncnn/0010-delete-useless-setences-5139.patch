@@ -1,0 +1,25 @@
+From b2f12fdd67220a37895e8f03f22c8e76bb84dddd Mon Sep 17 00:00:00 2001
+From: ningjiang233 <92499749+ningjiang233@users.noreply.github.com>
+Date: Wed, 8 Nov 2023 22:09:51 +0800
+Subject: [PATCH 10/54] delete useless setences (#5139)
+
+---
+ src/layer/x86/convolution_im2col_gemm_int8.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/src/layer/x86/convolution_im2col_gemm_int8.h b/src/layer/x86/convolution_im2col_gemm_int8.h
+index da504677..ef8fe0ab 100644
+--- a/src/layer/x86/convolution_im2col_gemm_int8.h
++++ b/src/layer/x86/convolution_im2col_gemm_int8.h
+@@ -5069,8 +5069,6 @@ static void convolution_gemm_transB_packed_tile_int8(const Mat& AT_tile, const M
+                     // 04 15 06 17
+                     // 10 01 12 03
+                     // 14 05 16 07
+-                    _sum0 = _sum0;
+-                    _sum1 = _sum1;
+                     _sum2 = _mm_shuffle_epi32(_sum2, _MM_SHUFFLE(2, 3, 0, 1));
+                     _sum3 = _mm_shuffle_epi32(_sum3, _MM_SHUFFLE(2, 3, 0, 1));
+ 
+-- 
+2.47.1
+

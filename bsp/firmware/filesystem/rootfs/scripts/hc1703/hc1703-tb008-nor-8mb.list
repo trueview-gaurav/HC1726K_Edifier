@@ -1,0 +1,15 @@
+[core]
+rcK
+rcS
+S00overlay
+S03logging
+S10mdev
+S19mode
+[factory]
+S40network
+S41setmac
+[develop]
+S41setmac
+[user]
+S40network
+S41setmac

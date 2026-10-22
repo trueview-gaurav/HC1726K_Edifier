@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/Stop av_main2
+#
+TZ=$(cat /etc/TZ)
+export TZ
+
+case "$1" in
+	start)
+		echo "Starting av_main2..."
+		/system/bin/av_main2 &
+		;;
+	stop)
+		printf "Stopping av_main2..."
+		AV_MAIN2_PID=$(ps | grep av_main2 | head -1 | awk '{print $1}')
+		kill -TERM "$AV_MAIN2_PID"
+		;;
+	restart|reload)
+		"$0" stop
+		# wait for VB clean
+		sleep 3
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

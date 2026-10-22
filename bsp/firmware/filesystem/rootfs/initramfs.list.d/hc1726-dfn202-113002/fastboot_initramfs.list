@@ -1,0 +1,67 @@
+# system utilities
+/bin/busybox
+/bin/cat
+/bin/grep
+/bin/ln
+/bin/mkdir
+/bin/mknod
+/bin/mount
+/bin/rm
+/bin/sh
+/bin/sleep
+/bin/usleep
+/bin/umount
+/bin/chown
+/bin/chmod
+/bin/mountpoint
+/sbin/halt
+/sbin/modprobe
+/sbin/switch_root
+/usr/bin/awk
+
+# Toolchain libraries
+/lib/ld-*
+/lib/libc.*
+/lib/libgcc_s.so.1
+/lib/libuClibc-*
+/lib/libuuid*
+
+# Secure Boot - Method A
+/lib/libblkid*
+/usr/lib/libargon2*
+/usr/lib/libatomic*
+/usr/lib/libcrypto*
+/usr/lib/libcryptsetup*
+/usr/lib/libdevmapper*
+/usr/lib/libjson-c*
+/usr/lib/libpopt*
+/usr/lib/libssl*
+/usr/sbin/veritysetup
+
+# MPI stream
+/etc/fastboot_video
+/etc/modprobe.d/mpp_dfn202-113002.conf
+/lib/modules/*/modules.*
+/lib/modules/*/mpp*
+/system/bin/i2crw
+/system/bin/mpi_stream
+/system/lib/*.ko
+/system/lib/libmpp*
+/system/lib/libsensor_*
+/system/lib/libvftr*
+/system/lib/modules/*/augentix/*.ko
+/system/mpp/case_config/DFN202-113002
+/system/mpp/script/*
+/system/mpp/font/360_959_font.ayuv
+/system/mpp/font/LOGO_Augentix_v2.imgayuv
+/system/mpp/font/360_959_font.ayuv
+
+# ODv5.x Lite
+/system/lib/libml_peoplevehiclepet_lite*
+/usr/lib/libncnn-compact*
+/usr/lib/libstdc++*
+/system/eaif/models/yolo/model.v5.2.2.lite.param.bin
+/system/eaif/models/yolo/model.v5.2.2.lite.bin.bin
+
+# AoV
+/etc/aov

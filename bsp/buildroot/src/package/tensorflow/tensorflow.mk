@@ -1,0 +1,154 @@
+TENSORFLOW_VERSION = 2.6.0
+TENSORFLOW_SOURCE = v$(TENSORFLOW_VERSION).tar.gz
+TENSORFLOW_SITE = https://github.com/tensorflow/tensorflow/archive/refs/tags
+TENSORFLOW_INSTALL_STAGING = YES
+TENSORFLOW_LICENSE = Apache-2.0
+TENSORFLOW_LICENSE_FILES = LICENSE
+TENSORFLOW_CPE_ID_VENDOR = tensorflow
+TFLITE_MICRO_MK_PATH = tensorflow/lite/micro/tools/make
+TFLITE_MK_PATH = tensorflow/lite/tools/make
+
+TFLITE_BUILD_PATH = build_tflite
+TFLITE_OPTIM_BUILD_PATH = build_tflite_optim
+MICROLITE_BUILD_PATH = build_microlite
+
+TENSORFLOW_LITE_MAKE_OPTS=
+TENSORFLOW_LITE_OPTIM_MAKE_OPTS=
+TENSORFLOW_MICROLITE_MAKE_OPTS=
+
+COMMON_FLAGS = \
+-Wall \
+-fPIC \
+-funsafe-math-optimizations \
+-ftree-vectorize \
+-fdata-sections \
+-ffunction-sections
+
+ifeq ($(BR2_GCC_TARGET_CPU), "arm926ej-s")
+COMMON_FLAGS += \
+-mcpu=arm926ej-s \
+-D__ARM_FP=0
+endif
+
+ifeq ($(BR2_GCC_TARGET_CPU), "cortex-a7")
+COMMON_FLAGS += -mcpu=cortex-a7
+TENSORFLOW_LITE_MAKE_OPTS+=\
+     TFLITE_BUILD_WITH_RUY=true
+TENSORFLOW_LITE_OPTIM_MAKE_OPTS+=\
+	 TFLITE_BUILD_WITH_RUY=true
+endif
+
+ifeq ($(BR2_GCC_TARGET_FLOAT_ABI), "soft")
+COMMON_FLAGS += -mfloat-abi=soft
+endif
+
+ifeq ($(BR2_GCC_TARGET_FLOAT_ABI), "hard")
+COMMON_FLAGS += -mfloat-abi=hard
+ifeq ($(BR2_ARM_CPU_HAS_NEON), y)
+COMMON_FLAGS += -mfpu=neon-vfpv4
+endif
+endif
+
+MICROLITE_OPTIMIZED_KERNEL_DIR=
+
+ifeq ($(BR2_PACKAGE_TENSORFLOW_MICROLITE),y)
+TENSORFLOW_MICROLITE_MAKE_OPTS+=\
+    MICROLITE_DISABLE_DOWNLOADS=false \
+    CMSIS_DEFAULT_DOWNLOAD_PATH=$(TENSORFLOW_DIR)/tensorflow/lite/micro/tools/make/downloads/cmsis \
+    CMSIS_PATH=$(TENSORFLOW_DIR)/tensorflow/lite/micro/tools/make/downloads/cmsis
+ifeq ($(BR2_GCC_TARGET_FLOAT_ABI), "hard")
+ifeq ($(BR2_ARM_CPU_HAS_NEON), y)
+MICROLITE_OPTIMIZED_KERNEL_DIR=cmsis_nn
+endif
+endif
+endif
+
+ifeq ($(BR2_PACKAGE_TFLITE_BENCHMARK_TOOL),y)
+TENSORFLOW_LITE_MAKE_OPTS+=\
+    TENSORFLOW_BUILD_BENCHMARK_TOOL=y
+endif
+
+LD_FLAGS = \
+-lstdc++ \
+-lpthread \
+-lm \
+-ldl
+
+TENSORFLOW_LITE_MAKE_OPTS += \
+    TFLITE_OPTIM=n \
+    TENSORFLOW_COMMON_FLAGS="$(COMMON_FLAGS)" \
+    TENSORFLOW_TOOLCHAIN_PREFIX="$(CROSS_COMPILE)" \
+    TENSORFLOW_LD_FLAGS="$(LD_FLAGS)"
+
+TENSORFLOW_LITE_OPTIM_MAKE_OPTS += \
+    TFLITE_OPTIM=y \
+    TENSORFLOW_COMMON_FLAGS="$(COMMON_FLAGS) -DTFLITE_OPTIM" \
+    TENSORFLOW_TOOLCHAIN_PREFIX="$(CROSS_COMPILE)" \
+    TENSORFLOW_LD_FLAGS="$(LD_FLAGS)"
+
+TENSORFLOW_MICROLITE_MAKE_OPTS += \
+    TENSORFLOW_MICROLITE_TARGET=ARM \
+    TENSORFLOW_COMMON_FLAGS="$(COMMON_FLAGS)" \
+    TENSORFLOW_TOOLCHAIN_PREFIX="$(CROSS_COMPILE)" \
+    OPTIMIZED_KERNEL_DIR="$(MICROLITE_OPTIMIZED_KERNEL_DIR)"
+
+# Copy pre-download 3rd party dependencies to target directory.
+ifeq ($(BR2_PACKAGE_TENSORFLOW_LITE),y)
+BUILD_TFLITE_THIRD_PARTY_CMD=\
+$(MAKE) -C $(@D) -f Makefile.third_party tflite-dl-3rd
+#define TENSORFLOW_LITE_PROVIDE_3RD_PARTY_LIBS
+#	tar zxvf $(TENSORFLOW_PKGDIR)lite-3rd-party.tar.gz -C $(TENSORFLOW_DIR)/tensorflow/lite/tools/make
+#endef
+endif
+
+ifeq ($(BR2_PACKAGE_TENSORFLOW_MICROLITE),y)
+#define TENSORFLOW_MICROLITE_PROVIDE_3RD_PARTY_LIBS
+#	tar zxvf $(TENSORFLOW_PKGDIR)microlite-3rd-party.tar.gz -C $(TENSORFLOW_DIR)/tensorflow/lite/micro/tools/make
+#endef
+endif
+
+TENSORFLOW_POST_CONFIGURE_HOOKS += \
+    TENSORFLOW_LITE_PROVIDE_3RD_PARTY_LIBS \
+    TENSORFLOW_MICROLITE_PROVIDE_3RD_PARTY_LIBS
+
+ifeq ($(BR2_PACKAGE_TENSORFLOW_LITE_OPTIM), y)
+BUILD_TFLITE_OPTIM_CMD=\
+$(MAKE) -C $(@D) -f Makefile.lite $(TENSORFLOW_LITE_OPTIM_MAKE_OPTS) PREFIX=$(@D)/$(TFLITE_OPTIM_BUILD_PATH) all V=1
+INSTALL_TFLITE_OPTIM_CMD=\
+$(MAKE) -C $(@D) -f Makefile.lite PREFIX=$(@D)/$(TFLITE_OPTIM_BUILD_PATH) install-header V=1 && \
+$(INSTALL) -m 0755 -D $(@D)/$(TFLITE_OPTIM_BUILD_PATH)/lib/*.so.* $(TARGET_DIR)/usr/lib && \
+cp -P $(@D)/$(TFLITE_OPTIM_BUILD_PATH)/lib/*.so $(TARGET_DIR)/usr/lib
+endif
+
+ifeq ($(BR2_PACKAGE_TENSORFLOW_LITE), y)
+BUILD_TFLITE_CMD=\
+$(MAKE) -C $(@D) -f Makefile.lite $(TENSORFLOW_LITE_MAKE_OPTS) PREFIX=$(@D)/$(TFLITE_BUILD_PATH) all V=1
+INSTALL_TFLITE_CMD=\
+$(MAKE) -C $(@D) -f Makefile.lite PREFIX=$(@D)/$(TFLITE_BUILD_PATH) install-header V=1 && \
+$(INSTALL) -m 0755 -D $(@D)/$(TFLITE_BUILD_PATH)/lib/*.so.* $(TARGET_DIR)/usr/lib && \
+cp -P $(@D)/$(TFLITE_BUILD_PATH)/lib/*.so $(TARGET_DIR)/usr/lib
+endif
+
+ifeq ($(BR2_PACKAGE_TENSORFLOW_MICROLITE), y)
+BUILD_MICROLITE_CMD=\
+$(MAKE) -C $(@D) -f Makefile.micro $(TENSORFLOW_MICROLITE_MAKE_OPTS) PREFIX=$(@D)/$(MICROLITE_BUILD_PATH) all V=1
+INSTALL_MICROLITE_CMD=\
+$(MAKE) -C $(@D) -f Makefile.micro PREFIX=$(@D)/$(MICROLITE_BUILD_PATH) install-header V=1 && \
+$(INSTALL) -m 0755 -D $(@D)/$(MICROLITE_BUILD_PATH)/lib/*.so.* $(TARGET_DIR)/usr/lib && \
+cp -P $(@D)/$(MICROLITE_BUILD_PATH)/lib/*.so $(TARGET_DIR)/usr/lib
+endif
+
+define TENSORFLOW_BUILD_CMDS
+	$(BUILD_TFLITE_THIRD_PARTY_CMD)
+	$(BUILD_TFLITE_CMD)
+	$(BUILD_TFLITE_OPTIM_CMD)
+	$(BUILD_MICROLITE_CMD)
+endef
+
+define TENSORFLOW_INSTALL_TARGET_CMDS
+	$(INSTALL_TFLITE_CMD)
+	$(INSTALL_TFLITE_OPTIM_CMD)
+	$(INSTALL_MICROLITE_CMD)
+endef
+
+$(eval $(generic-package))

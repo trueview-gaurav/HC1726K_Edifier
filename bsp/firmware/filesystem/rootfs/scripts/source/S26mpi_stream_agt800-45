@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# Start/stop mpi_stream for AGT800-45
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /etc/TZ)
+
+modify_od_config(){
+	sed 's/"od_snapshot_type": 2/"od_snapshot_type": 1/' /system/mpp/od_config/od_conf.json >/tmp/od_conf.json
+}
+
+add_osd_config(){
+	touch /tmp/osd_conf.json
+	echo '{
+        "color_mode":"AYUV_3544",
+        "channel":[0],
+        "rect":[[2560, 1440]],
+        "regions":
+        [
+                {
+                        "region_num":2,
+                        "region":[[16, 16, 503, 118],  [1680, 32, 580 , 120]],
+                        "src":
+                        [
+                                {
+                                        "type":"ayuv",
+                                        "src_path":"/system/mpp/font/LOGO_Augentix_v2.imgayuv"
+                                },
+                                {
+                                        "type":"unicode",
+                                        "ttf_path":"/system/mpp/font/SourceHanSansCN-Regular_1.otf",
+                                        "txt":"timestamp",
+                                        "size":32,
+                                        "backcol":"WHITE",
+                                        "forecol":[255, 255, 255],
+                                        "outline_width":2,
+                                        "outcol":[0, 0, 255]
+                                }
+                        ]
+                }
+        ]
+}
+	' > /tmp/osd_conf.json
+}
+
+case "$1" in
+  start)
+    modify_od_config
+    add_osd_config
+    	  
+    echo "Starting mpi_stream..."
+    sh /system/mpp/script/load_mpp.sh -i
+
+    echo 12 > /sys/class/gpio/export
+    echo "out" > /sys/class/gpio/gpio12/direction
+    echo 0 > /sys/class/gpio/gpio12/value
+
+
+
+    /system/bin/mpi_stream -d /system/mpp/case_config/DFN104-1 > /dev/null &
+    sleep 3
+    /system/bin/od_demo -i /tmp/od_conf.json >/dev/null&
+    /system/bin/osd_demo -c /tmp/osd_conf.json >/dev/null &
+
+    ;;
+  stop)
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

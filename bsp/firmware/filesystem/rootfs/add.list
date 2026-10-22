@@ -1,0 +1,17 @@
+/etc/network/if-up.d/000resolvconf
+/etc/network/interfaces
+/etc/ssh/sshd_config
+/etc/asound.conf
+/etc/inittab
+/etc/localtime
+/etc/mdev.conf
+/etc/profile
+/etc/profile.d/coredump.sh
+/etc/syslog.conf
+/etc/directfbrc
+/etc/TZ
+/lib/mdev/automount.sh
+/usr/bin/autologin
+/usr/bin/autologin.sh
+/usr/bin/pin-info.sh
+/usr/bin/repair_db.sh

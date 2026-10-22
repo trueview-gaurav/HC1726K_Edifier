@@ -1,0 +1,92 @@
+From 599e543631d89650b57613f613e08d369ffb8bff Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 27 Dec 2023 14:10:53 +0800
+Subject: [PATCH 37/54] Fix scale issue and change condition
+
+---
+ src/layer/arm/binaryop_arm.cpp | 28 +++++++++++++++++++++-------
+ src/layer/binaryop.cpp         |  2 +-
+ src/layer/binaryop.h           |  2 +-
+ 3 files changed, 23 insertions(+), 9 deletions(-)
+
+diff --git a/src/layer/arm/binaryop_arm.cpp b/src/layer/arm/binaryop_arm.cpp
+index e1ab7829..2f261101 100644
+--- a/src/layer/arm/binaryop_arm.cpp
++++ b/src/layer/arm/binaryop_arm.cpp
+@@ -462,10 +462,9 @@ static int get_reverse_op_type(int op_type)
+ 
+ int BinaryOp_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
+-    int elembits = std::max(bottom_blobs[0].elembits(), bottom_blobs[1].elembits());
+-
++    const int elembits = std::max(bottom_blobs[0].elembits(), bottom_blobs[1].elembits());
+ #if NCNN_INT8
+-    if (opt.use_int8_inference && elembits == 8)
++    if (opt.use_int8_inference && int8_scale_term)
+         return forward_int8(bottom_blobs, top_blobs, opt);
+ #endif
+ 
+@@ -834,12 +833,27 @@ static void binary_op_broadcast_int8(const Mat& a, const Mat& b, const float in_
+ 
+ int BinaryOp_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
+-    const Mat& A = bottom_blobs[0];
+-    const Mat& B = bottom_blobs[1];
++    Mat bottom_blob_int8_0 = bottom_blobs[0];
++    Mat bottom_blob_int8_1 = bottom_blobs[1];
++    if (bottom_blobs[0].elembits() != 8 || bottom_blobs[1].elembits() != 8 )
++    {
++        NCNN_LOGE("BinaryOp_arm elembits -> quantize_to_int8");
++        Option opt_q = opt;
++        opt_q.blob_allocator = opt.workspace_allocator;
++        if (bottom_blobs[0].elembits() != 8){
++            quantize_to_int8(bottom_blobs[0], bottom_blob_int8_0, bottom_blob_int8_scales[0], opt_q);
++        }
++        if (bottom_blobs[1].elembits() != 8){
++            quantize_to_int8(bottom_blobs[1], bottom_blob_int8_1, bottom_blob_int8_scales[1], opt_q);
++        }
++    }
++
++    const Mat& A = bottom_blob_int8_0;
++    const Mat& B = bottom_blob_int8_1;
+     const int outdims = std::max(A.dims, B.dims);
+ 
+-    const float in_scale_1 = bottom_blob_int8_scales[0];
+-    const float in_scale_2 = bottom_blob_int8_scales[1];
++    const float in_scale_1 = 1.f / bottom_blob_int8_scales[0];
++    const float in_scale_2 = 1.f / bottom_blob_int8_scales[1];
+     const float out_scale = top_blob_int8_scales[0];
+ 
+     Mat A2 = A;
+diff --git a/src/layer/binaryop.cpp b/src/layer/binaryop.cpp
+index 1619f702..a4ae9f3c 100644
+--- a/src/layer/binaryop.cpp
++++ b/src/layer/binaryop.cpp
+@@ -27,8 +27,8 @@ int BinaryOp::load_param(const ParamDict& pd)
+     op_type = pd.get(0, 0);
+     with_scalar = pd.get(1, 0);
+     b = pd.get(2, 0.f);
+-#if NCNN_INT8
+     int8_scale_term = pd.get(8, 0);
++#if NCNN_INT8
+     if (int8_scale_term==0)
+     {
+         NCNN_LOGE("int8_scale_term not found in param file");
+diff --git a/src/layer/binaryop.h b/src/layer/binaryop.h
+index b96dd0c2..cd825619 100644
+--- a/src/layer/binaryop.h
++++ b/src/layer/binaryop.h
+@@ -54,9 +54,9 @@ public:
+     // param
+     int op_type;
+     int with_scalar;
++    int int8_scale_term;
+     float b;
+ #if NCNN_INT8
+-    int int8_scale_term;
+     Mat bottom_blob_int8_scales;
+     Mat top_blob_int8_scales;
+ #endif
+-- 
+2.47.1
+

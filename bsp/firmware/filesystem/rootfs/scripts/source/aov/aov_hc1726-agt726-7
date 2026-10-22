@@ -1,0 +1,22 @@
+#!/bin/sh
+
+do_suspend() {
+	echo "suspend process start"
+}
+
+do_resume() {
+	echo "resume process start"
+}
+
+case "$1" in
+	suspend)
+		do_suspend
+	;;
+	resume)
+		do_resume
+	;;
+	*)
+		echo "Usage: $0 {suspend|resume}"
+		exit 1
+esac
+exit 0

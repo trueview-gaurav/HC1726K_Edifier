@@ -1,0 +1,42 @@
+# Wait for the signal file with a maximum of 20 retries
+MAX_RETRIES=20
+RETRY_COUNT=0
+SIGNAL_FILE="/var/run/mpi_stream.pid"
+SLEEP_TIME=0.1
+
+do_start() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1004_FHD \
+	-ppool_idx=0 -pblock_size=32784 -pblock_cnt=3 -ppool_name=isp_TMV_0 \
+	-pdev_idx=0 -pbayer=PHASE_G0 -pinput_fps=15.0 -pinput_res=2560x1440 \
+	-pchn_idx=0 -poutput_res=2560x1440 -poutput_fps=15 -pwindow_fps=15 \
+	-pchn_idx=1 -poutput_res=640x480 -poutput_fps=15 -pwindow_fps=15 \
+	-penc_idx=0 -penc_res=2560x1440 -pmax_enc_res=2560x1440 \
+	-penc_fps=15 -pmax_bit_rate=2560 \
+	-penc_idx=1 -penc_res=640x480 -pmax_enc_res=640x480 \
+	-penc_fps=15 -pmax_bit_rate=384 \
+	> /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+
+	while [ ! -f "$SIGNAL_FILE" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+		sleep $SLEEP_TIME
+		RETRY_COUNT=$((RETRY_COUNT + 1))
+	done
+
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac

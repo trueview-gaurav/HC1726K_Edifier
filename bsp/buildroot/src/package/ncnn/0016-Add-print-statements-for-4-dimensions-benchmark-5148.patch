@@ -1,0 +1,124 @@
+From 465debe9bbfedcd68c57b84d75f75014f31db904 Mon Sep 17 00:00:00 2001
+From: Justin Fung <83911295+Deepdive543443@users.noreply.github.com>
+Date: Wed, 15 Nov 2023 03:43:59 +0000
+Subject: [PATCH 16/54] Add print statements for 4 dimensions benchmark (#5148)
+
+---
+ benchmark/benchncnn.cpp |  3 +++
+ src/benchmark.cpp       | 52 +++++++++++++++++++++++++++++++++++++++++
+ src/net.cpp             |  1 +
+ 3 files changed, 56 insertions(+)
+
+diff --git a/benchmark/benchncnn.cpp b/benchmark/benchncnn.cpp
+index df2e8d37..6a876903 100644
+--- a/benchmark/benchncnn.cpp
++++ b/benchmark/benchncnn.cpp
+@@ -232,6 +232,9 @@ static std::vector<ncnn::Mat> parse_shape_list(char* s)
+         const std::vector<int>& shape = shapes[i];
+         switch (shape.size())
+         {
++        case 4:
++            mats.push_back(ncnn::Mat(shape[0], shape[1], shape[2], shape[3]));
++            break;
+         case 3:
+             mats.push_back(ncnn::Mat(shape[0], shape[1], shape[2]));
+             break;
+diff --git a/src/benchmark.cpp b/src/benchmark.cpp
+index 2b289ab5..40fa4615 100644
+--- a/src/benchmark.cpp
++++ b/src/benchmark.cpp
+@@ -34,6 +34,10 @@
+ #include "layer/convolutiondepthwise.h"
+ #include "layer/deconvolution.h"
+ #include "layer/deconvolutiondepthwise.h"
++#include "layer/convolution3d.h"
++#include "layer/convolutiondepthwise3d.h"
++#include "layer/deconvolution3d.h"
++#include "layer/deconvolutiondepthwise3d.h"
+ 
+ #include <stdio.h>
+ #endif // NCNN_BENCHMARK
+@@ -111,6 +115,10 @@ void benchmark(const Layer* layer, const Mat& bottom_blob, Mat& top_blob, double
+     {
+         sprintf(in_shape_str, "[%3d, %3d, %3d *%d]", bottom_blob.w, bottom_blob.h, bottom_blob.c, bottom_blob.elempack);
+     }
++    if (bottom_blob.dims == 4)
++    {
++        sprintf(in_shape_str, "[%3d, %3d, %3d, %3d *%d]", bottom_blob.w, bottom_blob.h, bottom_blob.d, bottom_blob.c, bottom_blob.elempack);
++    }
+ 
+     if (top_blob.dims == 1)
+     {
+@@ -124,6 +132,10 @@ void benchmark(const Layer* layer, const Mat& bottom_blob, Mat& top_blob, double
+     {
+         sprintf(out_shape_str, "[%3d, %3d, %3d *%d]", top_blob.w, top_blob.h, top_blob.c, top_blob.elempack);
+     }
++    if (top_blob.dims == 4)
++    {
++        sprintf(out_shape_str, "[%3d, %3d, %3d, %3d *%d]", top_blob.w, top_blob.h, top_blob.d, top_blob.c, top_blob.elempack);
++    }
+ 
+     fprintf(stderr, "    | %22s -> %-22s", in_shape_str, out_shape_str);
+ 
+@@ -159,6 +171,46 @@ void benchmark(const Layer* layer, const Mat& bottom_blob, Mat& top_blob, double
+                 ((DeconvolutionDepthWise*)layer)->stride_w,
+                 ((DeconvolutionDepthWise*)layer)->stride_h);
+     }
++    else if (layer->type == "Convolution3D")
++    {
++        fprintf(stderr, "     kernel: %1d x %1d x %1d    stride: %1d x %1d x %1d",
++                ((Convolution3D*)layer)->kernel_w,
++                ((Convolution3D*)layer)->kernel_h,
++                ((Convolution3D*)layer)->kernel_d,
++                ((Convolution3D*)layer)->stride_w,
++                ((Convolution3D*)layer)->stride_h,
++                ((Convolution3D*)layer)->stride_d);
++    }
++    else if (layer->type == "ConvolutionDepthWise3D")
++    {
++        fprintf(stderr, "     kernel: %1d x %1d x %1d    stride: %1d x %1d x %1d",
++                ((ConvolutionDepthWise3D*)layer)->kernel_w,
++                ((ConvolutionDepthWise3D*)layer)->kernel_h,
++                ((ConvolutionDepthWise3D*)layer)->kernel_d,
++                ((ConvolutionDepthWise3D*)layer)->stride_w,
++                ((ConvolutionDepthWise3D*)layer)->stride_h,
++                ((ConvolutionDepthWise3D*)layer)->stride_d);
++    }
++    else if (layer->type == "Deconvolution3D")
++    {
++        fprintf(stderr, "     kernel: %1d x %1d x %1d    stride: %1d x %1d x %1d",
++                ((Deconvolution3D*)layer)->kernel_w,
++                ((Deconvolution3D*)layer)->kernel_h,
++                ((Deconvolution3D*)layer)->kernel_d,
++                ((Deconvolution3D*)layer)->stride_w,
++                ((Deconvolution3D*)layer)->stride_h,
++                ((Deconvolution3D*)layer)->stride_d);
++    }
++    else if (layer->type == "DeconvolutionDepthWise3D")
++    {
++        fprintf(stderr, "     kernel: %1d x %1d x %1d    stride: %1d x %1d x %1d",
++                ((DeconvolutionDepthWise3D*)layer)->kernel_w,
++                ((DeconvolutionDepthWise3D*)layer)->kernel_h,
++                ((DeconvolutionDepthWise3D*)layer)->kernel_d,
++                ((DeconvolutionDepthWise3D*)layer)->stride_w,
++                ((DeconvolutionDepthWise3D*)layer)->stride_h,
++                ((DeconvolutionDepthWise3D*)layer)->stride_d);
++    }
+     fprintf(stderr, "\n");
+ }
+ 
+diff --git a/src/net.cpp b/src/net.cpp
+index 8ffcfcf7..a7198d0a 100644
+--- a/src/net.cpp
++++ b/src/net.cpp
+@@ -194,6 +194,7 @@ int NetPrivate::forward_layer(int layer_index, std::vector<Mat>& blob_mats, cons
+         bottom_blob.dims = blob_mats[bottom_blob_index].dims;
+         bottom_blob.w = blob_mats[bottom_blob_index].w;
+         bottom_blob.h = blob_mats[bottom_blob_index].h;
++        bottom_blob.d = blob_mats[bottom_blob_index].d;
+         bottom_blob.c = blob_mats[bottom_blob_index].c;
+         bottom_blob.elempack = blob_mats[bottom_blob_index].elempack;
+         bottom_blob.elemsize = blob_mats[bottom_blob_index].elemsize;
+-- 
+2.47.1
+

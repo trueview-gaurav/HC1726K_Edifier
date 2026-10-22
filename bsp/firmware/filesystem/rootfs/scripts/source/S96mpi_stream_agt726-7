@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# Start/stop mpi_stream for AGT726-7
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /etc/TZ)
+
+
+# Wait for the signal file with a maximum of 50 retries
+MAX_RETRIES=50
+RETRY_COUNT=0
+SIGNAL_FILE="/var/run/mpi_stream.pid"
+SLEEP_TIME=0.1
+
+do_video() {
+
+	sh /system/mpp/script/load_mpp.sh -i
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_AGT726-7 > /dev/null &
+
+	while [ ! -f "$SIGNAL_FILE" ] && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+		sleep $SLEEP_TIME
+ 		RETRY_COUNT=$((RETRY_COUNT + 1))
+	done
+
+	echo 7 > /proc/sys/kernel/printk
+
+	od_demo -i /system/mpp/od_config/od_conf.json &
+
+	sleep 2
+	cmdsender --od 0 0 0 59 63 25 254 0 50 50 640 360 1
+
+}
+
+do_mmc() {
+	# Load dw_mmc-host.ko if file does exist
+	if [ -f /lib/modules/`uname -r`/kernel/drivers/mmc/host/dw_mmc-host.ko ]
+	then
+		modprobe dw_mmc-host
+	fi
+
+	# Load mmc_block.ko if file does exist
+	if [ -f /lib/modules/`uname -r`/kernel/drivers/mmc/card/mmc_block.ko ]
+	then
+		modprobe mmc_block
+	fi
+}
+
+
+case "$1" in
+  start)
+    do_video
+    do_mmc
+    ;;
+  stop)
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+esac

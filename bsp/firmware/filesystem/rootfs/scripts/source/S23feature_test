@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# S23feature_test - Execute test script in /usrdata/test_script/
+# Copyright (C) 2022 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc.
+#
+# * Author: Kalos Yeh  <Kalos.Yeh@augentix.com>
+#
+
+case "$1" in
+    start)
+
+        # Start all init scripts in /usrdata/test_script
+        for i in /usrdata/test_script/S??* ;do
+
+        # Ignore dangling symlinks (if any).
+        [ ! -f "$i" ] && continue
+
+        case "$i" in
+        *.sh)
+            # Source shell script for speed.
+            (
+                echo "Execute test script $i !"
+                trap - INT QUIT TSTP
+                set start
+                . $i
+            )
+            ;;
+        *)
+            # No sh extension, so fork subprocess.
+            echo "Execute test script $i !"
+            $i start
+            ;;
+            esac
+        done
+        ;;
+    stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?

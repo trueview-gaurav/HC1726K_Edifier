@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Start/stop ccserver
+#
+
+PIDFILE=/var/run/ccserver.pid
+
+case "$1" in
+	start)
+		printf "Start ccserver: "
+		start-stop-daemon -S -m -b -x /system/bin/ccserver -p $PIDFILE
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		counter=0
+		while [ $counter -le 3000 ]
+		do
+			if [ -e "/tmp/ccserver_ready" ];
+			then
+				echo "ccserver ready to serve"
+				break
+			fi
+			counter=$(( $counter + 1 ))
+			usleep 10000
+		done
+		;;
+	stop)
+		printf "Stopp ccserver: "
+		start-stop-daemon -K -o -p $PIDFILE
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

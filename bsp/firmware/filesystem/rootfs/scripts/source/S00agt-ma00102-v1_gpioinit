@@ -1,0 +1,63 @@
+#!/bin/sh -f
+
+# GPIO  0: Mulity Reset input
+/system/bin/csr ioc.ioc.jtag_tck_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_0 0
+
+# GPIO  1: USB output select pin, default is 0= WIFI, 1=USB connector
+/system/bin/csr ioc.ioc.jtag_tms_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_1 1
+/system/bin/csr ioc.ioc.gpio_o_1 0
+
+# GPIO  2: SD Card power on/off   0=off, 1=on
+/system/bin/csr ioc.ioc.jtag_tdi_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_2 1
+/system/bin/csr ioc.ioc.gpio_o_2 0
+
+# GPIO  3: IR LED power on/off 0=off, 1=on
+/system/bin/csr ioc.ioc.jtag_tdo_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_3 1
+/system/bin/csr ioc.ioc.gpio_o_3 0
+
+# GPIO  5: Pull Low to GND
+/system/bin/csr ioc.ioc.jtag_en_iosel 0
+
+# GPIO  10: IR CUT  moter control input 2
+/system/bin/csr ioc.ioc.uart1_rts_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_10 1
+/system/bin/csr ioc.ioc.gpio_o_10 1
+
+# GPIO  11: Sensor Reset pin
+/system/bin/csr ioc.ioc.spi0_ck_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_11 1
+/system/bin/csr ioc.ioc.gpio_o_11 0
+
+# GPIO  12: control IR Board Red Led
+/system/bin/csr ioc.ioc.spi0_sdo_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_12 1
+/system/bin/csr ioc.ioc.gpio_o_12 0
+
+# GPIO  13: IR CUT  moter control input 1
+/system/bin/csr ioc.ioc.spi0_sdi_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_13 1
+/system/bin/csr ioc.ioc.gpio_o_13 1
+
+# GPIO  27: control usb id
+/system/bin/csr ioc.ioc.emac_mdio_iosel 0
+/system/bin/csr ioc.ioc.emac_mdio_pu 1
+/system/bin/csr ioc.ioc.gpio_oe_27 0
+
+# GPIO  57: Wifi power control
+/system/bin/csr ioc.ioc.i2s_tx_ws_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_57 1
+/system/bin/csr ioc.ioc.gpio_o_57 1
+
+# GPIO  60: control IR Board Green Led
+/system/bin/csr ioc.ioc.pwm6_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_60 1
+/system/bin/csr ioc.ioc.gpio_o_60 1
+
+# GPIO  67: Sensor power down
+/system/bin/csr ioc.ioc.pwm5_iosel 0
+/system/bin/csr ioc.ioc.gpio_oe_67 1
+/system/bin/csr ioc.ioc.gpio_o_67 1

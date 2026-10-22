@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# S23AGT300-30
+#
+
+case "$1" in
+	start)
+		#LED_B
+		echo 1 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio1/direction
+		echo 0 > /sys/class/gpio/gpio1/value
+
+		#LED_R
+		echo 0 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio0/direction
+		echo 1 > /sys/class/gpio/gpio1/value
+
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?
+

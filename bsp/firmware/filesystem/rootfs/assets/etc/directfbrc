@@ -1,0 +1,2 @@
+system=fbdev
+fbdev=/dev/fb0

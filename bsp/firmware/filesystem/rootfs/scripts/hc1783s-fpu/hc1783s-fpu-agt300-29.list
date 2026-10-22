@@ -1,0 +1,11 @@
+[core]
+rcK
+rcS
+S00aon_watchd
+S00overlay
+S01fastboot_acc1340.sh
+S01sysup_agt300-29
+S10mdev
+[factory]
+[develop]
+[user]

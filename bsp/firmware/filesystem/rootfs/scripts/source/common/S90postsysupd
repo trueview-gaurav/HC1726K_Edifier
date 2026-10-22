@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# S90postsysupd - System update post handler
+# Copyright (C) 2019 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc.
+#
+# * Brief: Finishes system update by removing update flag
+# *        This script is to be executed after ccserver is up
+# * Author: ShihChieh Lin <shihchieh.lin@augentix.com>
+#
+
+update_flag="/usrdata/update_file"
+
+do_start_reset() {
+	if [ -e "$update_flag" ]; then
+		echo "New SW version: "
+		cat $update_flag
+		rm -f "$update_flag"
+	fi
+}
+
+case "$1" in
+	start)
+		do_start_reset
+	;;
+	stop)
+
+	;;
+	restart|reload)
+		"$0" do_start_reset
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+	;;
+esac
+
+exit 0
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,59 @@
+#!/bin/sh -f
+
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  nrs - Nrs module installation
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: Load Augentix Enhanced Emulator PHysical Unit module.
+#           Failed to install Nrs module would result in unexpected
+#           consequences for certain hardware modules.
+#
+
+FIND=/usr/bin/find
+INSMOD=/sbin/insmod
+RMMOD=/sbin/rmmod
+
+MOD_PATH=/system/lib/modules
+
+do_start_nrs() {
+	NRS_XCM=$($FIND $MOD_PATH -type f -name "nrs-xcm.ko")
+	[ -f $NRS_XCM ] || exit 1
+	$INSMOD $NRS_XCM
+
+	NRS=$($FIND $MOD_PATH -type f -name "nrs.ko")
+	[ -f $NRS ] || exit 1
+	$INSMOD $NRS
+}
+
+do_stop_nrs() {
+	[ -f $NRS ] || exit 1
+	$RMMOD nrs.ko
+	[ -f $NRS_XCM ] || exit 1
+	$RMMOD nrs-xcm.ko
+}
+
+case "$1" in
+	start)
+		do_start_nrs
+	;;
+	stop)
+		do_stop_nrs
+	;;
+	restart|reload)
+		"$0" do_stop_nrs
+		"$0" do_start_nrs
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+	;;
+esac
+
+exit 0
+

@@ -1,0 +1,41 @@
+From e7005ac9473956b2d8f4aeff730236f3ed575af4 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 13 Dec 2023 15:22:26 +0800
+Subject: [PATCH 32/54] Remove logs
+
+---
+ src/layer/arm/concat_arm.cpp | 2 +-
+ src/layer/arm/crop_arm.cpp   | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/layer/arm/concat_arm.cpp b/src/layer/arm/concat_arm.cpp
+index 3034a773..e8388874 100644
+--- a/src/layer/arm/concat_arm.cpp
++++ b/src/layer/arm/concat_arm.cpp
+@@ -968,7 +968,7 @@ int Concat_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<M
+ {
+     int dims = bottom_blobs[0].dims;
+     int positive_axis = axis < 0 ? dims + axis : axis;
+-    NCNN_LOGE("dims: %d positive_axis: %d elempack: %d", dims, positive_axis, bottom_blobs[0].elempack);
++//    NCNN_LOGE("dims: %d positive_axis: %d elempack: %d", dims, positive_axis, bottom_blobs[0].elempack);
+     if (dims == 1) // positive_axis == 0
+     {
+         NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
+diff --git a/src/layer/arm/crop_arm.cpp b/src/layer/arm/crop_arm.cpp
+index f4762c11..16a5e799 100644
+--- a/src/layer/arm/crop_arm.cpp
++++ b/src/layer/arm/crop_arm.cpp
+@@ -171,8 +171,8 @@ int Crop_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
+         int _woffset, _hoffset, _doffset, _coffset;
+         int _outw, _outh, _outd, _outc;
+         resolve_crop_roi(bottom_blob.shape(), _woffset, _hoffset, _doffset, _coffset, _outw, _outh, _outd, _outc);
+-        NCNN_LOGE("_woffset %d _hoffset %d _doffset %d _coffset %d _outw %d _outh %d _outd %d _outc %d ", _woffset, _hoffset, _doffset, _coffset, _outw, _outh, _outd, _outc);
+-        NCNN_LOGE("w %d h %d d %d channels %d dims %d elemsize %d", w,h,d,channels,dims,elemsize);
++//        NCNN_LOGE("_woffset %d _hoffset %d _doffset %d _coffset %d _outw %d _outh %d _outd %d _outc %d ", _woffset, _hoffset, _doffset, _coffset, _outw, _outh, _outd, _outc);
++//        NCNN_LOGE("w %d h %d d %d channels %d dims %d elemsize %d", w,h,d,channels,dims,elemsize);
+         if (dims == 1)
+         {
+             int out_elempack = _outw % 8 == 0 ? 8 : _outw % 4 == 0 ? 4 : 1;
+-- 
+2.47.1
+

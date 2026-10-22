@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Start/stop nginx
+#
+
+NGINX_PIDFILE=/var/run/nginx.pid
+SSL_DIR="/etc/nginx/ssl"
+ENCRYPTED_PRIVATE_KEY="$SSL_DIR/encrypted_priv_key.pem"
+ENCRYPTED_PUBLIC_KEY="$SSL_DIR/encrypted_pub_key.pem"
+ENCRYPTED_CERT="$SSL_DIR/encrypted.crt"
+TMP_PRIVATE_KEY="/tmp/key.pem"
+TMP_CERT="/tmp/cert.pem"
+SE="/system/bin/secure_element_demo"
+
+SE_AUTHENTICATION="/system/bin/se_auth"
+AUTH_PIDFILE=/var/run/se_auth.pid
+
+
+case "$1" in
+  start)
+	echo "Starting nginx..."
+	$SE -D 1 -V -e $ENCRYPTED_PRIVATE_KEY -s $TMP_PRIVATE_KEY > /dev/null
+	$SE -D 1 -V -e $ENCRYPTED_CERT -s $TMP_CERT > /dev/null
+	mkdir -p /var/log/nginx /var/tmp/nginx
+	start-stop-daemon -S -x /usr/sbin/nginx -p $NGINX_PIDFILE
+	start-stop-daemon -S -b -m -x $SE_AUTHENTICATION -p $AUTH_PIDFILE -- -l
+	rm $TMP_PRIVATE_KEY
+	rm $TMP_CERT
+	;;
+  stop)
+	printf "Stopping nginx..."
+	start-stop-daemon -K -o -p $NGINX_PIDFILE
+	start-stop-daemon -K -o -p $AUTH_PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

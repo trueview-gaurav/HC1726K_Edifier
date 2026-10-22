@@ -1,0 +1,31 @@
+do_start() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+	busybox modprobe audio_pcm.ko
+	export ALSA_CONFIG_PATH=/root/usr/share/alsa/alsa.conf
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1004_FHD \
+    -ppool_idx=0 -pblock_cnt=3 -pblock_size=131088 -ppool_name=isp_TMV_0 \
+    -pchn_idx=0 -poutput_res=1920x1080 -poutput_fps=30 -pwindow_fps=30 \
+    -pchn_idx=1 -poutput_res=640x360 -poutput_fps=30 -pwindow_fps=30 \
+    -penc_idx=0 -penc_res=1920x1080 -pmax_enc_res=1920x1080 \
+    -pgop_size=30 -penc_fps=30 -pmax_bit_rate=1536 -pvenc_type=H264 -prc_mode=VBR \
+    -p record_enable=1 -p output_file=/root/tmp/%S.video -pframe_num=-150 -pmax_dumped_files=3 -psync_with_audio=1 \
+    -penc_idx=1 -penc_res=640x360 -pmax_enc_res=640x360 \
+    -pgop_size=30 -penc_fps=30 -pmax_bit_rate=384 -pvenc_type=H264 -prc_mode=VBR \
+    -paudio_record_enable=1  -paudio_sample_rate=8000 -paudio_frame_size=1024 -pformat=1 \
+    -paudio_max_dumped_files=3 -paudio_output_file="/root/tmp/%S.audio" > /dev/null  &
+
+	busybox modprobe audio_machine.ko
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac

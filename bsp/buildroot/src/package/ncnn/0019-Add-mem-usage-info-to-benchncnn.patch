@@ -1,0 +1,138 @@
+From b48bebfcbfdf5f08915b972b55c0ff18ceb1d6b5 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 20 Nov 2023 13:52:11 +0800
+Subject: [PATCH 19/54] Add mem-usage info to benchncnn
+
+---
+ benchmark/benchncnn.cpp | 15 ++++++++++++--
+ examples/CMakeLists.txt | 46 +++++++++++++++++++++--------------------
+ 2 files changed, 37 insertions(+), 24 deletions(-)
+ mode change 100644 => 100755 benchmark/benchncnn.cpp
+
+diff --git a/benchmark/benchncnn.cpp b/benchmark/benchncnn.cpp
+old mode 100644
+new mode 100755
+index df2e8d37..3ce220f9
+--- a/benchmark/benchncnn.cpp
++++ b/benchmark/benchncnn.cpp
+@@ -15,6 +15,7 @@
+ #include <float.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <sys/resource.h>
+ 
+ #ifdef __EMSCRIPTEN__
+ #include <emscripten.h>
+@@ -87,6 +88,9 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+ #define MODEL_DIR ""
+ #endif
+ 
++	struct rusage usage_start, usage_end;
++	getrusage(RUSAGE_SELF, &usage_start);
++
+     if (fixed_path)
+     {
+         char parampath[256];
+@@ -116,6 +120,8 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+         return;
+     }
+ 
++	
++
+     // initialize input
+     for (size_t j = 0; j < input_names.size(); ++j)
+     {
+@@ -144,6 +150,8 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+     double time_max = -DBL_MAX;
+     double time_avg = 0;
+ 
++	
++
+     for (int i = 0; i < g_loop_count; i++)
+     {
+         double start = ncnn::get_current_time();
+@@ -170,10 +178,13 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+         time_max = std::max(time_max, time);
+         time_avg += time;
+     }
++	getrusage(RUSAGE_SELF, &usage_end);
+ 
+     time_avg /= g_loop_count;
+ 
+-    fprintf(stderr, "%20s  min = %7.2f  max = %7.2f  avg = %7.2f\n", comment, time_min, time_max, time_avg);
++	long mem_usage = usage_end.ru_maxrss - usage_start.ru_maxrss;
++
++    fprintf(stderr, "%20s  min = %7.2f  max = %7.2f  avg = %7.2f  mem = %ld KB\n", comment, time_min, time_max, time_avg, mem_usage);
+ }
+ 
+ void benchmark(const char* comment, const ncnn::Mat& _in, const ncnn::Option& opt, bool fixed_path = true)
+@@ -385,7 +396,7 @@ int main(int argc, char** argv)
+     fprintf(stderr, "powersave = %d\n", ncnn::get_cpu_powersave());
+     fprintf(stderr, "gpu_device = %d\n", gpu_device);
+     fprintf(stderr, "cooling_down = %d\n", (int)g_enable_cooling_down);
+-
++	
+     if (model != 0)
+     {
+         // run user defined benchmark
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index a7739be2..4feffbaf 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -42,29 +42,31 @@ if(NCNN_PIXEL)
+         include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
+         include_directories(${CMAKE_CURRENT_BINARY_DIR}/../src)
+ 
+-        ncnn_add_example(squeezenet)
+-        ncnn_add_example(squeezenet_c_api)
+-        ncnn_add_example(fasterrcnn)
+-        ncnn_add_example(rfcn)
+-        ncnn_add_example(yolov2)
+-        ncnn_add_example(yolov3)
+-        ncnn_add_example(yolov5)
+-        ncnn_add_example(yolov5_pnnx)
+-        ncnn_add_example(yolov7_pnnx)
+-        ncnn_add_example(yolov7)
+-        ncnn_add_example(yolox)
+-        ncnn_add_example(mobilenetv2ssdlite)
+-        ncnn_add_example(mobilenetssd)
+-        ncnn_add_example(squeezenetssd)
++        # ncnn_add_example(squeezenet)
++        # ncnn_add_example(squeezenet_c_api)
++        # ncnn_add_example(fasterrcnn)
++        # ncnn_add_example(rfcn)
++        # ncnn_add_example(yolov2)
++        # ncnn_add_example(yolov3)
++        # ncnn_add_example(yolov5)
++        # ncnn_add_example(yolov5_pnnx)
++        # ncnn_add_example(yolov7_pnnx)
++        # ncnn_add_example(yolov7)
++        # ncnn_add_example(yolox)
++        # ncnn_add_example(mobilenetv2ssdlite)
++        # ncnn_add_example(mobilenetssd)
++        # ncnn_add_example(squeezenetssd)
+         ncnn_add_example(shufflenetv2)
+-        ncnn_add_example(peleenetssd_seg)
+-        ncnn_add_example(simplepose)
+-        ncnn_add_example(retinaface)
+-        ncnn_add_example(yolact)
+-        ncnn_add_example(nanodet)
+-        ncnn_add_example(nanodetplus_pnnx)
+-        ncnn_add_example(scrfd)
+-        ncnn_add_example(scrfd_crowdhuman)
++        ncnn_add_example(shufflenetv2_test)
++        # ncnn_add_example(peleenetssd_seg)
++        # ncnn_add_example(simplepose)
++        # ncnn_add_example(retinaface)
++        # ncnn_add_example(yolact)
++        # ncnn_add_example(nanodet)
++        # ncnn_add_example(nanodetplus_pnnx)
++        # ncnn_add_example(scrfd)
++        # ncnn_add_example(scrfd_crowdhuman)
++        ncnn_add_example(custom)
+         if(OpenCV_FOUND)
+             ncnn_add_example(yolov4)
+             ncnn_add_example(rvm)
+-- 
+2.47.1
+

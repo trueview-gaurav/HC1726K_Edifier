@@ -1,0 +1,35 @@
+{
+	"cmd_id": "AGTX_CMD_COLOR_CONF",
+	"json_content": {
+	  "color_mode": "DAY",
+	  "params":[
+			{
+			  "detect_name":"ir",
+			  "bg_ratio_max":256,
+			  "bg_ratio_min":0,
+			  "day2ir_th":3050,
+			  "ir2day_th":100,
+			  "rg_ratio_max":640,
+			  "rg_ratio_min":0
+			},
+			{
+			  "detect_name":"ir",
+			  "bg_ratio_max":256,
+			  "bg_ratio_min":0,
+			  "day2ir_th":3050,
+			  "ir2day_th":100,
+			  "rg_ratio_max":640,
+			  "rg_ratio_min":0
+			},
+			{
+			  "detect_name":"ir",
+			  "bg_ratio_max":256,
+			  "bg_ratio_min":0,
+			  "day2ir_th":3050,
+			  "ir2day_th":100,
+			  "rg_ratio_max":640,
+			  "rg_ratio_min":0
+			}
+	  ]
+	}
+  }

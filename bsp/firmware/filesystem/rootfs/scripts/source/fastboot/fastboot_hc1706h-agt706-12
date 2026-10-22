@@ -1,0 +1,21 @@
+do_start() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_IMX327_For106804 > /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac

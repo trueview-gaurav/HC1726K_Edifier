@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+# Load DISP driver with fbdev support.
+# core
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+# The DISP driver depends on MPP (See: #44045)
+mpp_load() {
+#	/system/mpp/script/load_mpp.sh -i
+	insmod /system/lib/sr.ko
+        insmod /system/lib/vb.ko
+}
+
+disp_init() {
+	echo "Initializing DISP driver with fbdev support..."
+        modprobe disp.ko param_fbdev_support=1
+
+        /system/bin/lfb /system/bin/Augentix32C_TD.bmp 1 &
+        echo "##### show logo  #######"
+	modprobe dwc2
+
+}
+
+
+case "$1" in
+	start)
+		disp_init
+	;;
+	stop|restart|reload)
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

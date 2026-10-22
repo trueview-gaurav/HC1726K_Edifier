@@ -1,0 +1,27 @@
+From 5dba2503fc54f14e0b362086d81a63625776e41e Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Thu, 22 Feb 2024 10:50:43 +0800
+Subject: [PATCH 44/54] Modify cmake for making different lib name
+
+---
+ src/CMakeLists.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 3e6b3914..3101fa21 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -202,6 +202,10 @@ else()
+     set_target_properties(ncnn PROPERTIES VERSION ${NCNN_VERSION_STRING} SOVERSION ${NCNN_VERSION_MAJOR})
+ endif()
+ 
++if(NCNN_OPTIMAL)
++    set_target_properties(ncnn PROPERTIES OUTPUT_NAME "ncnn-optim")
++endif()
++
+ include(GenerateExportHeader)
+ generate_export_header(ncnn)
+ 
+-- 
+2.47.1
+

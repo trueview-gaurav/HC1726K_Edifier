@@ -1,0 +1,25 @@
+From bfd720e76e5b78d431203cfd05537c14f116d145 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Tue, 19 Dec 2023 10:28:41 +0800
+Subject: [PATCH 33/54] Remove log
+
+---
+ src/layer/arm/concat_arm.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/layer/arm/concat_arm.cpp b/src/layer/arm/concat_arm.cpp
+index e8388874..9be74a7b 100644
+--- a/src/layer/arm/concat_arm.cpp
++++ b/src/layer/arm/concat_arm.cpp
+@@ -53,7 +53,7 @@ int Concat_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>&
+ 
+     int dims = bottom_blobs[0].dims;
+     int positive_axis = axis < 0 ? dims + axis : axis;
+-    NCNN_LOGE("dims: %d positive_axis: %d", dims, positive_axis);
++//    NCNN_LOGE("dims: %d positive_axis: %d", dims, positive_axis);
+     if (dims == 1) // positive_axis == 0
+     {
+         // concat vector
+-- 
+2.47.1
+

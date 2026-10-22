@@ -1,0 +1,2328 @@
+From a6de323dd411ccd39c4fcb83a9acb97380f7e820 Mon Sep 17 00:00:00 2001
+From: "Takchoi.Yu im147" <takchoi.yu@augentix.com>
+Date: Wed, 1 Dec 2021 16:50:28 +0800
+Subject: [PATCH 5/8] Allow full build for tflite library
+
+---
+ Makefile.lite                              |  25 +-
+ Makefile.tmp                               |  97 ++++
+ tensorflow/lite/kernels/activations.cc     | 114 ++---
+ tensorflow/lite/kernels/conv.cc            |  42 +-
+ tensorflow/lite/kernels/depthwise_conv.cc  |  44 +-
+ tensorflow/lite/kernels/elementwise.cc     |  13 +-
+ tensorflow/lite/kernels/fully_connected.cc |  37 +-
+ tensorflow/lite/kernels/mul.cc             |  19 +-
+ tensorflow/lite/kernels/pooling.cc         |  51 ++-
+ tensorflow/lite/kernels/reduce.cc          |  22 +-
+ tensorflow/lite/kernels/register.cc        | 498 +++++++++++----------
+ tensorflow/lite/kernels/resize_bilinear.cc |   5 +-
+ tensorflow/lite/kernels/sub.cc             |  30 +-
+ tensorflow/lite/kernels/transpose_conv.cc  |  66 +--
+ 14 files changed, 616 insertions(+), 447 deletions(-)
+ create mode 100644 Makefile.tmp
+
+diff --git a/Makefile.lite b/Makefile.lite
+index cf85a155..b982ed72 100644
+--- a/Makefile.lite
++++ b/Makefile.lite
+@@ -73,8 +73,13 @@ CC_PREFIX :=
+ 
+ # This library is the main target for this makefile. It will contain a minimal
+ # runtime that can be linked in to other programs.
+-SLIB_NAME := libtensorflow-lite.a
+-DLIB_NAME_RAW := libtensorflow-lite.so
++LITE_NAME :=
++ifeq ($(TFLITE_OPTIM),y)
++	LITE_NAME=-optim
++endif
++
++SLIB_NAME := libtensorflow-lite$(LITE_NAME).a
++DLIB_NAME_RAW := libtensorflow-lite$(LITE_NAME).so
+ DLIB_NAME := $(DLIB_NAME_RAW)$(TF_VERSION_STRING)
+ 
+ # Benchmark static library and binary
+@@ -187,10 +192,8 @@ $(root)/tensorflow/lite/kernels/unique.cc \
+ $(root)/tensorflow/lite/kernels/pack.cc \
+ $(root)/tensorflow/lite/kernels/unpack.cc \
+ $(root)/tensorflow/lite/kernels/zeros_like.cc \
+-$(root)/tensorflow/lite/kernels/add.cc \
+ $(root)/tensorflow/lite/kernels/sparse_to_dense.cc \
+ $(root)/tensorflow/lite/experimental/resource/static_hashtable.cc \
+-$(root)/tensorflow/lite/kernels/resize_bilinear.cc \
+ $(root)/tensorflow/lite/kernels/pooling3d.cc \
+ $(root)/tensorflow/lite/kernels/scatter_nd.cc \
+ $(root)/tensorflow/lite/kernels/space_to_batch_nd.cc \
+@@ -208,16 +211,18 @@ $(root)/tensorflow/lite/kernels/shape.cc \
+ $(root)/tensorflow/lite/kernels/squeeze.cc \
+ $(root)/tensorflow/lite/tools/optimize/sparsity/format_converter.cc \
+ $(root)/tensorflow/lite/kernels/maximum_minimum.cc \
+-$(root)/tensorflow/lite/kernels/div.cc \
+ $(root)/tensorflow/lite/kernels/batch_matmul.cc \
+ $(shell find tensorflow/lite/tools/make/downloads/absl/absl/ \
+-	             -type f -name \*.cc) \
+-$(root)/tensorflow/lite/kernels/elementwise.cc \
++	             -type f -name \*.cc)
+ 
+ CORE_CC_KERNEL_FILTER_SRCS_UNVERIFIED += \
++$(root)/tensorflow/lite/kernels/elementwise.cc \
++$(root)/tensorflow/lite/kernels/resize_bilinear.cc \
+ $(root)/tensorflow/lite/kernels/neg.cc \
+ $(root)/tensorflow/lite/kernels/sub.cc \
+ $(root)/tensorflow/lite/kernels/mul.cc \
++$(root)/tensorflow/lite/kernels/add.cc \
++$(root)/tensorflow/lite/kernels/div.cc \
+ $(root)/tensorflow/lite/optional_debug_tools.cc \
+ $(root)/tensorflow/lite/profiling/memory_info.cc \
+ $(root)/tensorflow/lite/profiling/platform_profiler.cc \
+@@ -345,7 +350,11 @@ else
+ 	CORE_CC_EXCLUDE_SRCS += $(root)/tensorflow/lite/minimal_logging_ios.cc
+ endif
+ 
+-# Filter out all the excluded files.
++ifeq ($(TFLITE_OPTIM),n)
++	CORE_CC_KERNEL_FILTER_SRCS=
++endif
++
++# Filter out all the excluded files by default settings.
+ TF_LITE_CC_SRCS_V1 := $(filter-out $(CORE_CC_EXCLUDE_SRCS), $(CORE_CC_ALL_SRCS))
+ TF_LITE_CC_SRCS := $(filter-out $(CORE_CC_KERNEL_FILTER_SRCS), $(TF_LITE_CC_SRCS_V1))
+ 
+diff --git a/Makefile.tmp b/Makefile.tmp
+new file mode 100644
+index 00000000..ef733dc5
+--- /dev/null
++++ b/Makefile.tmp
+@@ -0,0 +1,97 @@
++TENSORFLOW_VERSION = 2.6.0
++TENSORFLOW_SOURCE = v$(TF_VERSION).tar.gz
++TENSORFLOW_SITE = https://github.com/tensorflow/tensorflow/archive/refs/tags
++TENSORFLOW_INSTALL_STAGING = YES
++TENSORFLOW_LICENSE = Apache-2.0 
++TENSORFLOW_LICENSE_FILES = LICENSE
++TENSORFLOW_CPE_ID_VENDOR = tensorflow
++TFLITE_MICRO_MK_PATH = tensorflow/lite/micro/tools/make
++
++BR2_PACKAGE_TENSORFLOW_MICROLITE=n
++BR2_PACKAGE_TENSORFLOW_LITE=y
++BR2_PACKAGE_TENSORFLOW_LITE_OPTIM=y
++
++TFLITE_OPTIM=n
++TFLITE_NAME=
++
++ifeq ($(BR2_PACKAGE_TENSORFLOW_LITE_OPTIM), y)
++TFLITE_OPTIM=y
++OPTIM_NAME=_optim
++endif
++
++ifeq ($(CROSS_COMPILE), arm-linux-gnueabihf-)
++TFLITE_BUILD_PREFIX = $(realpath $(CURDIR))/tflite_hc17x3_fpu$(OPTIM_NAME)
++MICROLITE_BUILD_PREFIX = $(realpath $(CURDIR))/microlite_hc17x3_fpu
++MICROLITE_OPTIMIZED_KERNEL_DIR = cmsis_nn
++BR2_GCC_TARGET_CPU = cortex-a7
++BR2_ARM_CPU_HAS_NEON = y
++else ifeq ($(CROSS_COMPILE), arm-linux-gnueabi-)
++TFLITE_BUILD_PREFIX = $(realpath $(CURDIR))/tflite_hc17x3$(OPTIM_NAME)
++MICROLITE_BUILD_PREFIX = $(realpath $(CURDIR))/microlite_hc17x3
++BR2_GCC_TARGET_CPU = cortex-a7
++BR2_ARM_CPU_HAS_NEON = n
++else ifeq ($(CROSS_COMPILE), arm-augentix-linux-gnueabi-)
++TFLITE_BUILD_PREFIX = $(realpath $(CURDIR))/tflite_hc17x2$(OPTIM_NAME)
++MICROLITE_BUILD_PREFIX = $(realpath $(CURDIR))/microlite_hc17x2
++BR2_GCC_TARGET_CPU = arm926ej-s
++BR2_ARM_CPU_HAS_NEON = n
++else ifeq ($(CROSS_COMPILE),)
++TFLITE_BUILD_PREFIX = $(realpath $(CURDIR))/tflite_linux$(OPTIM_NAME)
++MICROLITE_BUILD_PREFIX = $(realpath $(CURDIR))/microlite_linux
++BR2_GCC_TARGET_CPU =
++BR2_ARM_CPU_HAS_NEON = o
++endif
++
++TENSORFLOW_COMMON_FLAGS = \
++-Wall \
++-fPIC \
++-funsafe-math-optimizations \
++-ftree-vectorize \
++-fdata-sections \
++-ffunction-sections
++
++
++ifeq ($(BR2_GCC_TARGET_CPU), arm926ej-s)
++TENSORFLOW_COMMON_FLAGS += \
++-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK \
++-mcpu=arm926ej-s \
++-D__ARM_FP=0
++TFLITE_BUILD_WITH_RUY = false
++endif
++
++ifeq ($(BR2_GCC_TARGET_CPU), cortex-a7)
++TENSORFLOW_COMMON_FLAGS += -mcpu=cortex-a7
++TFLITE_BUILD_WITH_RUY = true
++endif
++
++ifeq ($(BR2_ARM_CPU_HAS_NEON), y)
++TENSORFLOW_COMMON_FLAGS += \
++-mfloat-abi=hard \
++-mfpu=neon-vfpv4
++else ifeq ($(BR2_ARM_CPU_HAS_NEON), n)
++TENSORFLOW_COMMON_FLAGS += -mfloat-abi=soft
++endif
++
++ifeq ($(BR2_PACKAGE_TENSORFLOW_LITE_OPTIM), y)
++TENSORFLOW_COMMON_FLAGS+=-DTFLITE_OPTIM
++endif
++
++ifeq ($(BR2_PACKAGE_TENSORFLOW_MICROLITE), y)
++ifeq ($(BR2_ARM_CPU_HAS_NEON), y)
++MICROLITE_OPTIMIZED_KERNEL_DIR=cmsis_nn
++endif
++endif
++
++ifeq ($(BR2_PACKAGE_TFLITE_BENCHMARK_TOOL), y)
++TENSORFLOW_BUILD_BENCHMARK_TOOL = y
++endif
++
++TENSORFLOW_TOOLCHAIN_PREFIX = $(CROSS_COMPILE)
++
++TENSORFLOW_LD_FLAGS = \
++-lstdc++ \
++-lpthread \
++-lm \
++-ldl 
++
++TENSORFLOW_MICROLITE_TARGET=ARM
+\ No newline at end of file
+diff --git a/tensorflow/lite/kernels/activations.cc b/tensorflow/lite/kernels/activations.cc
+index 31a80147..d188f951 100644
+--- a/tensorflow/lite/kernels/activations.cc
++++ b/tensorflow/lite/kernels/activations.cc
+@@ -284,7 +284,7 @@ TfLiteStatus ReluPrepare(TfLiteContext* context, TfLiteNode* node) {
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
+-#ifndef LITE_RELU_ONLY
++#ifndef TFLITE_OPTIM
+ 
+ void* LeakyReluInit(TfLiteContext* context, const char* buffer, size_t length) {
+   return new LeakyReluOpData;
+@@ -465,6 +465,8 @@ TfLiteStatus TanhPrepare(TfLiteContext* context, TfLiteNode* node) {
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
++#endif // TFLITE_OPTIM
++
+ template <KernelType kernel_type>
+ TfLiteStatus SigmoidPrepare(TfLiteContext* context, TfLiteNode* node) {
+   OpData* data = reinterpret_cast<OpData*>(node->user_data);
+@@ -523,6 +525,7 @@ TfLiteStatus SigmoidPrepare(TfLiteContext* context, TfLiteNode* node) {
+     }
+   }
+ 
++#ifndef TFLITE_OPTIM
+   if (input->type == kTfLiteInt16) {
+     static constexpr int kInputIntegerBits = 3;
+     static constexpr int kOutputFractionalBits = 15;
+@@ -563,13 +566,11 @@ TfLiteStatus SigmoidPrepare(TfLiteContext* context, TfLiteNode* node) {
+     TF_LITE_ENSURE_EQ(context, output_scale_log2_rounded,
+                       -kOutputFractionalBits);
+   }
+-
++#endif // TFLITE_OPTIM
+   return context->ResizeTensor(context, output,
+                                TfLiteIntArrayCopy(input->dims));
+ }
+-#endif // !LITE_RELU_ONLY
+ 
+-#ifdef LITE_SOFTMAX
+ template <KernelType kernel_type>
+ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+   auto* params = reinterpret_cast<TfLiteSoftmaxParams*>(node->builtin_data);
+@@ -631,7 +632,7 @@ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+       data->params.scale = output->params.scale;
+     }
+   } 
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+     else if (input->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_EQ(context, input->params.zero_point, 0);
+     TF_LITE_ENSURE_EQ(context, output->params.zero_point, 0);
+@@ -654,15 +655,13 @@ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+     QuantizeMultiplier(input_scale_beta_rescale, &data->params.input_multiplier,
+                        &data->params.input_left_shift);
+   }
+-#endif // !LITE_OPTIM_DTYPE
++#endif // !TFLITE_OPTIM
+ 
+   return context->ResizeTensor(context, output,
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
+-#endif // LITE_SOFTMAX
+-
+-#ifndef LITE_RELU_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus LogSoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+   LogSoftmaxOpData* data = reinterpret_cast<LogSoftmaxOpData*>(node->user_data);
+@@ -712,7 +711,7 @@ TfLiteStatus LogSoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
+-#endif // !LITE_RELU_ONLY
++#endif // !TFLITE_OPTIM
+ 
+ TfLiteStatus PreluPrepare(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_EQ(context, NumInputs(node), 2);
+@@ -807,7 +806,7 @@ TfLiteStatus ReluEval(TfLiteContext* context, TfLiteNode* node) {
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE_RELU_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteStatus Relu1Eval(TfLiteContext* context, TfLiteNode* node) {
+   const TfLiteTensor* input;
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+@@ -1003,6 +1002,8 @@ TfLiteStatus TanhEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
++#endif // TFLITE_OPTIM
++
+ // Sigmoid is also know as "Logistic".
+ template <KernelType kernel_type>
+ TfLiteStatus SigmoidEval(TfLiteContext* context, TfLiteNode* node) {
+@@ -1013,6 +1014,7 @@ TfLiteStatus SigmoidEval(TfLiteContext* context, TfLiteNode* node) {
+   TfLiteTensor* output;
+   TF_LITE_ENSURE_OK(context, GetOutputSafe(context, node, 0, &output));
+   switch (input->type) {
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32: {
+       if (kernel_type == kReference) {
+         reference_ops::Logistic(
+@@ -1041,6 +1043,7 @@ TfLiteStatus SigmoidEval(TfLiteContext* context, TfLiteNode* node) {
+       }
+       break;
+     }
++#endif // TFLITE_OPTIM
+     case kTfLiteUInt8: {
+       if (kernel_type == kFixedPointOptimized) {
+         LogisticParams params;
+@@ -1081,6 +1084,7 @@ TfLiteStatus SigmoidEval(TfLiteContext* context, TfLiteNode* node) {
+   return kTfLiteOk;
+ }
+ 
++#ifndef TFLITE_OPTIM
+ TfLiteStatus SoftmaxFloat(TfLiteContext* context, const TfLiteTensor* input,
+                           TfLiteTensor* output, TfLiteSoftmaxParams* params,
+                           KernelType kernel_type = kGenericOptimized) {
+@@ -1098,9 +1102,9 @@ TfLiteStatus SoftmaxFloat(TfLiteContext* context, const TfLiteTensor* input,
+   }
+   return kTfLiteOk;
+ }
+-#endif //!LITE_RELU_ONLY
++#endif //!TFLITE_OPTIM
++
+ 
+-#ifdef LITE_SOFTMAX
+ template <typename In, typename Out>
+ TfLiteStatus SoftmaxQuantized(TfLiteContext* context, const TfLiteTensor* input,
+                               TfLiteTensor* output, SoftmaxOpData* data,
+@@ -1165,7 +1169,7 @@ TfLiteStatus SoftmaxQuantized<uint8_t, uint8_t>(TfLiteContext* context,
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+ template <>
+ TfLiteStatus SoftmaxQuantized<int16, int16>(TfLiteContext* context,
+                                             const TfLiteTensor* input,
+@@ -1185,7 +1189,7 @@ TfLiteStatus SoftmaxQuantized<int16, int16>(TfLiteContext* context,
+     return kTfLiteError;
+   }
+ }
+-#endif
++#endif // TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+@@ -1198,21 +1202,21 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetOutputSafe(context, node, 0, &output));
+ 
+   switch (input->type) {
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32: {
+       return SoftmaxFloat(context, input, output, params, kernel_type);
+     }
+-#endif
++#endif // TFLITE_OPTIM
+     case kTfLiteUInt8: {
+       switch (output->type) {
+         case kTfLiteUInt8:
+           return SoftmaxQuantized<uint8_t, uint8_t>(context, input, output,
+                                                     data, kernel_type);
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+         case kTfLiteInt16:
+           return SoftmaxQuantized<uint8_t, int16_t>(context, input, output,
+                                                     data, kernel_type);
+-#endif
++#endif // TFLITE_OPTIM
+         default:
+           TF_LITE_KERNEL_LOG(context,
+                              "Only uint8_t and int16_t outputs are supported "
+@@ -1226,11 +1230,11 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+         case kTfLiteInt8:
+           return SoftmaxQuantized<int8_t, int8_t>(context, input, output, data,
+                                                   kernel_type);
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+         case kTfLiteInt16:
+           return SoftmaxQuantized<int8_t, int16_t>(context, input, output, data,
+                                                    kernel_type);
+-#endif
++#endif // TFLITE_OPTIM
+         default:
+           TF_LITE_KERNEL_LOG(context,
+                              "Only int8_t and int16_t outputs are supported "
+@@ -1239,12 +1243,12 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+           return kTfLiteError;
+       }
+     }
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+     case kTfLiteInt16: {
+       return SoftmaxQuantized<int16_t, int16_t>(context, input, output, data,
+                                                 kernel_type);
+     }
+-#endif // LITE_OPTIM_DTYPE
++#endif // TFLITE_OPTIM
+     default:
+       TF_LITE_KERNEL_LOG(context,
+                          "Only float32, uint8_t, Int8_t, Int16_t are supported "
+@@ -1253,9 +1257,8 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+       return kTfLiteError;
+   }
+ }
+-#endif // LITE_SOFTMAX
+ 
+-#ifndef LITE_RELU_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus LogSoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   const LogSoftmaxOpData* data =
+@@ -1325,7 +1328,7 @@ TfLiteStatus LogSoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
+-#endif //!LITE_RELU_ONLY
++#endif //!TFLITE_OPTIM
+ 
+ template <typename T>
+ T ApplyPrelu(T input, T alpha) {
+@@ -1342,7 +1345,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetOutputSafe(context, node, 0, &output));
+   const PreluOpData* data = reinterpret_cast<PreluOpData*>(node->user_data);
+   switch (input->type) {
+-#ifndef LITE_OPTIM_DTYPE
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32: {
+       if (kernel_type == kGenericOptimized) {
+         tflite::ArithmeticParams op_params;
+@@ -1379,7 +1382,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+       }
+       return kTfLiteOk;
+     } break;
+-#endif // !LITE_OPTIM_DTYPE
++#endif // !TFLITE_OPTIM
+     case kTfLiteUInt8: {
+       PreluParams op_params;
+       op_params.input_offset = -input->params.zero_point;
+@@ -1433,7 +1436,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
+-#ifndef LITE_RELU_ONLY
++#ifndef TFLITE_OPTIM
+ template <typename T>
+ void QuantizeLeakyRelu(const TfLiteTensor* input, TfLiteTensor* output,
+                        const LeakyReluOpData* data) {
+@@ -1530,7 +1533,7 @@ TfLiteStatus EluEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
+-#endif // !LITE_RELU_ONLY
++#endif // !TFLITE_OPTIM
+ }  // namespace activations
+ 
+ TfLiteRegistration* Register_RELU() {
+@@ -1555,7 +1558,31 @@ TfLiteRegistration* Register_PRELU() {
+   return &r;
+ }
+ 
+-#ifndef LITE_RELU_ONLY
++TfLiteRegistration* Register_LOGISTIC_GENERIC_OPT() {
++  static TfLiteRegistration r = {
++      activations::Init, activations::Free,
++      activations::SigmoidPrepare<activations::kGenericOptimized>,
++      activations::SigmoidEval<activations::kGenericOptimized>};
++  return &r;
++}
++
++TfLiteRegistration* Register_LOGISTIC_FIXED_POINT_OPT() {
++  static TfLiteRegistration r = {
++      activations::Init, activations::Free,
++      activations::SigmoidPrepare<activations::kFixedPointOptimized>,
++      activations::SigmoidEval<activations::kFixedPointOptimized>};
++  return &r;
++}
++
++TfLiteRegistration* Register_LOGISTIC() {
++  // TODO(b/134622898): Switch over from the LUT optimized method to the fixed
++  // point optimized method when typical Android hardware performs better on
++  // the latter one.
++  return Register_LOGISTIC_GENERIC_OPT();
++}
++
++
++#ifndef TFLITE_OPTIM
+ 
+ TfLiteRegistration* Register_ELU() {
+   static TfLiteRegistration r = {activations::Init, activations::Free,
+@@ -1616,29 +1643,6 @@ TfLiteRegistration* Register_LOGISTIC_REF() {
+   return &r;
+ }
+ 
+-TfLiteRegistration* Register_LOGISTIC_GENERIC_OPT() {
+-  static TfLiteRegistration r = {
+-      activations::Init, activations::Free,
+-      activations::SigmoidPrepare<activations::kGenericOptimized>,
+-      activations::SigmoidEval<activations::kGenericOptimized>};
+-  return &r;
+-}
+-
+-TfLiteRegistration* Register_LOGISTIC_FIXED_POINT_OPT() {
+-  static TfLiteRegistration r = {
+-      activations::Init, activations::Free,
+-      activations::SigmoidPrepare<activations::kFixedPointOptimized>,
+-      activations::SigmoidEval<activations::kFixedPointOptimized>};
+-  return &r;
+-}
+-
+-TfLiteRegistration* Register_LOGISTIC() {
+-  // TODO(b/134622898): Switch over from the LUT optimized method to the fixed
+-  // point optimized method when typical Android hardware performs better on
+-  // the latter one.
+-  return Register_LOGISTIC_GENERIC_OPT();
+-}
+-
+ TfLiteRegistration* Register_SOFTMAX_REF() {
+   static TfLiteRegistration r = {
+       activations::SoftmaxInit, activations::SoftmaxFree,
+@@ -1692,7 +1696,7 @@ TfLiteRegistration* Register_HARD_SWISH_REF() {
+       activations::HardSwishEval<activations::kReference>};
+   return &r;
+ }
+-#endif // LITE_RELU_ONLY
++#endif // TFLITE_OPTIM
+ }  // namespace builtin
+ }  // namespace ops
+ }  // namespace tflite
+diff --git a/tensorflow/lite/kernels/conv.cc b/tensorflow/lite/kernels/conv.cc
+index 934b83ca..bfa57c25 100644
+--- a/tensorflow/lite/kernels/conv.cc
++++ b/tensorflow/lite/kernels/conv.cc
+@@ -351,13 +351,13 @@ TfLiteStatus Prepare(KernelType kernel_type, TfLiteContext* context,
+   // Check types. (We assume that UINT8 refers to quantized tensors)
+   TfLiteType input_type = input->type;
+   TF_LITE_ENSURE(context,
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+                  input_type == kTfLiteFloat32 ||
+                  input_type == kTfLiteUInt8
+                   || input_type == kTfLiteInt16 ||
+-#else
++#else // TFLITE_OPTIM
+                   filter->type == input_type &&
+-#endif
++#endif // TFLITE_OPTIM
+                      input_type == kTfLiteInt8);
+   TF_LITE_ENSURE_TYPES_EQ(context, output->type, input_type);
+ 
+@@ -527,7 +527,7 @@ TfLiteStatus Prepare(KernelType kernel_type, TfLiteContext* context,
+     // changed, this will do extra redundant work.
+     data->have_weights_been_transposed = false;
+   }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+   if (is_hybrid) {
+     node->temporaries->data[data->input_quantized_index] =
+         data->input_quantized_id;
+@@ -624,7 +624,7 @@ TfLiteStatus Prepare(KernelType kernel_type, TfLiteContext* context,
+       }
+     }
+   }
+-#endif
++#endif // TFLITE_OPTIM
+   return kTfLiteOk;
+ }
+ 
+@@ -795,7 +795,7 @@ void EvalQuantizedPerChannel16x8(TfLiteContext* context, TfLiteNode* node,
+   }
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void EvalFloat(TfLiteContext* context, TfLiteNode* node,
+                TfLiteConvParams* params, OpData* data,
+@@ -1064,7 +1064,7 @@ TfLiteStatus EvalHybrid(TfLiteContext* context, TfLiteNode* node,
+ 
+   return kTfLiteOk;
+ }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+ 
+ template <KernelType kernel_type, TfLiteType input_type>
+ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+@@ -1095,7 +1095,7 @@ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+ 
+   TFLITE_DCHECK_EQ(input_type, input->type);
+   switch (input_type) {  // Already know in/outtypes are same.
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       if (filter->type == kTfLiteUInt8 || filter->type == kTfLiteInt8) {
+         if (data->is_hybrid_per_channel) {
+@@ -1116,15 +1116,15 @@ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+                                im2col, hwcn_weights, output);
+       }
+       break;
+-    case kTfLiteUInt8:
+-      EvalQuantized<kernel_type>(context, node, params, data, input, filter,
+-                                 bias, im2col, output);
+-      break;
+     case kTfLiteInt16:
+       EvalQuantizedPerChannel16x8<kernel_type>(
+           context, node, params, data, input, filter, bias, output, im2col);
+       break;
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
++    case kTfLiteUInt8:
++      EvalQuantized<kernel_type>(context, node, params, data, input, filter,
++                                 bias, im2col, output);
++      break;
+     case kTfLiteInt8:
+       EvalQuantizedPerChannel<kernel_type>(context, node, params, data, input,
+                                            filter, bias, output, im2col);
+@@ -1143,14 +1143,14 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+ 
+   switch (input->type) {
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       return EvalImpl<kernel_type, kTfLiteFloat32>(context, node);
+-    case kTfLiteUInt8:
+-      return EvalImpl<kernel_type, kTfLiteUInt8>(context, node);
+     case kTfLiteInt16:
+       return EvalImpl<kernel_type, kTfLiteInt16>(context, node);
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
++    case kTfLiteUInt8:
++      return EvalImpl<kernel_type, kTfLiteUInt8>(context, node);
+     case kTfLiteInt8:
+       return EvalImpl<kernel_type, kTfLiteInt8>(context, node);
+     default:
+@@ -1183,7 +1183,7 @@ TfLiteRegistration* Register_CONVOLUTION_MULTITHREADED_OPT() {
+   return &r;
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ 
+ TfLiteRegistration* Register_CONVOLUTION_GENERIC_OPT_UINT8() {
+   static TfLiteRegistration r = {
+@@ -1199,7 +1199,7 @@ TfLiteRegistration* Register_CONVOLUTION_CBLAS_OPT() {
+   return &r;
+ }
+ 
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+ 
+ TfLiteRegistration* Register_CONV_2D() {
+ #if defined TFLITE_USE_APPLE_ACCELERATE_FOR_CONV
+@@ -1211,7 +1211,7 @@ TfLiteRegistration* Register_CONV_2D() {
+ #endif
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ // Warning: Clients using this variant are responsible for ensuring that their
+ // models only need the UINT8 type. TFLite's op registration mechanism doesn't
+ // yet allow for more nuanced registration mechanisms.
+@@ -1223,7 +1223,7 @@ TfLiteRegistration* Register_CONV_2D_UINT8() {
+   return Register_CONV_2D();
+ #endif
+ }
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+ 
+ }  // namespace builtin
+ }  // namespace ops
+diff --git a/tensorflow/lite/kernels/depthwise_conv.cc b/tensorflow/lite/kernels/depthwise_conv.cc
+index 56562df4..556009b2 100644
+--- a/tensorflow/lite/kernels/depthwise_conv.cc
++++ b/tensorflow/lite/kernels/depthwise_conv.cc
+@@ -122,12 +122,12 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   const bool is_hybrid =
+       data_type == kTfLiteFloat32 && filter_type == kTfLiteInt8;
+   TF_LITE_ENSURE(context,
+-#ifdef LITE8S_ONLY
+-                data_type == kTfLiteInt8 && filter_type == kTfLiteInt8
+-#else // LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+                  data_type == kTfLiteFloat32 || data_type == kTfLiteUInt8 ||
+                      data_type == kTfLiteInt8 || data_type == kTfLiteInt16
+-#endif // LITE8S_ONLY
++#else // TFLITE_OPTIM
++                data_type == kTfLiteUInt8 || filter_type == kTfLiteInt8
++#endif // TFLITE_OPTIM
+                      );
+   TF_LITE_ENSURE_TYPES_EQ(context, output->type, data_type);
+   if (!is_hybrid) {
+@@ -199,7 +199,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+         data->per_channel_output_multiplier.data(),
+         data->per_channel_output_shift.data(), channels_out));
+   }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+   if (is_hybrid) {
+     TF_LITE_ENSURE(context, filter->quantization.type != kTfLiteNoQuantization);
+     const auto* affine_quantization =
+@@ -277,7 +277,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+                                                        input_offsets_size));
+     }
+   }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+   TfLiteIntArray* outputSize = TfLiteIntArrayCreate(4);
+   outputSize->data[0] = batches;
+   outputSize->data[1] = out_height;
+@@ -297,7 +297,7 @@ TfLiteStatus ComputeDepthMultiplier(TfLiteContext* context,
+   *depth_multiplier = num_filter_channels / num_input_channels;
+   return kTfLiteOk;
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus EvalFloat(TfLiteContext* context, TfLiteNode* node,
+                        TfLiteDepthwiseConvParams* params, OpData* data,
+@@ -335,7 +335,7 @@ TfLiteStatus EvalFloat(TfLiteContext* context, TfLiteNode* node,
+   }
+   return kTfLiteOk;
+ }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+                            TfLiteDepthwiseConvParams* params, OpData* data,
+@@ -451,7 +451,7 @@ TfLiteStatus EvalQuantizedPerChannel16x8(
+ 
+   return kTfLiteOk;
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus EvalHybridPerChannel(TfLiteContext* context, TfLiteNode* node,
+                                   TfLiteDepthwiseConvParams* params,
+@@ -525,7 +525,7 @@ TfLiteStatus EvalHybridPerChannel(TfLiteContext* context, TfLiteNode* node,
+ 
+   return kTfLiteOk;
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ template <KernelType kernel_type, TfLiteType input_type>
+ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+   auto* params =
+@@ -545,7 +545,7 @@ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+   TFLITE_DCHECK_EQ(input_type, input->type);
+ 
+   switch (input_type) {  // Already know in/out types are same.
+-#ifndef LITE8S_ONLY    
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       if (filter->type == kTfLiteFloat32) {
+         return EvalFloat<kernel_type>(context, node, params, data, input,
+@@ -560,15 +560,15 @@ TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node) {
+         return kTfLiteError;
+       }
+       break;
+-    case kTfLiteUInt8:
+-      return EvalQuantized<kernel_type>(context, node, params, data, input,
+-                                        filter, bias, output);
+-      break;
+     case kTfLiteInt16:
+       return EvalQuantizedPerChannel16x8(params, data, input, filter, bias,
+                                          output);
+       break;
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
++    case kTfLiteUInt8:
++      return EvalQuantized<kernel_type>(context, node, params, data, input,
++                                        filter, bias, output);
++      break;
+     case kTfLiteInt8:
+       return EvalQuantizedPerChannel<kernel_type>(context, node, params, data,
+                                                   input, filter, bias, output);
+@@ -586,14 +586,14 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, kInputTensor, &input));
+ 
+   switch (input->type) {  // Already know in/out types are same.
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       return EvalImpl<kernel_type, kTfLiteFloat32>(context, node);
+-    case kTfLiteUInt8:
+-      return EvalImpl<kernel_type, kTfLiteUInt8>(context, node);
+     case kTfLiteInt16:
+       return EvalImpl<kernel_type, kTfLiteInt16>(context, node);
+-#endif // !LITE8S_ONLY      
++#endif // !TFLITE_OPTIM
++    case kTfLiteUInt8:
++      return EvalImpl<kernel_type, kTfLiteUInt8>(context, node);
+     case kTfLiteInt8:
+       return EvalImpl<kernel_type, kTfLiteInt8>(context, node);
+     default:
+@@ -643,7 +643,7 @@ TfLiteRegistration* Register_DEPTHWISE_CONV_2D() {
+ #endif
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ // Warning: Clients using this variant are responsible for ensuring that their
+ // models only need the UINT8 type. TFLite's op registration mechanism doesn't
+ // yet allow for more nuanced registration mechanisms.
+@@ -654,7 +654,7 @@ TfLiteRegistration* Register_DEPTHWISE_CONV_2D_UINT8() {
+   return Register_DEPTHWISE_CONV_2D();
+ #endif
+ }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+ }  // namespace builtin
+ }  // namespace ops
+ }  // namespace tflite
+diff --git a/tensorflow/lite/kernels/elementwise.cc b/tensorflow/lite/kernels/elementwise.cc
+index b59fd10e..06267e80 100644
+--- a/tensorflow/lite/kernels/elementwise.cc
++++ b/tensorflow/lite/kernels/elementwise.cc
+@@ -153,6 +153,7 @@ inline TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node,
+   return kTfLiteOk;
+ }
+ 
++#ifndef TFLITE_OPTIM
+ // Non-quantized evaluation of Abs op when input is int16.
+ inline TfLiteStatus AbsInt16EvalImpl(TfLiteContext* context, TfLiteNode* node,
+                                      TfLiteType expected_type) {
+@@ -170,6 +171,7 @@ inline TfLiteStatus AbsInt16EvalImpl(TfLiteContext* context, TfLiteNode* node,
+   }
+   return kTfLiteOk;
+ }
++#endif // TFLITE_OPTIM
+ 
+ template <typename T>
+ inline TfLiteStatus EvalImpl(TfLiteContext* context, TfLiteNode* node,
+@@ -224,21 +226,25 @@ TfLiteStatus AbsEval(TfLiteContext* context, TfLiteNode* node) {
+   const TfLiteTensor* input = GetInput(context, node, 0);
+   const TfLiteType type = input->type;
+   switch (type) {
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       return EvalImpl<float>(context, node, std::abs<float>, type);
++#endif // TFLITE_OPTIM
+     case kTfLiteInt8:
+       return AbsEvalQuantized<int8_t>(context, node, type);
++#ifndef TFLITE_OPTIM
+     case kTfLiteInt16:
+       return input->quantization.type == kTfLiteNoQuantization
+                  ? AbsInt16EvalImpl(context, node, type)
+                  : AbsEvalQuantized<int16_t>(context, node, type);
++#endif // TFLITE_OPTIM
+     default:
+       TF_LITE_KERNEL_LOG(context, "Current data type %s is not supported.",
+                          TfLiteTypeGetName(type));
+       return kTfLiteError;
+   }
+ }
+-
++#ifndef TFLITE_OPTIM
+ TfLiteStatus SinEval(TfLiteContext* context, TfLiteNode* node) {
+   return EvalNumeric(context, node, std::sin);
+ }
+@@ -311,7 +317,7 @@ TfLiteStatus SquareEval(TfLiteContext* context, TfLiteNode* node) {
+ TfLiteStatus LogicalNotEval(TfLiteContext* context, TfLiteNode* node) {
+   return EvalLogical(context, node, [](bool v) { return !v; });
+ }
+-
++#endif // TFLITE_OPTIM
+ }  // namespace
+ }  // namespace elementwise
+ 
+@@ -342,7 +348,7 @@ TfLiteRegistration* Register_ABS() {
+                                  PrepareAbs, elementwise::AbsEval};
+   return &r;
+ }
+-
++#ifndef TFLITE_OPTIM
+ GENERIC_PREPARE(PrepareSin, elementwise::IsNumericSupportedType, "Sin")
+ 
+ TfLiteRegistration* Register_SIN() {
+@@ -400,6 +406,7 @@ TfLiteRegistration* Register_LOGICAL_NOT() {
+                                  elementwise::LogicalNotEval};
+   return &r;
+ }
++#endif
+ 
+ }  // namespace builtin
+ }  // namespace ops
+diff --git a/tensorflow/lite/kernels/fully_connected.cc b/tensorflow/lite/kernels/fully_connected.cc
+index 813eab78..144a5e38 100644
+--- a/tensorflow/lite/kernels/fully_connected.cc
++++ b/tensorflow/lite/kernels/fully_connected.cc
+@@ -141,11 +141,6 @@ inline TfLiteStatus CheckTypes(TfLiteContext* context,
+   const bool is_optional_bias_float = !bias || (bias->type == kTfLiteFloat32);
+   const bool is_optional_bias_int =
+       !bias || (bias->type == kTfLiteInt32) || (bias->type == kTfLiteInt64);
+-#ifdef LITE8S_ONLY
+-  TF_LITE_ENSURE_TYPES_EQ(context, input->type, kTfLiteInt8);
+-  TF_LITE_ENSURE_TYPES_EQ(context, filter->type, kTfLiteInt8);
+-  TF_LITE_ENSURE_TYPES_EQ(context, output->type, kTfLiteInt8);
+-#else // LITE8S_ONLY
+   if (is_quantized) {
+     if (is_shuffled) {
+       TF_LITE_ENSURE_TYPES_EQ(context, input->type, kTfLiteUInt8);
+@@ -172,7 +167,6 @@ inline TfLiteStatus CheckTypes(TfLiteContext* context,
+     TF_LITE_ENSURE_TYPES_EQ(context, filter->type, kTfLiteFloat32);
+     TF_LITE_ENSURE_EQ(context, is_optional_bias_float, true);
+   }
+-#endif // LITE8S_ONLY
+ 
+   return kTfLiteOk;
+ }
+@@ -251,7 +245,7 @@ TfLiteStatus PrepareImpl(TfLiteContext* context, TfLiteNode* node) {
+         &data->output_activation_max));
+   }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+   if (input->type == kTfLiteInt16 && output->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_EQ(context, input->params.zero_point, 0);
+     TF_LITE_ENSURE_EQ(context, output->params.zero_point, 0);
+@@ -354,7 +348,7 @@ TfLiteStatus PrepareImpl(TfLiteContext* context, TfLiteNode* node) {
+     }
+   }
+ 
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+ 
+   // Resize output.
+   TfLiteIntArray* output_size_array = nullptr;
+@@ -405,7 +399,6 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   return PrepareImpl(context, node);
+ }
+ 
+-#ifdef LITE8S_ONLY
+ TfLiteStatus EvalPie(TfLiteContext* context, TfLiteNode* node,
+                      TfLiteFullyConnectedParams* params, OpData* data,
+                      const TfLiteTensor* input, const TfLiteTensor* filter,
+@@ -692,6 +685,7 @@ TfLiteStatus EvalHybrid(TfLiteContext* context, TfLiteNode* node,
+   return kTfLiteOk;
+ }
+ 
++#ifndef TFLITE_OPTIM
+ namespace {
+ template <KernelType kernel_type>
+ void FullyConnectedInt16(const OpData* data, const TfLiteTensor* input,
+@@ -711,8 +705,7 @@ void FullyConnectedInt16(const OpData* data, const TfLiteTensor* input,
+ }
+ }  // namespace
+ 
+-#endif // LITE8S_ONLY
+-
++#endif // TFLITE_OPTIM
+ 
+ namespace {
+ template <KernelType kernel_type>
+@@ -758,10 +751,8 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+   int32_t filter_offset = -filter->params.zero_point;
+   int32_t output_offset = output->params.zero_point;
+   // Only the Pie path supports quantized models and float inputs/outputs.
+-#ifdef LITE8S_ONLY
+-  if (input->type == kTfLiteInt8) {
+-#else // !LITE8S_ONLY
+   if (input->type == kTfLiteFloat32) {
++#ifndef TFLITE_OPTIM
+     TfLiteTensor* input_quantized;
+     TF_LITE_ENSURE_OK(context, GetTemporarySafe(context, node, /*index=*/0,
+                                                 &input_quantized));
+@@ -780,8 +771,8 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+     return EvalHybrid(context, node, params, data, input, filter, bias,
+                       input_quantized, scaling_factors, accum_scratch, row_sums,
+                       input_offsets, output);
++#endif // !TFLITE_OPTIM
+   } else {
+-#endif // !LITE8S_ONLY
+     FullyConnectedParams op_params;
+     op_params.input_offset = input_offset;
+     op_params.weights_offset = filter_offset;
+@@ -798,7 +789,6 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+             data, input, filter, bias, output,
+             CpuBackendContext::GetFromContext(context));
+         break;
+-#ifndef LITE8S_ONLY
+       case kTfLiteUInt8:
+         if (kernel_type == kReference) {
+           reference_ops::FullyConnected(
+@@ -815,6 +805,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+               CpuBackendContext::GetFromContext(context));
+         }
+         break;
++#ifndef TFLITE_OPTIM
+       case kTfLiteInt16:
+         if (input->type == kTfLiteInt16) {
+           FullyConnectedInt16<kernel_type>(data, input, filter, bias, output);
+@@ -833,7 +824,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+               CpuBackendContext::GetFromContext(context));
+         }
+         break;
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+       default:
+         context->ReportError(context,
+                              "Quantized FullyConnected expects output data "
+@@ -845,7 +836,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus EvalShuffledQuantized(TfLiteContext* context, TfLiteNode* node,
+                                    TfLiteFullyConnectedParams* params,
+@@ -978,7 +969,7 @@ TfLiteStatus EvalFloat(TfLiteContext* context, TfLiteNode* node,
+ 
+   return kTfLiteOk;
+ }
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+@@ -1000,7 +991,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+                     GetOutputSafe(context, node, kOutputTensor, &output));
+ 
+   switch (filter->type) {
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       return EvalFloat<kernel_type>(context, node, params, data, input, filter,
+                                     bias, output);
+@@ -1023,7 +1014,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+                              "Unhandled fully-connected weights format");
+         return kTfLiteError;
+       }
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+     case kTfLiteInt8:
+       if (params->weights_format == kTfLiteFullyConnectedWeightsFormatDefault) {
+         return EvalQuantized<kernel_type>(context, node, params, data, input,
+@@ -1060,7 +1051,7 @@ TfLiteRegistration* Register_FULLY_CONNECTED_REF() {
+   return &r;
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ // Legacy path for PIE clients.
+ TfLiteRegistration* Register_FULLY_CONNECTED_PIE() {
+   static TfLiteRegistration r = {
+@@ -1069,7 +1060,7 @@ TfLiteRegistration* Register_FULLY_CONNECTED_PIE() {
+       fully_connected::Eval<fully_connected::kLegacyPie>};
+   return &r;
+ }
+-#endif // LITE8S_ONLY
++#endif // TFLITE_OPTIM
+ 
+ TfLiteRegistration* Register_FULLY_CONNECTED() {
+   return Register_FULLY_CONNECTED_GENERIC_OPT();
+diff --git a/tensorflow/lite/kernels/mul.cc b/tensorflow/lite/kernels/mul.cc
+index a8468501..d36fc6e5 100644
+--- a/tensorflow/lite/kernels/mul.cc
++++ b/tensorflow/lite/kernels/mul.cc
+@@ -111,6 +111,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   return context->ResizeTensor(context, output, output_size);
+ }
+ 
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void EvalMul(TfLiteContext* context, TfLiteNode* node, TfLiteMulParams* params,
+              const OpData* data, const TfLiteTensor* input1,
+@@ -166,6 +167,7 @@ void EvalMul(TfLiteContext* context, TfLiteNode* node, TfLiteMulParams* params,
+   }
+ #undef TF_LITE_MUL
+ }
++#endif // TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+@@ -205,6 +207,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+         }
+       }
+     } else if (input1->type == kTfLiteInt16) {
++#ifndef TFLITE_OPTIM
+       // We have this check, because in case of int16
+       // input1_val*input2_val can overflow int32:
+       // see MulElementwise -
+@@ -220,6 +223,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+       } else {
+         TF_LITE_MUL(reference_integer_ops, Mul, int16_t);
+       }
++#endif // !TFLITE_OPTIM
+     } else {
+       // type == kTfLiteUInt8
+       if (kernel_type == kReference) {
+@@ -237,6 +241,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+       }
+     }
+ #undef TF_LITE_MUL
++#ifndef TFLITE_OPTIM
+   } else if (input1->type == kTfLiteInt16 && input2->type == kTfLiteInt16 &&
+              (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8)) {
+ #define TF_LITE_MUL(type, opname, output_dtype)                        \
+@@ -258,6 +263,7 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+       }
+     }
+ #undef TF_LITE_MUL
++#endif // !TFLITE_OPTIM
+   } else {
+     context->ReportError(
+         context, "Unsupported combination of input and output types in Mul.");
+@@ -281,18 +287,27 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context,
+                     GetOutputSafe(context, node, kOutputTensor, &output));
+ 
+-  if (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
++  if
++#ifndef TFLITE_OPTIM
++    (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
+       output->type == kTfLiteInt64) {
+     EvalMul<kernel_type>(context, node, params, data, input1, input2, output);
+-  } else if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
++  } else if
++#endif
++    (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
+              output->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_OK(
+         context, EvalQuantized<kernel_type>(context, node, params, data, input1,
+                                             input2, output));
+   } else {
+     context->ReportError(context,
++#ifndef TFLITE_OPTIM
+                          "Mul only supports FLOAT32, INT32 and quantized UINT8,"
+                          " INT8 and INT16 now, got %d.",
++#else //!TFLITE_OPTIM
++                         "Mul only supports quantized UINT8, INT8 and INT16 now,"
++                         " got %d.",
++#endif //!TFLITE_OPTIM
+                          output->type);
+     return kTfLiteError;
+   }
+diff --git a/tensorflow/lite/kernels/pooling.cc b/tensorflow/lite/kernels/pooling.cc
+index 6f4c33bf..1e5d2a4e 100644
+--- a/tensorflow/lite/kernels/pooling.cc
++++ b/tensorflow/lite/kernels/pooling.cc
+@@ -77,9 +77,6 @@ TfLiteStatus GenericPrepare(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+   TF_LITE_ENSURE_EQ(context, NumDimensions(input), 4);
+   TF_LITE_ENSURE_TYPES_EQ(context, input->type, output->type);
+-#ifdef LITE8S_ONLY
+-  TF_LITE_ENSURE_TYPES_EQ(context, input->type, kTfLiteInt8);
+-#endif // LITE8S_ONLY
+   int batches = input->dims->data[0];
+   int height = input->dims->data[1];
+   int width = input->dims->data[2];
+@@ -117,7 +114,7 @@ TfLiteStatus GenericPrepare(TfLiteContext* context, TfLiteNode* node) {
+   output_size->data[3] = channels_out;
+   return context->ResizeTensor(context, output, output_size);
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus AverageEvalFloat(TfLiteContext* context, TfLiteNode* node,
+                               TfLitePoolParams* params, OpData* data,
+@@ -147,6 +144,7 @@ TfLiteStatus AverageEvalFloat(TfLiteContext* context, TfLiteNode* node,
+ #undef TF_LITE_AVERAGE_POOL
+   return kTfLiteOk;
+ }
++#endif //!TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus AverageEvalQuantizedUint8(TfLiteContext* context, TfLiteNode* node,
+@@ -179,7 +177,7 @@ TfLiteStatus AverageEvalQuantizedUint8(TfLiteContext* context, TfLiteNode* node,
+ #undef TF_LITE_AVERAGE_POOL
+   return kTfLiteOk;
+ }
+-#endif //!LITE8S_ONLY
++
+ template <KernelType kernel_type>
+ TfLiteStatus AverageEvalQuantizedInt8(TfLiteContext* context, TfLiteNode* node,
+                                       TfLitePoolParams* params, OpData* data,
+@@ -212,7 +210,7 @@ TfLiteStatus AverageEvalQuantizedInt8(TfLiteContext* context, TfLiteNode* node,
+ #undef TF_LITE_AVERAGE_POOL
+   return kTfLiteOk;
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus AverageEvalQuantizedInt16(TfLiteContext* context, TfLiteNode* node,
+                                        TfLitePoolParams* params, OpData* data,
+@@ -267,6 +265,7 @@ void MaxEvalFloat(TfLiteContext* context, TfLiteNode* node,
+   }
+ #undef TF_LITE_MAX_POOL
+ }
++#endif //!TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ void MaxEvalQuantizedUInt8(TfLiteContext* context, TfLiteNode* node,
+@@ -296,7 +295,7 @@ void MaxEvalQuantizedUInt8(TfLiteContext* context, TfLiteNode* node,
+   }
+ #undef TF_LITE_MAX_POOL
+ }
+-#endif //!LITE8S_ONLY
++
+ template <KernelType kernel_type>
+ void MaxEvalQuantizedInt8(TfLiteContext* context, TfLiteNode* node,
+                           TfLitePoolParams* params, OpData* data,
+@@ -325,7 +324,7 @@ void MaxEvalQuantizedInt8(TfLiteContext* context, TfLiteNode* node,
+   }
+ #undef TF_LITE_MAX_POOL
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void MaxEvalQuantizedInt16(TfLiteContext* context, TfLiteNode* node,
+                            TfLitePoolParams* params, OpData* data,
+@@ -377,7 +376,7 @@ void L2EvalFloat(TfLiteContext* context, TfLiteNode* node,
+   }
+ #undef TF_LITE_L2_POOL
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ #undef TF_LITE_KERNEL_TYPE_DISPATCH
+ 
+ 
+@@ -391,17 +390,17 @@ TfLiteStatus AverageEval(TfLiteContext* context, TfLiteNode* node) {
+   const TfLiteTensor* input;
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+   switch (input->type) {  // Already know in/out types are same.
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       return AverageEvalFloat<kernel_type>(context, node, params, data, input,
+                                            output);
+-    case kTfLiteUInt8:
+-      return AverageEvalQuantizedUint8<kernel_type>(context, node, params, data,
+-                                                    input, output);
+     case kTfLiteInt16:
+       return AverageEvalQuantizedInt16<kernel_type>(context, node, params, data,
+                                                     input, output);
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
++    case kTfLiteUInt8:
++      return AverageEvalQuantizedUint8<kernel_type>(context, node, params, data,
++                                                    input, output);
+     case kTfLiteInt8:
+       return AverageEvalQuantizedInt8<kernel_type>(context, node, params, data,
+                                                    input, output);
+@@ -423,19 +422,19 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
+   const TfLiteTensor* input;
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+   switch (input->type) {  // Already know in/out types are same.
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32:
+       MaxEvalFloat<kernel_type>(context, node, params, data, input, output);
+       break;
+-    case kTfLiteUInt8:
+-      MaxEvalQuantizedUInt8<kernel_type>(context, node, params, data, input,
+-                                         output);
+-      break;
+     case kTfLiteInt16:
+       MaxEvalQuantizedInt16<kernel_type>(context, node, params, data, input,
+                                          output);
+       break;
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
++    case kTfLiteUInt8:
++      MaxEvalQuantizedUInt8<kernel_type>(context, node, params, data, input,
++                                         output);
++      break;
+     case kTfLiteInt8:
+       MaxEvalQuantizedInt8<kernel_type>(context, node, params, data, input,
+                                         output);
+@@ -447,7 +446,7 @@ TfLiteStatus MaxEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+   return kTfLiteOk;
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus L2Eval(TfLiteContext* context, TfLiteNode* node) {
+   auto* params = reinterpret_cast<TfLitePoolParams*>(node->builtin_data);
+@@ -471,9 +470,9 @@ TfLiteStatus L2Eval(TfLiteContext* context, TfLiteNode* node) {
+   }
+   return kTfLiteOk;
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ }  // namespace pooling
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteRegistration* Register_AVERAGE_POOL_REF() {
+   static TfLiteRegistration r = {pooling::Init, pooling::Free,
+                                  pooling::GenericPrepare<pooling::kAverage>,
+@@ -494,7 +493,7 @@ TfLiteRegistration* Register_L2_POOL_REF() {
+                                  pooling::L2Eval<pooling::kReference>};
+   return &r;
+ }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+ TfLiteRegistration* Register_AVERAGE_POOL_GENERIC_OPT() {
+   static TfLiteRegistration r = {
+       pooling::Init, pooling::Free, pooling::GenericPrepare<pooling::kAverage>,
+@@ -508,7 +507,7 @@ TfLiteRegistration* Register_MAX_POOL_GENERIC_OPT() {
+                                  pooling::MaxEval<pooling::kGenericOptimized>};
+   return &r;
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteRegistration* Register_L2_POOL_GENERIC_OPT() {
+   static TfLiteRegistration r = {pooling::Init, pooling::Free,
+                                  pooling::GenericPrepare<pooling::kL2>,
+@@ -518,7 +517,7 @@ TfLiteRegistration* Register_L2_POOL_GENERIC_OPT() {
+ TfLiteRegistration* Register_L2_POOL_2D() {
+   return Register_L2_POOL_GENERIC_OPT();
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ TfLiteRegistration* Register_AVERAGE_POOL_2D() {
+   return Register_AVERAGE_POOL_GENERIC_OPT();
+ }
+diff --git a/tensorflow/lite/kernels/reduce.cc b/tensorflow/lite/kernels/reduce.cc
+index b77a47b0..7414856f 100644
+--- a/tensorflow/lite/kernels/reduce.cc
++++ b/tensorflow/lite/kernels/reduce.cc
+@@ -244,7 +244,7 @@ TfLiteStatus PrepareSimple(TfLiteContext* context, TfLiteNode* node) {
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE_REDUCE_MEAN_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteStatus PrepareAllOrAny(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_EQ(context, NumInputs(node), 2);
+   const TfLiteTensor* input;
+@@ -252,7 +252,7 @@ TfLiteStatus PrepareAllOrAny(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_TYPES_EQ(context, input->type, kTfLiteBool);
+   return PrepareSimple(context, node);
+ }
+-#endif // !LITE_REDUCE_MEAN_ONLY
++#endif // !TFLITE_OPTIM
+ 
+ TfLiteStatus PrepareMeanOrSum(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, PrepareSimple(context, node));
+@@ -418,7 +418,6 @@ TfLiteStatus EvalMean(TfLiteContext* context, TfLiteNode* node) {
+           return kTfLiteOk;
+         }
+       } break;
+-#ifndef LITE8S_ONLY
+       case kTfLiteUInt8: {
+         tflite::MeanParams op_params;
+         op_params.axis_count = num_axis;
+@@ -438,7 +437,6 @@ TfLiteStatus EvalMean(TfLiteContext* context, TfLiteNode* node) {
+           return kTfLiteOk;
+         }
+       } break;
+-#endif // !LITE8S_ONLY
+       default:
+         break;
+     }
+@@ -454,7 +452,7 @@ TfLiteStatus EvalMean(TfLiteContext* context, TfLiteNode* node) {
+                                      context, op_context, num_axis, data,
+                                      temp_index, resolved_axis, temp_sum));
+     } break;
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32: {
+       tflite::MeanParams op_params;
+       op_params.axis_count = num_axis;
+@@ -516,19 +514,19 @@ TfLiteStatus EvalMean(TfLiteContext* context, TfLiteNode* node) {
+                                      context, op_context, num_axis, data,
+                                      temp_index, resolved_axis, temp_sum));
+     } break;
++#endif // !TFLITE_OPTIM
+     case kTfLiteUInt8: {
+       TF_LITE_ENSURE_OK(context, EvalMeanReferenceOps<uint8_t>(
+                                      context, op_context, num_axis, data,
+                                      temp_index, resolved_axis, temp_sum));
+     } break;
+-#endif // !LITE8S_ONLY
+     default:
+       return kTfLiteError;
+   }
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE_REDUCE_MEAN_ONLY
++#ifndef TFLITE_OPTIM
+ // The underlying logic for Reduce Sum/Prod/Max/Min/Any
+ template <typename T>
+ TfLiteStatus EvalLogic(TfLiteContext* context, TfLiteNode* node,
+@@ -748,7 +746,7 @@ TfLiteStatus EvalSum(TfLiteContext* context, TfLiteNode* node) {
+ 
+   return kTfLiteOk;
+ }
+-#endif// !LITE_REDUCE_MEAN_ONLY
++#endif// !TFLITE_OPTIM
+ 
+ }  // namespace reduce
+ 
+@@ -766,7 +764,7 @@ TfLiteRegistration* Register_MEAN_REF() {
+   return &r;
+ }
+ 
+-#ifndef LITE_REDUCE_MEAN_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteRegistration* Register_SUM_REF() {
+   static TfLiteRegistration r = {reduce::Init, reduce::Free,
+                                  reduce::PrepareMeanOrSum, reduce::EvalSum};
+@@ -807,7 +805,7 @@ TfLiteRegistration* Register_REDUCE_ALL_REF() {
+       reduce::EvalGeneric<reduce::kReference, reduce::kAll>};
+   return &r;
+ }
+-#endif // !LITE_REDUCE_MEAN_ONLY
++#endif // !TFLITE_OPTIM
+ 
+ TfLiteRegistration* Register_MEAN() {
+ #ifdef USE_NEON
+@@ -817,7 +815,7 @@ TfLiteRegistration* Register_MEAN() {
+ #endif
+ }
+ 
+-#ifndef LITE_REDUCE_MEAN_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteRegistration* Register_SUM() { return Register_SUM_REF(); }
+ TfLiteRegistration* Register_REDUCE_PROD() {
+   return Register_REDUCE_PROD_REF();
+@@ -826,7 +824,7 @@ TfLiteRegistration* Register_REDUCE_MAX() { return Register_REDUCE_MAX_REF(); }
+ TfLiteRegistration* Register_REDUCE_MIN() { return Register_REDUCE_MIN_REF(); }
+ TfLiteRegistration* Register_REDUCE_ANY() { return Register_REDUCE_ANY_REF(); }
+ TfLiteRegistration* Register_REDUCE_ALL() { return Register_REDUCE_ALL_REF(); }
+-#endif // !LITE_REDUCE_MEAN_ONLY
++#endif // !TFLITE_OPTIM
+ 
+ }  // namespace builtin
+ }  // namespace ops
+diff --git a/tensorflow/lite/kernels/register.cc b/tensorflow/lite/kernels/register.cc
+index a2264ab7..027dc589 100644
+--- a/tensorflow/lite/kernels/register.cc
++++ b/tensorflow/lite/kernels/register.cc
+@@ -34,117 +34,133 @@ TfLiteRegistration* Register_DETECTION_POSTPROCESS();
+ namespace builtin {
+ 
+ BuiltinOpResolver::BuiltinOpResolver() {
+-  //AddBuiltin(BuiltinOperator_ABS, Register_ABS(), /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_HARD_SWISH, Register_HARD_SWISH());
++  AddBuiltin(BuiltinOperator_ABS, Register_ABS(), /* min_version = */ 1,
++            /* max_version = */ 4);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_HARD_SWISH, Register_HARD_SWISH());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_RELU, Register_RELU(), /* min_version = */ 1,
+              /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_RELU_N1_TO_1, Register_RELU_N1_TO_1());
+-  //AddBuiltin(BuiltinOperator_RELU6, Register_RELU6(), /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_TANH, Register_TANH(), /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_LOGISTIC, Register_LOGISTIC(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_RELU_N1_TO_1, Register_RELU_N1_TO_1());
++  AddBuiltin(BuiltinOperator_RELU6, Register_RELU6(), /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_TANH, Register_TANH(), /* min_version = */ 1,
++            /* max_version = */ 3);
++#endif // TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_LOGISTIC, Register_LOGISTIC(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
+   AddBuiltin(BuiltinOperator_AVERAGE_POOL_2D, Register_AVERAGE_POOL_2D(),
+              /* min_version */ 1,
+              /* max_version */ 3);
+   AddBuiltin(BuiltinOperator_MAX_POOL_2D, Register_MAX_POOL_2D(),
+              /* min_version */ 1,
+              /* max_version */ 3);
+-  //AddBuiltin(BuiltinOperator_L2_POOL_2D, Register_L2_POOL_2D());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_L2_POOL_2D, Register_L2_POOL_2D());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_CONV_2D, Register_CONV_2D(),
+              /* min_version = */ 1,
+              /* max_version = */ 5);
+   AddBuiltin(BuiltinOperator_DEPTHWISE_CONV_2D, Register_DEPTHWISE_CONV_2D(),
+              /* min_version = */ 1,
+              /* max_version = */ 6);
+-  //AddBuiltin(BuiltinOperator_SVDF, Register_SVDF(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_RNN, Register_RNN(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_BIDIRECTIONAL_SEQUENCE_RNN,
+-  //           Register_BIDIRECTIONAL_SEQUENCE_RNN(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_UNIDIRECTIONAL_SEQUENCE_RNN,
+-  //           Register_UNIDIRECTIONAL_SEQUENCE_RNN(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_EMBEDDING_LOOKUP, Register_EMBEDDING_LOOKUP(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_EMBEDDING_LOOKUP_SPARSE,
+-  //           Register_EMBEDDING_LOOKUP_SPARSE());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_SVDF, Register_SVDF(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_RNN, Register_RNN(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_BIDIRECTIONAL_SEQUENCE_RNN,
++            Register_BIDIRECTIONAL_SEQUENCE_RNN(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_UNIDIRECTIONAL_SEQUENCE_RNN,
++            Register_UNIDIRECTIONAL_SEQUENCE_RNN(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_EMBEDDING_LOOKUP, Register_EMBEDDING_LOOKUP(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_EMBEDDING_LOOKUP_SPARSE,
++            Register_EMBEDDING_LOOKUP_SPARSE());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_FULLY_CONNECTED, Register_FULLY_CONNECTED(),
+              /* min_version = */ 1,
+              /* max_version = */ 9);
+-  //AddBuiltin(BuiltinOperator_LSH_PROJECTION, Register_LSH_PROJECTION());
+-  //AddBuiltin(BuiltinOperator_HASHTABLE_LOOKUP, Register_HASHTABLE_LOOKUP());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_LSH_PROJECTION, Register_LSH_PROJECTION());
++  AddBuiltin(BuiltinOperator_HASHTABLE_LOOKUP, Register_HASHTABLE_LOOKUP());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_SOFTMAX, Register_SOFTMAX(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+   AddBuiltin(BuiltinOperator_CONCATENATION, Register_CONCATENATION(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_ADD, Register_ADD(),
+-  //           /* min_version */ 1,
+-  //           /* max_version */ 4);
+-  //AddBuiltin(BuiltinOperator_SPACE_TO_BATCH_ND, Register_SPACE_TO_BATCH_ND(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_BATCH_TO_SPACE_ND, Register_BATCH_TO_SPACE_ND(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_ADD, Register_ADD(),
++            /* min_version */ 1,
++            /* max_version */ 4);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_SPACE_TO_BATCH_ND, Register_SPACE_TO_BATCH_ND(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_BATCH_TO_SPACE_ND, Register_BATCH_TO_SPACE_ND(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_MUL, Register_MUL(), /* min_version = */ 1,
+              /* max_version = */ 5);
+-  //AddBuiltin(BuiltinOperator_L2_NORMALIZATION, Register_L2_NORMALIZATION(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_LOCAL_RESPONSE_NORMALIZATION,
+-  //           Register_LOCAL_RESPONSE_NORMALIZATION());
+-  //AddBuiltin(BuiltinOperator_LSTM, Register_LSTM(), /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_BIDIRECTIONAL_SEQUENCE_LSTM,
+-  //           Register_BIDIRECTIONAL_SEQUENCE_LSTM(), /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_UNIDIRECTIONAL_SEQUENCE_LSTM,
+-  //           Register_UNIDIRECTIONAL_SEQUENCE_LSTM(), /* min_version = */ 1,
+-  //           /* max_version = */ 3);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_L2_NORMALIZATION, Register_L2_NORMALIZATION(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_LOCAL_RESPONSE_NORMALIZATION,
++            Register_LOCAL_RESPONSE_NORMALIZATION());
++  AddBuiltin(BuiltinOperator_LSTM, Register_LSTM(), /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_BIDIRECTIONAL_SEQUENCE_LSTM,
++            Register_BIDIRECTIONAL_SEQUENCE_LSTM(), /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_UNIDIRECTIONAL_SEQUENCE_LSTM,
++            Register_UNIDIRECTIONAL_SEQUENCE_LSTM(), /* min_version = */ 1,
++            /* max_version = */ 3);
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_PAD, Register_PAD(), /* min_version = */ 1,
+              /* max_version = */ 4);
+   AddBuiltin(BuiltinOperator_PADV2, Register_PADV2(), /* min_version = */ 1,
+              /* max_version = */ 4);
+   AddBuiltin(BuiltinOperator_RESHAPE, Register_RESHAPE());
+-  //AddBuiltin(BuiltinOperator_RESIZE_BILINEAR, Register_RESIZE_BILINEAR(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_RESIZE_NEAREST_NEIGHBOR,
+-  //           Register_RESIZE_NEAREST_NEIGHBOR(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_SKIP_GRAM, Register_SKIP_GRAM());
+-  //AddBuiltin(BuiltinOperator_SPACE_TO_DEPTH, Register_SPACE_TO_DEPTH(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_DEPTH_TO_SPACE, Register_DEPTH_TO_SPACE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_GATHER, Register_GATHER(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 5);
++  AddBuiltin(BuiltinOperator_RESIZE_BILINEAR, Register_RESIZE_BILINEAR(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_RESIZE_NEAREST_NEIGHBOR,
++            Register_RESIZE_NEAREST_NEIGHBOR(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_SKIP_GRAM, Register_SKIP_GRAM());
++  AddBuiltin(BuiltinOperator_SPACE_TO_DEPTH, Register_SPACE_TO_DEPTH(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_DEPTH_TO_SPACE, Register_DEPTH_TO_SPACE(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_GATHER, Register_GATHER(),
++            /* min_version = */ 1,
++            /* max_version = */ 5);
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_TRANSPOSE, Register_TRANSPOSE(),
+              /* min_version = */ 1,
+              /* max_version = */ 5);
+   AddBuiltin(BuiltinOperator_MEAN, Register_MEAN(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_DIV, Register_DIV(),
+-  //           /* min_version */ 1,
+-  //           /* max_version */ 2);
++  AddBuiltin(BuiltinOperator_DIV, Register_DIV(),
++            /* min_version */ 1,
++            /* max_version */ 2);
+   AddBuiltin(BuiltinOperator_SUB, Register_SUB(),
+              /* min_version = */ 1,
+              /* max_version = */ 5);
+@@ -154,187 +170,199 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   AddBuiltin(BuiltinOperator_SPLIT_V, Register_SPLIT_V(),
+              /* min_version = */ 1,
+              /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SQUEEZE, Register_SQUEEZE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_SQUEEZE, Register_SQUEEZE(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_STRIDED_SLICE, Register_STRIDED_SLICE(),
+              /* min_version = */ 1,
+              /* max_version = */ 6);
+-  //AddBuiltin(BuiltinOperator_EXP, Register_EXP());
+-  //AddBuiltin(BuiltinOperator_TOPK_V2, Register_TOPK_V2(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_LOG, Register_LOG());
+-  //AddBuiltin(BuiltinOperator_LOG_SOFTMAX, Register_LOG_SOFTMAX(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_CAST, Register_CAST());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_EXP, Register_EXP());
++  AddBuiltin(BuiltinOperator_TOPK_V2, Register_TOPK_V2(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_LOG, Register_LOG());
++  AddBuiltin(BuiltinOperator_LOG_SOFTMAX, Register_LOG_SOFTMAX(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_CAST, Register_CAST());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_DEQUANTIZE, Register_DEQUANTIZE(),
+              /* min_version = */ 1,
+              /* max_version = */ 4);
+   AddBuiltin(BuiltinOperator_PRELU, Register_PRELU());
+-  //AddBuiltin(BuiltinOperator_MAXIMUM, Register_MAXIMUM(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_MINIMUM, Register_MINIMUM(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_ARG_MAX, Register_ARG_MAX(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_ARG_MIN, Register_ARG_MIN(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_GREATER, Register_GREATER(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_GREATER_EQUAL, Register_GREATER_EQUAL(),
+-  //           /* min_version = */ 1,
+-  //          /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_LESS, Register_LESS(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_LESS_EQUAL, Register_LESS_EQUAL(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_FLOOR, Register_FLOOR());
+-  //AddBuiltin(BuiltinOperator_CEIL, Register_CEIL());
+-  //AddBuiltin(BuiltinOperator_ROUND, Register_ROUND());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_MAXIMUM, Register_MAXIMUM(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_MINIMUM, Register_MINIMUM(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_ARG_MAX, Register_ARG_MAX(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_ARG_MIN, Register_ARG_MIN(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_GREATER, Register_GREATER(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_GREATER_EQUAL, Register_GREATER_EQUAL(),
++            /* min_version = */ 1,
++           /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_LESS, Register_LESS(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_LESS_EQUAL, Register_LESS_EQUAL(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_FLOOR, Register_FLOOR());
++  AddBuiltin(BuiltinOperator_CEIL, Register_CEIL());
++  AddBuiltin(BuiltinOperator_ROUND, Register_ROUND());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_NEG, Register_NEG());
+-  //AddBuiltin(BuiltinOperator_SELECT, Register_SELECT(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SELECT_V2, Register_SELECT_V2());
+-  //AddBuiltin(BuiltinOperator_SLICE, Register_SLICE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 5);
+-  //AddBuiltin(BuiltinOperator_SIN, Register_SIN());
+-  //AddBuiltin(BuiltinOperator_COS, Register_COS());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_SELECT, Register_SELECT(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_SELECT_V2, Register_SELECT_V2());
++  AddBuiltin(BuiltinOperator_SLICE, Register_SLICE(),
++            /* min_version = */ 1,
++            /* max_version = */ 5);
++  AddBuiltin(BuiltinOperator_SIN, Register_SIN());
++  AddBuiltin(BuiltinOperator_COS, Register_COS());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_TRANSPOSE_CONV, Register_TRANSPOSE_CONV(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_TILE, Register_TILE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SUM, Register_SUM(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_REDUCE_PROD, Register_REDUCE_PROD());
+-  //AddBuiltin(BuiltinOperator_REDUCE_MAX, Register_REDUCE_MAX(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_REDUCE_MIN, Register_REDUCE_MIN(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_REDUCE_ANY, Register_REDUCE_ANY());
+-  //AddBuiltin(BuiltinOperator_REDUCE_ALL, Register_REDUCE_ALL());
+-  //AddBuiltin(BuiltinOperator_EXPAND_DIMS, Register_EXPAND_DIMS());
+-  //AddBuiltin(BuiltinOperator_SPARSE_TO_DENSE, Register_SPARSE_TO_DENSE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_EQUAL, Register_EQUAL(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_NOT_EQUAL, Register_NOT_EQUAL(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_SQRT, Register_SQRT());
+-  //AddBuiltin(BuiltinOperator_RSQRT, Register_RSQRT(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SHAPE, Register_SHAPE());
+-  //AddBuiltin(BuiltinOperator_RANK, Register_RANK());
+-  //AddBuiltin(BuiltinOperator_POW, Register_POW());
+-  //AddBuiltin(BuiltinOperator_FAKE_QUANT, Register_FAKE_QUANT(), 1, 2);
+-  //AddBuiltin(BuiltinOperator_PACK, Register_PACK(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_ONE_HOT, Register_ONE_HOT());
+-  //AddBuiltin(BuiltinOperator_LOGICAL_OR, Register_LOGICAL_OR());
+-  //AddBuiltin(BuiltinOperator_LOGICAL_AND, Register_LOGICAL_AND());
+-  //AddBuiltin(BuiltinOperator_LOGICAL_NOT, Register_LOGICAL_NOT());
+-  //AddBuiltin(BuiltinOperator_UNPACK, Register_UNPACK(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_FLOOR_DIV, Register_FLOOR_DIV(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SQUARE, Register_SQUARE());
+-  //AddBuiltin(BuiltinOperator_ZEROS_LIKE, Register_ZEROS_LIKE());
+-  //AddBuiltin(BuiltinOperator_FLOOR_MOD, Register_FLOOR_MOD());
+-  //AddBuiltin(BuiltinOperator_RANGE, Register_RANGE());
+-  //AddBuiltin(BuiltinOperator_LEAKY_RELU, Register_LEAKY_RELU(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_SQUARED_DIFFERENCE, Register_SQUARED_DIFFERENCE(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_FILL, Register_FILL(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_MIRROR_PAD, Register_MIRROR_PAD(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_UNIQUE, Register_UNIQUE());
+-  //AddBuiltin(BuiltinOperator_REVERSE_V2, Register_REVERSE_V2(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_ADD_N, Register_ADD_N());
+-  //AddBuiltin(BuiltinOperator_GATHER_ND, Register_GATHER_ND(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_WHERE, Register_WHERE());
+-  //AddBuiltin(BuiltinOperator_ELU, Register_ELU());
+-  //AddBuiltin(BuiltinOperator_REVERSE_SEQUENCE, Register_REVERSE_SEQUENCE());
+-  //AddBuiltin(BuiltinOperator_MATRIX_DIAG, Register_MATRIX_DIAG());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_TILE, Register_TILE(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_SUM, Register_SUM(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_REDUCE_PROD, Register_REDUCE_PROD());
++  AddBuiltin(BuiltinOperator_REDUCE_MAX, Register_REDUCE_MAX(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_REDUCE_MIN, Register_REDUCE_MIN(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_REDUCE_ANY, Register_REDUCE_ANY());
++  AddBuiltin(BuiltinOperator_REDUCE_ALL, Register_REDUCE_ALL());
++  AddBuiltin(BuiltinOperator_EXPAND_DIMS, Register_EXPAND_DIMS());
++  AddBuiltin(BuiltinOperator_SPARSE_TO_DENSE, Register_SPARSE_TO_DENSE(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_EQUAL, Register_EQUAL(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_NOT_EQUAL, Register_NOT_EQUAL(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_SQRT, Register_SQRT());
++  AddBuiltin(BuiltinOperator_RSQRT, Register_RSQRT(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_SHAPE, Register_SHAPE());
++  AddBuiltin(BuiltinOperator_RANK, Register_RANK());
++  AddBuiltin(BuiltinOperator_POW, Register_POW());
++  AddBuiltin(BuiltinOperator_FAKE_QUANT, Register_FAKE_QUANT(), 1, 2);
++  AddBuiltin(BuiltinOperator_PACK, Register_PACK(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_ONE_HOT, Register_ONE_HOT());
++  AddBuiltin(BuiltinOperator_LOGICAL_OR, Register_LOGICAL_OR());
++  AddBuiltin(BuiltinOperator_LOGICAL_AND, Register_LOGICAL_AND());
++  AddBuiltin(BuiltinOperator_LOGICAL_NOT, Register_LOGICAL_NOT());
++  AddBuiltin(BuiltinOperator_UNPACK, Register_UNPACK(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_FLOOR_DIV, Register_FLOOR_DIV(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_SQUARE, Register_SQUARE());
++  AddBuiltin(BuiltinOperator_ZEROS_LIKE, Register_ZEROS_LIKE());
++  AddBuiltin(BuiltinOperator_FLOOR_MOD, Register_FLOOR_MOD());
++  AddBuiltin(BuiltinOperator_RANGE, Register_RANGE());
++  AddBuiltin(BuiltinOperator_LEAKY_RELU, Register_LEAKY_RELU(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_SQUARED_DIFFERENCE, Register_SQUARED_DIFFERENCE(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_FILL, Register_FILL(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_MIRROR_PAD, Register_MIRROR_PAD(),
++            /* min_version = */ 1,
++            /* max_version = */ 2);
++  AddBuiltin(BuiltinOperator_UNIQUE, Register_UNIQUE());
++  AddBuiltin(BuiltinOperator_REVERSE_V2, Register_REVERSE_V2(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_ADD_N, Register_ADD_N());
++  AddBuiltin(BuiltinOperator_GATHER_ND, Register_GATHER_ND(),
++            /* min_version = */ 1,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_WHERE, Register_WHERE());
++  AddBuiltin(BuiltinOperator_ELU, Register_ELU());
++  AddBuiltin(BuiltinOperator_REVERSE_SEQUENCE, Register_REVERSE_SEQUENCE());
++  AddBuiltin(BuiltinOperator_MATRIX_DIAG, Register_MATRIX_DIAG());
++#endif // TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_QUANTIZE, Register_QUANTIZE(),
+              /* min_version = */ 1,
+              /* max_version = */ 2);
+-  //AddBuiltin(BuiltinOperator_MATRIX_SET_DIAG, Register_MATRIX_SET_DIAG());
+-  //AddBuiltin(BuiltinOperator_IF, tflite::ops::builtin::Register_IF());
+-  //AddBuiltin(BuiltinOperator_WHILE, tflite::ops::builtin::Register_WHILE());
+-  //AddBuiltin(BuiltinOperator_NON_MAX_SUPPRESSION_V4,
+-  //           Register_NON_MAX_SUPPRESSION_V4());
+-  //AddBuiltin(BuiltinOperator_NON_MAX_SUPPRESSION_V5,
+-  //           Register_NON_MAX_SUPPRESSION_V5());
+-  //AddBuiltin(BuiltinOperator_SCATTER_ND, Register_SCATTER_ND());
+-  //AddBuiltin(BuiltinOperator_DENSIFY, Register_DENSIFY());
+-  //AddBuiltin(BuiltinOperator_SEGMENT_SUM, Register_SEGMENT_SUM());
+-  //AddBuiltin(BuiltinOperator_BATCH_MATMUL, Register_BATCH_MATMUL(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_CUMSUM, Register_CUMSUM());
++#ifndef TFLITE_OPTIM
++  AddBuiltin(BuiltinOperator_MATRIX_SET_DIAG, Register_MATRIX_SET_DIAG());
++  AddBuiltin(BuiltinOperator_IF, tflite::ops::builtin::Register_IF());
++  AddBuiltin(BuiltinOperator_WHILE, tflite::ops::builtin::Register_WHILE());
++  AddBuiltin(BuiltinOperator_NON_MAX_SUPPRESSION_V4,
++            Register_NON_MAX_SUPPRESSION_V4());
++  AddBuiltin(BuiltinOperator_NON_MAX_SUPPRESSION_V5,
++            Register_NON_MAX_SUPPRESSION_V5());
++  AddBuiltin(BuiltinOperator_SCATTER_ND, Register_SCATTER_ND());
++  AddBuiltin(BuiltinOperator_DENSIFY, Register_DENSIFY());
++  AddBuiltin(BuiltinOperator_SEGMENT_SUM, Register_SEGMENT_SUM());
++  AddBuiltin(BuiltinOperator_BATCH_MATMUL, Register_BATCH_MATMUL(),
++            /* min_version = */ 1,
++            /* max_version = */ 4);
++  AddBuiltin(BuiltinOperator_CUMSUM, Register_CUMSUM());
+   // The version one of broadcast to op won't be not supported since the version
+   // one was rollbacked and the builtin op code number has been changed because
+   // of builtin op code shortage problem.
+-  //AddBuiltin(BuiltinOperator_BROADCAST_TO, Register_BROADCAST_TO(),
+-  //           /* min_version = */ 2,
+-  //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_CALL_ONCE,
+-   //          tflite::ops::builtin::Register_CALL_ONCE());
+-  //AddBuiltin(BuiltinOperator_RFFT2D, Register_RFFT2D());
+-  //AddBuiltin(BuiltinOperator_CONV_3D, Register_CONV_3D());
+-  //AddBuiltin(BuiltinOperator_IMAG, Register_IMAG());
+-  //AddBuiltin(BuiltinOperator_REAL, Register_REAL());
+-  //AddBuiltin(BuiltinOperator_COMPLEX_ABS, Register_COMPLEX_ABS());
+-  //AddBuiltin(BuiltinOperator_HASHTABLE, Register_HASHTABLE());
+-  //AddBuiltin(BuiltinOperator_HASHTABLE_FIND, Register_HASHTABLE_FIND());
+-  //AddBuiltin(BuiltinOperator_HASHTABLE_IMPORT, Register_HASHTABLE_IMPORT());
+-  //AddBuiltin(BuiltinOperator_HASHTABLE_SIZE, Register_HASHTABLE_SIZE());
+-  //AddBuiltin(BuiltinOperator_CONV_3D_TRANSPOSE, Register_CONV_3D_TRANSPOSE());
+-  //AddBuiltin(BuiltinOperator_VAR_HANDLE, Register_VAR_HANDLE());
+-  //AddBuiltin(BuiltinOperator_READ_VARIABLE, Register_READ_VARIABLE());
+-  //AddBuiltin(BuiltinOperator_ASSIGN_VARIABLE, Register_ASSIGN_VARIABLE());
+-  //AddCustom("NumericVerify", tflite::ops::custom::Register_NUMERIC_VERIFY());
++  AddBuiltin(BuiltinOperator_BROADCAST_TO, Register_BROADCAST_TO(),
++            /* min_version = */ 2,
++            /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_CALL_ONCE,
++            tflite::ops::builtin::Register_CALL_ONCE());
++  AddBuiltin(BuiltinOperator_RFFT2D, Register_RFFT2D());
++  AddBuiltin(BuiltinOperator_CONV_3D, Register_CONV_3D());
++  AddBuiltin(BuiltinOperator_IMAG, Register_IMAG());
++  AddBuiltin(BuiltinOperator_REAL, Register_REAL());
++  AddBuiltin(BuiltinOperator_COMPLEX_ABS, Register_COMPLEX_ABS());
++  AddBuiltin(BuiltinOperator_HASHTABLE, Register_HASHTABLE());
++  AddBuiltin(BuiltinOperator_HASHTABLE_FIND, Register_HASHTABLE_FIND());
++  AddBuiltin(BuiltinOperator_HASHTABLE_IMPORT, Register_HASHTABLE_IMPORT());
++  AddBuiltin(BuiltinOperator_HASHTABLE_SIZE, Register_HASHTABLE_SIZE());
++  AddBuiltin(BuiltinOperator_CONV_3D_TRANSPOSE, Register_CONV_3D_TRANSPOSE());
++  AddBuiltin(BuiltinOperator_VAR_HANDLE, Register_VAR_HANDLE());
++  AddBuiltin(BuiltinOperator_READ_VARIABLE, Register_READ_VARIABLE());
++  AddBuiltin(BuiltinOperator_ASSIGN_VARIABLE, Register_ASSIGN_VARIABLE());
++  AddCustom("NumericVerify", tflite::ops::custom::Register_NUMERIC_VERIFY());
+   // TODO(andrewharp, ahentz): Move these somewhere more appropriate so that
+   // custom ops aren't always included by default.
+-  //AddCustom("Mfcc", tflite::ops::custom::Register_MFCC());
+-  //AddCustom("AudioSpectrogram",
+-  //          tflite::ops::custom::Register_AUDIO_SPECTROGRAM());
+-  //AddCustom("TFLite_Detection_PostProcess",
+-  //          tflite::ops::custom::Register_DETECTION_POSTPROCESS());
++  AddCustom("Mfcc", tflite::ops::custom::Register_MFCC());
++  AddCustom("AudioSpectrogram",
++           tflite::ops::custom::Register_AUDIO_SPECTROGRAM());
++  AddCustom("TFLite_Detection_PostProcess",
++           tflite::ops::custom::Register_DETECTION_POSTPROCESS());
+   // By definition, all of the ops added above are not user-defined ops,
+   // since they are supported by BuiltinOpResolver.
++#endif // TFLITE_OPTIM
+   may_directly_contain_user_defined_ops_ = false;
+ }
+ 
+diff --git a/tensorflow/lite/kernels/resize_bilinear.cc b/tensorflow/lite/kernels/resize_bilinear.cc
+index 39d96014..3fa4b813 100644
+--- a/tensorflow/lite/kernels/resize_bilinear.cc
++++ b/tensorflow/lite/kernels/resize_bilinear.cc
+@@ -124,12 +124,13 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+                GetTensorData<datatype>(input), GetTensorShape(size), \
+                GetTensorData<int32>(size), GetTensorShape(output),   \
+                GetTensorData<datatype>(output))
+-
++#ifndef TFLITE_OPTIM
+     if (kernel_type == kReference) {
+       TF_LITE_RESIZE_BILINEAR(reference_ops, ResizeBilinear, float);
+     } else if (kernel_type == kOptimized) {
+       TF_LITE_RESIZE_BILINEAR(optimized_ops, ResizeBilinear, float);
+     }
++#endif // !TFLITE_OPTIM
+   } else if (output->type == kTfLiteUInt8) {
+     if (kernel_type == kReference) {
+       TF_LITE_RESIZE_BILINEAR(reference_ops, ResizeBilinear, uint8_t);
+@@ -142,8 +143,10 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+     } else if (kernel_type == kOptimized) {
+       TF_LITE_RESIZE_BILINEAR(optimized_ops, ResizeBilinear, int8_t);
+     }
++#ifndef TFLITE_OPTIM
+   } else if (output->type == kTfLiteInt16) {
+     TF_LITE_RESIZE_BILINEAR(reference_ops, ResizeBilinearInteger, int16_t);
++#endif // TFLITE_OPTIM
+ #undef TF_LITE_RESIZE_BILINEAR
+   } else {
+     context->ReportError(context, "Output type is %d, requires float.",
+diff --git a/tensorflow/lite/kernels/sub.cc b/tensorflow/lite/kernels/sub.cc
+index 040b62d5..61f38bc6 100644
+--- a/tensorflow/lite/kernels/sub.cc
++++ b/tensorflow/lite/kernels/sub.cc
+@@ -163,6 +163,7 @@ TfLiteStatus PrepareGeneralSubOp(TfLiteContext* context,
+   return kTfLiteOk;
+ }
+ 
++#ifndef TFLITE_OPTIM
+ TfLiteStatus PrepareInt16SubOpPOT(TfLiteContext* context,
+                                   const TfLiteTensor* input1,
+                                   const TfLiteTensor* input2,
+@@ -209,6 +210,7 @@ TfLiteStatus PrepareInt16SubOpPOT(TfLiteContext* context,
+       &data->output_activation_max));
+   return kTfLiteOk;
+ }
++#endif // TFLITE_OPTIM
+ 
+ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   OpData* data = reinterpret_cast<OpData*>(node->user_data);
+@@ -258,6 +260,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   int input2_scale_log2_rounded{0};
+   int output_scale_log2_rounded{0};
+ 
++#ifndef TFLITE_OPTIM
+   if (input1->type == kTfLiteInt16 && input2->type == kTfLiteInt16 &&
+       output->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_EQ(context, input1->params.zero_point, 0);
+@@ -281,22 +284,25 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+           !input1_scale_is_pot || !input2_scale_is_pot || !output_scale_is_pot;
+     }
+   }
+-
++#endif // TFLITE_OPTIM
+   data->pot_scale_int16 = !general_scale_int16;
+ 
+   if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
+       general_scale_int16) {
+     TF_LITE_ENSURE_OK(context, PrepareGeneralSubOp(context, input1, input2,
+                                                    output, params, data, -1));
+-  } else if (output->type == kTfLiteInt16) {
++  }
++#ifndef TFLITE_OPTIM
++   else if (output->type == kTfLiteInt16) {
+     // LSTM-special case with scale parameter of POT
+     TF_LITE_ENSURE_OK(context, PrepareInt16SubOpPOT(context, input1, input2,
+                                                     output, params, data));
+   }
+-
++#endif // TFLITE_OPTIM
+   return context->ResizeTensor(context, output, output_size);
+ }
+ 
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type, typename data_type>
+ void EvalSubImpl(TfLiteContext* context, TfLiteNode* node,
+                  TfLiteSubParams* params, const OpData* data,
+@@ -363,6 +369,7 @@ void EvalSub(TfLiteContext* context, TfLiteNode* node, TfLiteSubParams* params,
+                          TfLiteTypeGetName(output->type));
+   }
+ }
++#endif // !TFLITE_OPTIM
+ 
+ template <KernelType kernel_type>
+ void EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+@@ -425,7 +432,9 @@ void EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+         TF_LITE_SUB(optimized_ops, Add, uint8_t);
+       }
+     }
+-  } else {
++  }
++#ifndef TFLITE_OPTIM
++   else {
+     // In the case of 16-bit sub with POT scaling, we use the sub kernels as
+     // there is no multiplier to negate to reuse the add kernels.
+     if (kernel_type == kReference) {
+@@ -442,6 +451,7 @@ void EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+       }
+     }
+   }
++#endif // TFLITE_OPTIM
+ #undef TF_LITE_SUB
+ }
+ 
+@@ -460,17 +470,25 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context,
+                     GetOutputSafe(context, node, kOutputTensor, &output));
+ 
+-  if (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
++  if
++#ifndef TFLITE_OPTIM
++     (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
+       output->type == kTfLiteInt64) {
+     EvalSub<kernel_type>(context, node, params, data, input1, input2, output);
+-  } else if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
++  } else if
++#endif // !TFLITE_OPTIM
++            (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
+              output->type == kTfLiteInt16) {
+     EvalQuantized<kernel_type>(context, node, params, data, input1, input2,
+                                output);
+   } else {
+     context->ReportError(
+         context,
++#ifndef TFLITE_OPTIM
+         "output type %d is not supported, requires float|uint8|int32 types.",
++#else // TFLITE_OPTIM
++        "output type %d is not supported, requires uint8 types.",
++#endif // TFLITE_OPTIM
+         output->type);
+     return kTfLiteError;
+   }
+diff --git a/tensorflow/lite/kernels/transpose_conv.cc b/tensorflow/lite/kernels/transpose_conv.cc
+index e7717c0a..85cd6b10 100644
+--- a/tensorflow/lite/kernels/transpose_conv.cc
++++ b/tensorflow/lite/kernels/transpose_conv.cc
+@@ -210,7 +210,7 @@ TfLiteStatus ResizeAndTransposeWeights(TfLiteContext* context,
+   transpose_params.perm[2] = 0;
+   transpose_params.perm[3] = 3;
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+   if (weights->type == kTfLiteFloat32) {
+     optimized_ops::Transpose(transpose_params, input_shape,
+                              GetTensorData<float>(weights),
+@@ -222,9 +222,9 @@ TfLiteStatus ResizeAndTransposeWeights(TfLiteContext* context,
+                              GetTensorShape(transposed_weights),
+                              GetTensorData<uint8>(transposed_weights));
+   } else if (weights->type == kTfLiteInt8) {
+-#else // !LITE8S_ONLY
++#else // !TFLITE_OPTIM
+   if (weights->type == kTfLiteInt8) {
+-#endif !LITE8S_ONLY
++#endif !TFLITE_OPTIM
+     // int16 transpose_conv also with int8 weights
+     optimized_ops::Transpose(transpose_params, input_shape,
+                              GetTensorData<int8>(weights),
+@@ -233,11 +233,11 @@ TfLiteStatus ResizeAndTransposeWeights(TfLiteContext* context,
+   } else {
+     TF_LITE_KERNEL_LOG(
+         context,
+-#ifdef LITE8S_ONLY
+-        "Only int8 is supported currently, got %s.",
+-#else
++#ifndef TFLITE_OPTIM
+         "Only float32, uint8, int8, int16 is supported currently, got %s.",
+-#endif // LITE8S_ONLY
++#else
++        "Only int8 is supported currently, got %s.",        
++#endif // TFLITE_OPTIM
+         TfLiteTypeGetName(weights->type));
+     return kTfLiteError;
+   }
+@@ -276,12 +276,12 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_EQ(context, NumDimensions(input), 4);
+   TF_LITE_ENSURE_EQ(context, NumDimensions(weights), 4);
+   TF_LITE_ENSURE(context,
+-#ifdef LITE8S_ONLY
+-                 input->type == kTfLiteInt8 && weights->type == kTfLiteInt8
+-#else
++#ifndef TFLITE_OPTIM
+                  input->type == kTfLiteFloat32 || input->type == kTfLiteUInt8 ||
+                      input->type == kTfLiteInt8 || input->type == kTfLiteInt16
+-#endif // LITE8S_ONLY
++#else
++                 input->type == kTfLiteInt8 && weights->type == kTfLiteInt8
++#endif // TFLITE_OPTIM
+                      );
+ 
+   if (has_bias) {
+@@ -404,7 +404,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   return kTfLiteOk;
+ }
+ 
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void EvalFloat(TfLiteContext* context, const TfLiteTransposeConvParams* params,
+                const OpData* data, const TfLiteTensor* input,
+@@ -443,7 +443,7 @@ void EvalFloat(TfLiteContext* context, const TfLiteTransposeConvParams* params,
+     }
+   }
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void EvalQuantized(TfLiteContext* context,
+                    const TfLiteTransposeConvParams* params, OpData* data,
+@@ -543,7 +543,7 @@ void EvalQuantizedPerChannel(
+     }
+   }
+ }
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ void EvalQuantizedPerChannel16x8(
+     TfLiteContext* context, const TfLiteTransposeConvParams* params,
+     OpData* data, const TfLiteTensor* input, const TfLiteTensor* weights,
+@@ -574,7 +574,7 @@ void EvalQuantizedPerChannel16x8(
+       GetTensorData<int16>(output), GetTensorShape(col2im),
+       GetTensorData<int8>(col2im), GetTensorData<int64_t>(scratch_buffer));
+ }
+-#endif // !LITE8S_ONLY
++#endif // !TFLITE_OPTIM
+ template <KernelType kernel_type>
+ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   // Retrieve tensors (All should be allocated by now)
+@@ -632,7 +632,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+ 
+   // Currently support float32, uint8, int8, int16.
+   switch (input->type) {
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+     case kTfLiteFloat32: {
+       // Only for GenericOptimized path, we use transposed weights.
+       if (data->weights_are_transposed) {
+@@ -644,7 +644,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+                              transposed_weights, col2im, output);
+       break;
+     }
+-    case kTfLiteUInt8: {
++    case kTfLiteInt16: {
+       TfLiteTensor* scratch_buffer;
+       TF_LITE_ENSURE_OK(
+           context, GetTemporarySafe(context, node, data->scratch_tensor_index,
+@@ -653,17 +653,16 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+         TF_LITE_ENSURE_OK(context,
+                           ResizeTensor(context, output_shape, scratch_buffer));
+       }
+-      if (data->weights_are_transposed) {
+-        if (!IsConstantTensor(weights)) {
+-          ResizeAndTransposeWeights(context, weights, transposed_weights);
+-        }
++      if (data->weights_are_transposed && !IsConstantTensor(weights)) {
++        ResizeAndTransposeWeights(context, weights, transposed_weights);
+       }
+-      EvalQuantized<kernel_type>(context, params, data, input, weights,
+-                                 transposed_weights, bias, col2im, output,
+-                                 scratch_buffer);
++      EvalQuantizedPerChannel16x8(context, params, data, input, weights,
++                                  transposed_weights, bias, col2im, output,
++                                  scratch_buffer);
+       break;
+     }
+-    case kTfLiteInt16: {
++#endif // !TFLITE_OPTIM
++    case kTfLiteUInt8: {
+       TfLiteTensor* scratch_buffer;
+       TF_LITE_ENSURE_OK(
+           context, GetTemporarySafe(context, node, data->scratch_tensor_index,
+@@ -672,15 +671,16 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+         TF_LITE_ENSURE_OK(context,
+                           ResizeTensor(context, output_shape, scratch_buffer));
+       }
+-      if (data->weights_are_transposed && !IsConstantTensor(weights)) {
+-        ResizeAndTransposeWeights(context, weights, transposed_weights);
++      if (data->weights_are_transposed) {
++        if (!IsConstantTensor(weights)) {
++          ResizeAndTransposeWeights(context, weights, transposed_weights);
++        }
+       }
+-      EvalQuantizedPerChannel16x8(context, params, data, input, weights,
+-                                  transposed_weights, bias, col2im, output,
+-                                  scratch_buffer);
++      EvalQuantized<kernel_type>(context, params, data, input, weights,
++                                 transposed_weights, bias, col2im, output,
++                                 scratch_buffer);
+       break;
+     }
+-#endif // !LITE8S_ONLY
+     case kTfLiteInt8: {
+       TfLiteTensor* scratch_buffer;
+       TF_LITE_ENSURE_OK(
+@@ -707,7 +707,7 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+ }
+ 
+ }  // namespace transpose_conv
+-#ifndef LITE8S_ONLY
++#ifndef TFLITE_OPTIM
+ TfLiteRegistration* Register_TRANSPOSECONV_REF() {
+   static TfLiteRegistration r = {
+       transpose_conv::Init, transpose_conv::Free,
+@@ -715,7 +715,7 @@ TfLiteRegistration* Register_TRANSPOSECONV_REF() {
+       transpose_conv::Eval<transpose_conv::kReference>};
+   return &r;
+ }
+-#endif //!LITE8S_ONLY
++#endif //!TFLITE_OPTIM
+ TfLiteRegistration* Register_TRANSPOSECONV_GENERIC_OPT() {
+   static TfLiteRegistration r = {
+       transpose_conv::Init, transpose_conv::Free,
+-- 
+2.47.1
+

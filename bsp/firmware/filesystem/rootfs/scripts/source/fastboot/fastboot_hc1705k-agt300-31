@@ -1,0 +1,34 @@
+do_start() {
+	busybox modprobe otp_ep
+	busybox modprobe mpp.ko
+
+	export DIP_INTL_INI_PATH=/system/mpp/script/dip_extend_day_agt300-31.ini
+	export DIP_INTL_INI_TUNING=1
+
+	/system/bin/mpi_stream -d /system/mpp/case_config/case_config_1004_FHD \
+	-pchn_idx=0 -poutput_res=1920x1080 -poutput_fps=15 -pwindow_fps=15 \
+	-pchn_idx=1 -poutput_res=640x480 -poutput_fps=15 -pwindow_fps=15 \
+	-penc_idx=0 -penc_res=1920x1080 -pmax_enc_res=1920x1080 \
+	-pgop_size=15 -penc_fps=60 -pmax_bit_rate=1536 -pquality_level_index=6 \
+	-penc_idx=1 -penc_res=640x480 -pmax_enc_res=640x480 \
+	-pgop_size=15 -penc_fps=60 -pmax_bit_rate=512 -pquality_level_index=6 \
+	> /dev/null &
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac
+
+
+

@@ -1,0 +1,84 @@
+#!/bin/sh
+
+country_c=/usrdata/country_code
+var="AU"
+
+get_country_code()
+{
+	# check the country_code exist or not
+	if [ -f "$country_c" ]; then
+		echo "$country_c found"
+		var="`cat $country_c`"
+	fi
+}
+
+get_reset_pin() {
+	node_path=/proc/device-tree/soc@80000000/sdc1_p0@818C0000/hichannel-gpio-irq/wifi-reset-pin
+	if [ -f "$node_path" ]; then 
+		reset_pin=`cat $node_path`
+	else
+		echo "can not find reset pin"
+	fi
+}
+
+do_start() {
+	modprobe hichannel restart_script=/etc/fastboot_video
+	ret=$?
+	retry=0
+	while [ $ret != 0 ] && [ $retry -lt 3 ]
+	do
+		do_stop
+		modprobe hichannel restart_script=/etc/fastboot_video
+		ret=$?
+		let retry=retry+1;
+	done
+
+	if [ $ret -eq 0 ]
+	then
+		get_country_code
+		/usr/sbin/lpw_controller -c $var > /dev/console &
+		/usr/sbin/lpw_supplicant > /dev/console &
+		ifup wlan0
+	else
+		echo "[Error] load hichannel.ko fail"
+	fi
+}
+
+do_stop() {
+	# kill lpw applications
+	ps | grep lpw_supplicant | grep -v grep | awk '{print $1}' | xargs kill
+	ps | grep lpw_controller | grep -v grep | awk '{print $1}' | xargs kill
+	# reset wifi
+	ifdown wlan0
+	echo $reset_pin > /sys/class/gpio/export
+	echo "out" > /sys/class/gpio/gpio${reset_pin}/direction
+	echo 0 > /sys/class/gpio/gpio${reset_pin}/value
+	sleep 1
+	rmmod hichannel.ko
+	echo 1 > /sys/class/gpio/gpio${reset_pin}/value
+	# pull high logic on the board
+	echo "in" > /sys/class/gpio/gpio${reset_pin}/direction
+	echo $reset_pin > /sys/class/gpio/unexport
+}
+
+case "$1" in
+	start)
+		get_reset_pin
+		do_start
+		;;
+	restart)
+		# the following 2 lines are needed when restart is called by kernel module
+		. /etc/profile
+		# restart wifi
+		get_reset_pin
+		do_stop
+		do_start
+		;;
+	stop)
+		get_reset_pin
+		do_stop
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac
+

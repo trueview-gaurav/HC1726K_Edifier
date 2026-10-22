@@ -1,0 +1,10 @@
+/etc/asound.conf
+/etc/profile
+/etc/network/interfaces
+/etc/wpa_supplicant.conf
+/usr/bin/autologin.sh
+/lib/firmware/ALC5677_0x5ffc0000.dat
+/lib/firmware/ALC5677_0x5ffc0fc0.bin
+/lib/firmware/ALC5677_0x5ffe0000.bin
+/lib/firmware/ALC5677_0x50000000.bin
+/lib/firmware/ALC5677_0x60000000.bin

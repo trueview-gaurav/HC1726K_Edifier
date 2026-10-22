@@ -1,0 +1,32 @@
+--- /libc/sysdeps/linux/arm/Makefile.arch
++++ /libc/sysdeps/linux/arm/Makefile.arch
+@@ -18,8 +18,13 @@
+ SSRC-$(UCLIBC_HAS_CONTEXT_FUNCS) += getcontext.S setcontext.S swapcontext.S
+
+ # Is our compiler set up for EABI ?
+-CC_IS_EABI_CHECK = $(filter-out -include libc-symbols.h,$(CC) $(CFLAGS))
+-$(eval $(call cache-output-var,IS_EABI,$(CC_IS_EABI_CHECK) -x c - -E -dM </dev/null 2>/dev/null | grep __ARM_EABI__ 2>&1 >/dev/null && echo 'y'))
++#CC_IS_EABI_CHECK = $(filter-out -include libc-symbols.h,$(CC) $(CFLAGS))
++#$(eval $(call cache-output-var,IS_EABI,$(CC_IS_EABI_CHECK) -x c - -E -dM </dev/null 2>/dev/null | grep __ARM_EABI__ 2>&1 >/dev/null && echo 'y'))
++
++# Yocto cross build for arm-*-uclibceabi.
++# The bootstrap preinclude path makes the generic probe brittle here,
++# and this toolchain is known to be EABI.
++IS_EABI := y
+
+ CSRC-$(IS_EABI) += aeabi_assert.c aeabi_atexit.c aeabi_errno_addr.c \
+	aeabi_localeconv.c aeabi_memclr.c aeabi_memcpy.c \
+
+--- /libc/sysdeps/linux/arm/find_exidx.c
++++ /libc/sysdeps/linux/arm/find_exidx.c
+@@ -102,7 +102,9 @@
+
+ /* Find the exception index table containing PC.  */
+
++__attribute__((visibility("default")))
+ _Unwind_Ptr __gnu_Unwind_Find_exidx (_Unwind_Ptr pc, int * pcount);
++__attribute__((visibility("default")))
+ _Unwind_Ptr __gnu_Unwind_Find_exidx (_Unwind_Ptr pc, int * pcount)
+ {
+   struct unw_eh_callback_data data;
+

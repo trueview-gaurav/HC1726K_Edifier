@@ -1,0 +1,355 @@
+#!/bin/sh
+
+# AUGENTIX INC. - PROPRIETARY
+#
+# sysupd-anti-rollback-tee - System update with anti-rollback prtection via TEE
+# Copyright (C) 2025 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc.
+
+LOCK_DIR="/tmp/sysupd.lock"
+trap 'rmdir "$LOCK_DIR"' EXIT
+
+if ! mkdir "$LOCK_DIR" > /dev/null 2>&1; then
+    trap - EXIT
+    echo "[SYSUPD] Update already in progress"
+    exit 1
+fi
+
+export LD_LIBRARY_PATH=/system/lib:$LD_LIBRARY_PATH
+
+SYSROOT=""
+SYSUPD_IMG_PATH="$SYSROOT/tmp"
+SYSUPD_IMG_PATH_FLASH="$SYSROOT/usrdata/update"
+SYSUPD_IMG_PATH_SDCARD="$SYSROOT/mnt/sdcard/update"
+SYSUPD_IMG=""
+SYSUPD_IMG_SDCARD=""
+INPUT_FILENAME=""
+eth0_path=/sys/class/net/eth0
+reset_usbnet_flag=/usrdata/reset_to_usbnet
+usbnet_module=$( lsmod | grep "g_ether" )
+diff_log="$SYSROOT/tmp/diff.log"
+fw_setenv_list=/tmp/fw_env_list
+
+# Anti-rollback related variables
+COUNTER_PATH=/system/bin/monotonic_counter
+COUNTER_MAX=4294967295 # (2^32 - 1)
+COUNTER_MIN=0
+SLOT_COUNTER_ID=2
+ROOTFS_COUNTER_ID=1
+TEE_COUNTER_ID=0
+
+# Read the content of /usrdata/mode to get the mode value
+if [ -f /usrdata/mode ]; then
+    mode=$(cat /usrdata/mode)
+else
+    # If the file does not exist or is empty, set mode to "factory"
+    mode="factory"
+fi
+echo "[SYSUPD] Mode: $mode"
+
+# Update flag for configuration management
+CONFIG_UPDATE_FILE=/usrdata/update_file
+
+#====================================================================
+
+verify_version() {
+	rootfs_version=$1
+	tee_version=$2
+	rootfs_counter_value=""
+	tee_counter_value=""
+
+	# Check if input versions are numeric
+	for var_name in rootfs_version tee_version; do
+    		eval var_value=\$$var_name
+
+    		# Check numeric
+    		if ! echo "$var_value" | grep -Eq '^[0-9]+$'; then
+        		echo "[SYSUPD] Error: $var_name must be a numeric integer."
+        		return 1
+    		fi
+
+    		# Check range
+		if ! echo "$var_value" | awk -v min="$COUNTER_MIN" -v max="$COUNTER_MAX" \
+			'$1 >= min && $1 <= max { exit 0 } { exit 1 }'; then
+			echo "[SYSUPD] Error: $var_name ($var_value) out of range [$COUNTER_MIN, $COUNTER_MAX]."
+			return 1
+		fi
+	done
+
+	# Read counter values
+	output=$($COUNTER_PATH -g "$ROOTFS_COUNTER_ID")
+	rootfs_counter_value=$(echo "$output" | awk "/Get counter $ROOTFS_COUNTER_ID with value/ {print \$NF}")
+
+	output=$($COUNTER_PATH -g "$TEE_COUNTER_ID")
+	tee_counter_value=$(echo "$output" | awk "/Get counter $TEE_COUNTER_ID with value/ {print \$NF}")
+
+	# Validate counter values were extracted
+	[ -z "$rootfs_counter_value" ] && {
+		echo "[SYSUPD] Error: Failed to read Rootfs counter value."
+		return 1
+	}
+
+	[ -z "$tee_counter_value" ] && {
+		echo "[SYSUPD] Error: Failed to read TEE counter value."
+		return 1
+	}
+
+	echo "[SYSUPD] Rootfs counter value: $rootfs_counter_value"
+	echo "[SYSUPD] TEE counter value: $tee_counter_value"
+
+	# Check if counter values are numeric
+	for counter_name in rootfs_counter_value tee_counter_value; do
+		eval counter_val=\$$counter_name
+		echo "$counter_val" | grep -Eq '^[0-9]+$' || {
+			echo "[SYSUPD] Error: $counter_name is not a valid number."
+			return 1
+		}
+	done
+
+	# Compare counter values with input versions
+	if [ "$rootfs_counter_value" -gt "$rootfs_version" ]; then
+		echo "[SYSUPD] Error: Rootfs counter ($rootfs_counter_value) > version ($rootfs_version)."
+		return 1
+	fi
+
+	if [ "$tee_counter_value" -gt "$tee_version" ]; then
+		echo "[SYSUPD] Error: TEE counter ($tee_counter_value) > version ($tee_version)."
+		return 1
+	fi
+
+	return 0  # Success
+}
+
+update_slot_counter() {
+	# Get current slot counter
+	output=$($COUNTER_PATH -g "$SLOT_COUNTER_ID")
+	cur_slot_cnt=$(echo "$output" | awk "/Get counter $SLOT_COUNTER_ID with value/ {print \$NF}")
+
+	# Set new slot counter
+	new_slot_cnt=$((cur_slot_cnt + 4))
+	output=$($COUNTER_PATH -s "$SLOT_COUNTER_ID" -v "$new_slot_cnt")
+
+	case "$output" in
+	*"TEEC_InvokeCommand failed"*)
+		return 1
+		;;
+	*"Set counter "*success*)
+		return 0
+		;;
+	*)
+		echo "Unknown output: $output"
+		return 1
+		;;
+	esac
+
+	return 1
+}
+
+# System update image must in swu format
+find_sysupd_default_img() {
+	SYSUPD_IMG=$(find $SYSUPD_IMG_PATH -name "*.swu" -print | head -n 1)
+	if [ -z $SYSUPD_IMG ]; then
+		return 1; # Return false if failed to find the image
+	else
+		return 0; # Success
+	fi
+}
+
+run_swupdate(){
+	img=$1
+	# Get version from sw-description
+	version=$(grep -ah -m 1 $img -e "version = *" | head -1 | awk -F "[\" =]" '/version =/ {print $5}')
+	rootfs_version=$(grep -ah -m 1 $img -e "rootfs_version = *" | head -1 | awk -F "[\" =]" '/rootfs_version =/ {print $5}')
+	tee_version=$(grep -ah -m 1 $img -e "tee_version = *" | head -1 | awk -F "[\" =]" '/tee_version =/ {print $5}')
+	echo "[SYSUPD] version: $version"
+	echo "[SYSUPD] rootfs_version: $rootfs_version"
+	echo "[SYSUPD] tee_version: $tee_version"
+
+	verify_version "$rootfs_version" "$tee_version"
+	if [ $? -ne 0 ]; then
+    		echo "[SYSUPD] Error: verify version";
+    		return 1 # Failed
+	fi
+
+	bootpart_to_write=
+	# Step 1 read the bootpart to decide which OS to be updated
+	if [ $(fw_printenv slot_b_active -n) == 1 ]; then
+		bootpart_to_write=1
+		echo "Update \"$img\" to Slot A"
+		echo "slot_a_active 0"     > $fw_setenv_list
+		echo "slot_a_bootable 0"   >> $fw_setenv_list
+		echo "slot_a_successful 0" >> $fw_setenv_list
+	else
+		bootpart_to_write=2
+		echo "Update \"$img\" to Slot B"
+		echo "slot_b_active 0"     >  $fw_setenv_list
+		echo "slot_b_bootable 0"   >> $fw_setenv_list
+		echo "slot_b_successful 0" >> $fw_setenv_list
+	fi
+
+	fw_setenv -s $fw_setenv_list
+
+	img_collection="release,copy_$bootpart_to_write"
+	# Skip scanning certain MTDs
+	echo "[SYSUPD] Execute swupdate with signature verification"
+	swupdate -v -b "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19" -e "$img_collection" -i $img -k /usr/share/misc/sysupd_pub_key.pem
+
+	if [ $? == 0 ]; then
+		if [ $bootpart_to_write == 1 ]; then
+			# Slot A to be activate
+			echo "slot_a_bootable 1" >  $fw_setenv_list
+			echo "slot_a_active   1" >> $fw_setenv_list
+			echo "slot_b_active   0" >> $fw_setenv_list
+		else
+			# Slot B to be activate
+			echo "slot_b_bootable 1" >  $fw_setenv_list
+			echo "slot_b_active   1" >> $fw_setenv_list
+			echo "slot_a_active   0" >> $fw_setenv_list
+		fi
+
+		fw_setenv -s $fw_setenv_list
+
+		update_slot_counter
+		if [ $? -ne 0 ]; then
+    			echo "[SYSUPD] Error: Update slot counter";
+    			return 1 # Failed
+		fi
+
+		# Assert update flag for configuration management
+		echo "[SYSUPD] New SW version:"
+		echo "$version" > $CONFIG_UPDATE_FILE
+		cat $CONFIG_UPDATE_FILE
+
+		return 0
+	fi
+
+	return 1
+}
+
+usage() {
+	echo "Usage:"
+	echo "$0 [-f <filename>]"
+	echo "  -f		Specifies input filename"
+	echo ""
+	echo "If filename is not specified or the file is not found, sysupd fall backs to default search rule."
+}
+
+usage_exit() {
+	usage
+	exit 0
+}
+
+while [ $# -gt 0 ]; do
+	key="$1"
+	case $key in
+	-f)
+		INPUT_FILENAME="$2"
+		shift
+		shift
+		;;
+	-h|--help)
+		usage_exit
+		;;
+	esac
+done
+
+SYSUPD_IMG="$SYSUPD_IMG_PATH/update.swu"
+# Specified input file is given
+if [ "$INPUT_FILENAME" != "" ]; then
+	if [ -f "$INPUT_FILENAME" ]; then
+		if [ "$(cd $(dirname $INPUT_FILENAME); pwd -P)" != "$SYSUPD_IMG_PATH" ]; then
+			echo "Copy image to $SYSUPD_IMG_PATH"
+			cp -f $INPUT_FILENAME $SYSUPD_IMG
+		else
+			SYSUPD_IMG="$INPUT_FILENAME"
+			echo "Found image $SYSUPD_IMG"
+		fi
+
+		if run_swupdate $SYSUPD_IMG; then
+			echo "[SYSUPD] Update finished; Please reboot system...";
+			return 0;
+		else
+			echo "[SYSUPD] Failed to update the system";
+		fi
+		return 1;
+	fi
+fi
+
+#Update file not in /tmp/
+if ! find_sysupd_default_img; then
+
+	#Update file in SD card
+	SYSUPD_IMG_SDCARD=$(find $SYSUPD_IMG_PATH_SDCARD -name "*.swu" -print | head -n 1)
+	#Update file in flash
+	SYSUPD_IMG_FLASH=$(find $SYSUPD_IMG_PATH_FLASH -name "*.swu" -print | head -n 1)
+	if [ -e "$SYSUPD_IMG_SDCARD" ]; then
+		echo "Update file is found in SD card."
+		echo "Verifying..."
+
+		#Copy update file to /tmp/
+		cp "$SYSUPD_IMG_SDCARD" "$SYSUPD_IMG_PATH"
+		SYSUPD_IMG=$(find $SYSUPD_IMG_PATH -name "*.swu" -print | head -n 1)
+		if [ ! -e "$SYSUPD_IMG" ]; then
+			echo "Verify Fail; Please check the update file."
+			return 1
+		else
+			diff $SYSUPD_IMG_SDCARD $SYSUPD_IMG > $diff_log
+			while [ -s $diff_log ]
+			do
+				echo "Copy fail; Retry again..."
+				cp "$SYSUPD_IMG_SDCARD" "$SYSUPD_IMG_PATH"
+				SYSUPD_IMG=$(find $SYSUPD_IMG_PATH -name "*.swu" -print | head -n 1)
+				diff "$SYSUPD_IMG_SDCARD" "$SYSUPD_IMG" > $diff_log
+				echo "Update file is located in $SYSUPD_IMG"
+			done
+			echo "Update file is located in $SYSUPD_IMG"
+			echo "Check update file OK."
+
+			if run_swupdate $SYSUPD_IMG; then
+				echo "[SYSUPD] Update finished; Please reboot system...";
+			else
+				echo "[SYSUPD] Failed to update the system";
+			fi
+		fi
+	elif [ -e "$SYSUPD_IMG_FLASH" ]; then
+		echo "Update file is located in $SYSUPD_IMG_FLASH"
+		echo "Check update file OK."
+		if run_swupdate $SYSUPD_IMG_FLASH; then
+			echo "[SYSUPD] Update finished; Please reboot system...";
+			return 0;
+		else
+			echo "[SYSUPD] Failed to update the system";
+			return 1;
+		fi
+	else
+		#Check if ethernet exist
+		if [ -d "$eth0_path" ];then
+			echo "etho mode"
+		else
+
+		#If no ethernet, trun on usbnet
+			if [ -z "$usbnet_module" ]; then
+				echo "[warning] can not find rndis module"
+			else
+				touch $reset_usbnet_flag
+				echo "[SYSUPD] Rebooting system to finish system update...";
+				reboot
+			fi
+		fi
+		echo "[SYSUPD] Failed to find update image!"
+		return 1;
+	fi
+
+#Update file in /tmp/
+else
+	if run_swupdate $SYSUPD_IMG; then
+		echo "[SYSUPD] Update finished; Please reboot system...";
+		return 0;
+	else
+		echo "[SYSUPD] Failed to update the system";
+	fi
+	return 1;
+fi

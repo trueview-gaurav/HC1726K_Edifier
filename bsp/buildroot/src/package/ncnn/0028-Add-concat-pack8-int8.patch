@@ -1,0 +1,463 @@
+From 96c5b4de0c1d9887a233eec7c843a56d74566663 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 13 Dec 2023 12:15:05 +0800
+Subject: [PATCH 28/54] Add concat pack8 int8
+
+---
+ src/layer/arm/concat_arm.cpp | 420 ++++++++++++++++++++++++++++++++++-
+ src/layer/arm/concat_arm.h   |   1 +
+ 2 files changed, 420 insertions(+), 1 deletion(-)
+
+diff --git a/src/layer/arm/concat_arm.cpp b/src/layer/arm/concat_arm.cpp
+index 481bc13e..3034a773 100644
+--- a/src/layer/arm/concat_arm.cpp
++++ b/src/layer/arm/concat_arm.cpp
+@@ -46,9 +46,14 @@ int Concat_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>&
+         return forward_bf16s_fp16s(bottom_blobs, top_blobs, opt);
+ #endif
+ 
++#if NCNN_INT8
++    if (opt.use_int8_inference && elembits == 8)
++        return forward_int8(bottom_blobs, top_blobs, opt);
++#endif
++
+     int dims = bottom_blobs[0].dims;
+     int positive_axis = axis < 0 ? dims + axis : axis;
+-
++    NCNN_LOGE("dims: %d positive_axis: %d", dims, positive_axis);
+     if (dims == 1) // positive_axis == 0
+     {
+         // concat vector
+@@ -956,4 +961,417 @@ int Concat_arm::forward_bf16s_fp16s(const std::vector<Mat>& bottom_blobs, std::v
+     return 0;
+ }
+ 
++//
++// Created by im247 on 2023/12/12.
++//
++int Concat_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
++{
++    int dims = bottom_blobs[0].dims;
++    int positive_axis = axis < 0 ? dims + axis : axis;
++    NCNN_LOGE("dims: %d positive_axis: %d elempack: %d", dims, positive_axis, bottom_blobs[0].elempack);
++    if (dims == 1) // positive_axis == 0
++    {
++        NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++        // concat vector
++        // total length
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++        int top_w = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            top_w += bottom_blob.w * bottom_blob.elempack;
++        }
++
++        int out_elempack = 1;
++        if (opt.use_packing_layout)
++        {
++            out_elempack = top_w % 8 == 0 ? 8 : 1;
++        }
++        size_t out_elemsize = elemsize / elempack * out_elempack;
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(top_w / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++        unsigned short* outptr = top_blob;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++
++            const unsigned short* ptr = bottom_blob;
++            memcpy(outptr, ptr, bottom_blob.w * bottom_blob.elemsize);
++
++            outptr += bottom_blob.w * bottom_blob.elempack;
++        }
++    }
++
++    if (dims == 2 && positive_axis == 0)
++    {
++        NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++        // concat image
++        int w = bottom_blobs[0].w;
++
++        // total height
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++        int top_h = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            elemsize = std::min(elemsize, bottom_blob.elemsize);
++            elempack = std::min(elempack, bottom_blob.elempack);
++            top_h += bottom_blob.h * bottom_blob.elempack;
++        }
++
++        int out_elempack = 1;
++        if (opt.use_packing_layout)
++        {
++#if NCNN_ARM82
++            out_elempack = support_fp16_storage && opt.use_fp16_arithmetic && top_h % 8 == 0 ? 8 : top_h % 4 == 0 ? 4 : 1;
++#else
++            out_elempack = top_h % 4 == 0 ? 4 : 1;
++#endif
++        }
++        size_t out_elemsize = elemsize / elempack * out_elempack;
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(w, top_h / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++        Mat top_blob_unpacked = top_blob;
++        if (elempack < out_elempack)
++        {
++            top_blob_unpacked.create(w, top_h / elempack, elemsize, elempack, opt.workspace_allocator);
++            if (top_blob_unpacked.empty())
++                return -100;
++        }
++
++        unsigned short* outptr = top_blob_unpacked;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++
++            if (bottom_blob.elempack == 4 && elempack == 1)
++            {
++                for (int i = 0; i < bottom_blob.h; i++)
++                {
++                    const unsigned short* r0 = bottom_blob.row<const unsigned short>(i);
++
++                    unsigned short* outptr0 = outptr;
++                    unsigned short* outptr1 = outptr + w;
++                    unsigned short* outptr2 = outptr + w * 2;
++                    unsigned short* outptr3 = outptr + w * 3;
++
++                    for (int j = 0; j < w; j++)
++                    {
++                        *outptr0++ = r0[0];
++                        *outptr1++ = r0[1];
++                        *outptr2++ = r0[2];
++                        *outptr3++ = r0[3];
++
++                        r0 += 4;
++                    }
++
++                    outptr += w * 4;
++                }
++            }
++            if (bottom_blob.elempack == elempack) // 1-1 4-4 8-8
++            {
++                int size = w * bottom_blob.h;
++
++                const unsigned short* ptr = bottom_blob;
++                memcpy(outptr, ptr, size * bottom_blob.elemsize);
++
++                outptr += size * bottom_blob.elempack;
++            }
++        }
++
++        // packing
++        if (elempack < out_elempack)
++        {
++            convert_packing(top_blob_unpacked, top_blob, out_elempack, opt);
++        }
++    }
++
++    if (dims == 2 && positive_axis == 1)
++    {
++        NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++        // interleave image row
++        int h = bottom_blobs[0].h;
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++
++        // total width
++        int top_w = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            top_w += bottom_blob.w;
++        }
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(top_w, h, elemsize, elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++#pragma omp parallel for num_threads(opt.num_threads)
++        for (int i = 0; i < h; i++)
++        {
++            unsigned short* outptr = top_blob.row<unsigned short>(i);
++            for (size_t b = 0; b < bottom_blobs.size(); b++)
++            {
++                const Mat& bottom_blob = bottom_blobs[b];
++
++                const unsigned short* ptr = bottom_blob.row<unsigned short>(i);
++                memcpy(outptr, ptr, bottom_blob.w * elemsize);
++
++                outptr += bottom_blob.w * elempack;
++            }
++        }
++    }
++
++    if ((dims == 3 || dims == 4) && positive_axis == 0)
++    {
++        // concat dim
++        int w = bottom_blobs[0].w;
++        int h = bottom_blobs[0].h;
++        int d = bottom_blobs[0].d;
++
++        // total channels
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++        int top_channels = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            elemsize = std::min(elemsize, bottom_blob.elemsize);
++            elempack = std::min(elempack, bottom_blob.elempack);
++            top_channels += bottom_blob.c * bottom_blob.elempack;
++        }
++
++        int out_elempack = 1;
++        if (opt.use_packing_layout)
++        {
++            out_elempack = top_channels % 8 == 0 ? 8 : 1;
++        }
++        size_t out_elemsize = elemsize / elempack * out_elempack;
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(w, h, d, top_channels / out_elempack, out_elemsize, out_elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++        top_blob.dims = dims;
++
++        Mat top_blob_unpacked = top_blob;
++        if (elempack < out_elempack)
++        {
++            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++            top_blob_unpacked.create(w, h, d, top_channels / elempack, elemsize, elempack, opt.workspace_allocator);
++            if (top_blob_unpacked.empty())
++                return -100;
++
++            top_blob_unpacked.dims = dims;
++        }
++
++        int p = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++
++            if (bottom_blob.elempack == 8 && elempack == 1)
++            {
++//                NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED"); // Checked!!
++                int size = bottom_blob.w * bottom_blob.h * bottom_blob.d;
++
++                for (int q = 0; q < bottom_blob.c; q++)
++                {
++                    const unsigned char* r0 = bottom_blob.channel(q);
++
++                    unsigned char* outptr0 = top_blob_unpacked.channel(p);
++                    unsigned char* outptr1 = top_blob_unpacked.channel(p + 1);
++                    unsigned char* outptr2 = top_blob_unpacked.channel(p + 2);
++                    unsigned char* outptr3 = top_blob_unpacked.channel(p + 3);
++                    unsigned char* outptr4 = top_blob_unpacked.channel(p + 4);
++                    unsigned char* outptr5 = top_blob_unpacked.channel(p + 5);
++                    unsigned char* outptr6 = top_blob_unpacked.channel(p + 6);
++                    unsigned char* outptr7 = top_blob_unpacked.channel(p + 7);
++
++                    for (int i = 0; i < size; i++)
++                    {
++                        *outptr0++ = r0[0];
++                        *outptr1++ = r0[1];
++                        *outptr2++ = r0[2];
++                        *outptr3++ = r0[3];
++                        *outptr4++ = r0[4];
++                        *outptr5++ = r0[5];
++                        *outptr6++ = r0[6];
++                        *outptr7++ = r0[7];
++
++                        r0 += 8;
++                    }
++
++                    p += 8;
++                }
++            }
++            if (bottom_blob.elempack == elempack) // 1-1 4-4 8-8
++            {
++                int size = bottom_blob.total();
++
++                const unsigned char* ptr = bottom_blob;
++                unsigned char* outptr = top_blob_unpacked.channel(p);
++                memcpy(outptr, ptr, size * bottom_blob.elemsize);
++
++                p += bottom_blob.c;
++            }
++        }
++
++        // packing
++        if (elempack < out_elempack)
++        {
++            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++            convert_packing(top_blob_unpacked, top_blob, out_elempack, opt);
++        }
++    }
++
++    if ((dims == 3 && positive_axis == 1) || (dims == 4 && positive_axis == 2))
++    {
++        // interleave dim height
++        int w = bottom_blobs[0].w;
++        int d = bottom_blobs[0].d;
++        int channels = bottom_blobs[0].c;
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++
++        // total height
++        int top_h = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            top_h += bottom_blob.h;
++        }
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(w, top_h, d, channels, elemsize, elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++        top_blob.dims = dims;
++
++#pragma omp parallel for num_threads(opt.num_threads)
++        for (int q = 0; q < channels; q++)
++        {
++            unsigned short* outptr = top_blob.channel(q);
++
++            for (int i = 0; i < d; i++)
++            {
++                for (size_t b = 0; b < bottom_blobs.size(); b++)
++                {
++                    const Mat& bottom_blob = bottom_blobs[b];
++
++                    int size = bottom_blob.w * bottom_blob.h;
++
++                    const unsigned short* ptr = bottom_blob.channel(q).depth(i);
++                    memcpy(outptr, ptr, size * elemsize);
++
++                    outptr += size * elempack;
++                }
++            }
++        }
++    }
++
++    if ((dims == 3 && positive_axis == 2) || (dims == 4 && positive_axis == 3))
++    {
++        // interleave dim width
++        int h = bottom_blobs[0].h;
++        int d = bottom_blobs[0].d;
++        int channels = bottom_blobs[0].c;
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++
++        // total height
++        int top_w = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            top_w += bottom_blob.w;
++        }
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(top_w, h, d, channels, elemsize, elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++        top_blob.dims = dims;
++
++#pragma omp parallel for num_threads(opt.num_threads)
++        for (int q = 0; q < channels; q++)
++        {
++            unsigned short* outptr = top_blob.channel(q);
++
++            for (int i = 0; i < d; i++)
++            {
++                for (int j = 0; j < h; j++)
++                {
++                    for (size_t b = 0; b < bottom_blobs.size(); b++)
++                    {
++                        const Mat& bottom_blob = bottom_blobs[b];
++
++                        const unsigned short* ptr = bottom_blob.channel(q).depth(i).row<const unsigned short>(j);
++                        memcpy(outptr, ptr, bottom_blob.w * elemsize);
++
++                        outptr += bottom_blob.w * elempack;
++                    }
++                }
++            }
++        }
++    }
++
++    if (dims == 4 && positive_axis == 1)
++    {
++        // interleave dim depth
++        int w = bottom_blobs[0].w;
++        int h = bottom_blobs[0].h;
++        int channels = bottom_blobs[0].c;
++        size_t elemsize = bottom_blobs[0].elemsize;
++        int elempack = bottom_blobs[0].elempack;
++
++        // total depth
++        int top_d = 0;
++        for (size_t b = 0; b < bottom_blobs.size(); b++)
++        {
++            const Mat& bottom_blob = bottom_blobs[b];
++            top_d += bottom_blob.d;
++        }
++
++        Mat& top_blob = top_blobs[0];
++        top_blob.create(w, h, top_d, channels, elemsize, elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
++
++#pragma omp parallel for num_threads(opt.num_threads)
++        for (int q = 0; q < channels; q++)
++        {
++            unsigned short* outptr = top_blob.channel(q);
++
++            for (size_t b = 0; b < bottom_blobs.size(); b++)
++            {
++                const Mat& bottom_blob = bottom_blobs[b];
++
++                int size = bottom_blob.w * bottom_blob.h * bottom_blob.d;
++
++                const unsigned short* ptr = bottom_blob.channel(q);
++                memcpy(outptr, ptr, size * elemsize);
++
++                outptr += size * elempack;
++            }
++        }
++    }
++
++    return 0;
++}
++
+ } // namespace ncnn
+diff --git a/src/layer/arm/concat_arm.h b/src/layer/arm/concat_arm.h
+index c09dfa27..1b5f201e 100644
+--- a/src/layer/arm/concat_arm.h
++++ b/src/layer/arm/concat_arm.h
+@@ -28,6 +28,7 @@ public:
+ 
+ protected:
+     int forward_bf16s_fp16s(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
++    int forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
+ };
+ 
+ } // namespace ncnn
+-- 
+2.47.1
+

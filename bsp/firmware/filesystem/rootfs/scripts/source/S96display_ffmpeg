@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Start/stop LVGL Demo
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE_DD_DEMO=/var/run/dd_demo.pid
+DD_DEMO=/system/bin/dd_demo
+TARGET_DD_DEMO=$(cat /usrdata/root/target_ip_config)
+
+start_dd_demo() {
+	start-stop-daemon -Smbp $PIDFILE_DD_DEMO -x $DD_DEMO $TARGET_DD_DEMO
+}
+
+stop_dd_demo() {
+	start-stop-daemon -Kop $PIDFILE_DD_DEMO
+}
+
+case "$1" in
+	start)
+		start_dd_demo
+	;;
+	stop)
+		stop_dd_demo
+	;;
+  restart|reload)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

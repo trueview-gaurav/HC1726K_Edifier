@@ -1,0 +1,30 @@
+#!/bin/sh
+
+do_start() {
+	# insert modules
+	modprobe -q aic8800_netdrv
+	ifconfig vnet0 up
+	(sleep 1 && /system/bin/fasync_user) &
+}
+
+do_stop() {
+	killall -2 /system/bin/fasync_user
+	ifconfig vnet0 down
+	modprobe -r aic8800_netdrv
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	restart|reload)
+		do_stop
+		do_start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac
+

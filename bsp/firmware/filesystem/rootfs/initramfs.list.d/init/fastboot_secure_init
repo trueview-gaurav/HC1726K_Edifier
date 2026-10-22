@@ -1,0 +1,42 @@
+#!/bin/sh
+
+mount -n -t proc proc /proc
+mount -n -t sysfs sysfs /sys
+mount -n -t devtmpfs devtmpfs /dev
+# prevent delay cause by crng init
+busybox rm /dev/urandom
+
+VERITY_MTDID=$(cat /proc/cmdline | awk 'BEGIN{FS="root="}{sub(/ .*/,"",$2);print $2}')
+
+# Wait up to 5 seconds for VERITY_MTDID block device to appear
+count=0
+max=50
+while [ ! -b "${VERITY_MTDID}" ]; do
+    count=$((count+1))
+    [ "$count" -ge "$max" ] && echo "ERROR: ${VERITY_MTDID} not available" && break
+    sleep 0.1
+done
+
+mount -o ro ${VERITY_MTDID} /root
+mount -n -t tmpfs tmpfs /root/tmp
+mount --bind /root/tmp /tmp
+
+export LD_LIBRARY_PATH=/system/lib
+. /etc/fastboot_video start
+
+# Wait for enc done before switch_root
+sleep 0.5
+
+# bind script directory after mpi_stream for saving time
+rm -rf /system/mpp/script/*
+mount --bind /root/system/mpp/script /system/mpp/script
+
+# bind libgcc_s.so.1 for mpi_stream to read
+mount --bind /root/lib/ /lib/
+
+umount /proc
+busybox mknod /dev/urandom c 1 9
+mount -n -t devtmpfs devtmpfs /root/dev
+exec switch_root /root /sbin/init
+
+halt -f

@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop Wifi connect
+#
+
+WPA_COF=/usrdata/wpa_supplicant.conf
+WIFI_ON=/system/script/wifi_on.sh
+WIFI_OFF=/system/script/wifi_off.sh
+
+case "$1" in
+  start)
+    echo "Starting Wifi connect"
+    sh $WIFI_ON $WPA_COF
+    ;;
+  stop)
+    printf "Stopping Wifi connect"
+    sh $WIFI_OFF
+    ;;
+  restart|reload)
+    sh $WIFI_OFF
+    sleep 1
+    sh $WIFI_ON $WPA_COF
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

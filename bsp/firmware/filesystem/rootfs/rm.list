@@ -1,0 +1,46 @@
+# general
+/THIS_IS_NOT_YOUR_ROOT_FILESYSTEM
+/etc/init.d/*
+
+# cmocka
+/usr/lib/libcmocka.so
+/usr/lib/libcmocka.so.*
+
+# python, python3
+/usr/bin/python
+/usr/bin/python2.*
+/usr/bin/python3
+/usr/bin/python3.*
+/usr/bin/smtpd.py.*
+/usr/lib/libpython2.*
+/usr/lib/libpython3.*
+/usr/lib/python2.*/
+/usr/lib/python3.*/
+
+# misc.
+/usr/libexec/installed-tests/
+/usr/share/doc/
+/usr/share/installed-tests/
+/usr/share/locale/
+/usr/share/alsa/cards/*
+!/usr/share/alsa/cards/aliases.conf
+
+# secure boot
+/etc/lvm
+/usr/bin/argon2
+/usr/sbin/blkdeactivate
+/usr/sbin/cryptsetup*
+/usr/sbin/dm*
+/usr/sbin/fsadm
+/usr/sbin/integritysetup
+/usr/sbin/lv*
+/usr/sbin/pv*
+/usr/sbin/veritysetup
+/usr/sbin/vg*
+/usr/lib/device-mapper
+/usr/lib/libaio*
+/usr/lib/libbearssl*
+/usr/lib/libcryptsetup*
+/usr/lib/libdevmapper*
+/usr/lib/liblvm2*
+/usr/lib/libpopt*

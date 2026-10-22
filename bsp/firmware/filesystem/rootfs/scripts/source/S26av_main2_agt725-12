@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# Start/stop av_main2 for AGT800-45
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+export TZ=$(cat /etc/TZ)
+
+
+case "$1" in
+  start)
+    echo "Starting av_main2..."
+    sh /system/mpp/script/load_mpp.sh -i
+
+    echo 12 > /sys/class/gpio/export
+    echo "out" > /sys/class/gpio/gpio12/direction
+    echo 0 > /sys/class/gpio/gpio12/value 
+
+
+    av_main2 &
+    ;;
+  stop)
+    printf "Stopping av_main2..."
+    killall -s TERM av_main2
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

@@ -1,0 +1,61 @@
+From 1a0936826c0d91d80c473d06b66078fc526afc4c Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 5 Jun 2024 10:23:24 +0800
+Subject: [PATCH 50/54] Modify logs and remove warmup loop
+
+---
+ benchmark/benchncnn.cpp      | 2 +-
+ src/layer/arm/concat_arm.cpp | 4 ++--
+ src/net.cpp                  | 1 +
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/benchmark/benchncnn.cpp b/benchmark/benchncnn.cpp
+index d2959d3b..95575042 100755
+--- a/benchmark/benchncnn.cpp
++++ b/benchmark/benchncnn.cpp
+@@ -45,7 +45,7 @@ public:
+     }
+ };
+ 
+-static int g_warmup_loop_count = 8;
++static int g_warmup_loop_count = 0;
+ static int g_loop_count = 4;
+ static bool g_enable_cooling_down = true;
+ 
+diff --git a/src/layer/arm/concat_arm.cpp b/src/layer/arm/concat_arm.cpp
+index 9be74a7b..f79af57d 100644
+--- a/src/layer/arm/concat_arm.cpp
++++ b/src/layer/arm/concat_arm.cpp
+@@ -1169,7 +1169,7 @@ int Concat_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<M
+         Mat top_blob_unpacked = top_blob;
+         if (elempack < out_elempack)
+         {
+-            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED (elempack < out_elempack)");
+             top_blob_unpacked.create(w, h, d, top_channels / elempack, elemsize, elempack, opt.workspace_allocator);
+             if (top_blob_unpacked.empty())
+                 return -100;
+@@ -1232,7 +1232,7 @@ int Concat_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<M
+         // packing
+         if (elempack < out_elempack)
+         {
+-            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED");
++//            NCNN_LOGE("WARNING: THIS FUNCTION HAS NOT BEEN CHECKED"); // already printed before
+             convert_packing(top_blob_unpacked, top_blob, out_elempack, opt);
+         }
+     }
+diff --git a/src/net.cpp b/src/net.cpp
+index a7198d0a..e7ae032e 100644
+--- a/src/net.cpp
++++ b/src/net.cpp
+@@ -762,6 +762,7 @@ int NetPrivate::convert_layout(Mat& bottom_blob, const Layer* layer, const Optio
+ 
+ int NetPrivate::do_forward_layer(const Layer* layer, std::vector<Mat>& blob_mats, const Option& opt) const
+ {
++//    NCNN_LOGE("do_forward: %s", layer->name.c_str());
+     if (layer->one_blob_only)
+     {
+         int bottom_blob_index = layer->bottoms[0];
+-- 
+2.47.1
+

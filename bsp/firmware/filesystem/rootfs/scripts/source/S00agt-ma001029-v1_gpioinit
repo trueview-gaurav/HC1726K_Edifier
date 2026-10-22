@@ -1,0 +1,56 @@
+#!/bin/sh -f
+
+# export_gpio(): export GPIO pin
+export_gpio() {
+	echo $1 > /sys/class/gpio/export
+}
+
+# unexport_gpio(): unexport GPIO pin
+unexport_gpio() {
+	echo $1 > /sys/class/gpio/unexport
+}
+
+# set_gpio(): GPIO setting function
+set_gpio() {
+	GPIO_ID=$1
+	DIRECTION=$2
+	VALUE=$3
+
+	export_gpio $GPIO_ID
+
+	if [ $DIRECTION = "out" ]; then
+		echo "out" > /sys/class/gpio/gpio$GPIO_ID/direction
+		if [ ! $VALUE ]; then # Output level not specified
+			echo "GPIO output level not specified!"
+			exit 1;
+		elif [ $VALUE = "1" ]; then # HIGH
+			echo 1 > /sys/class/gpio/gpio$GPIO_ID/value
+		elif [ $VALUE = "0" ]; then # LOW
+			echo 0 > /sys/class/gpio/gpio$GPIO_ID/value
+		else #INVALID
+			echo "Invalid GPIO value!"
+			exit 1;
+		fi
+	elif [ $DIRECTION = "in" ]; then
+		echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	fi
+
+    unexport_gpio $GPIO_ID
+}
+
+get_gpio() {
+	GPIO_ID=$1
+	v=0
+	export_gpio $GPIO_ID
+
+	echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	v=$(cat /sys/class/gpio/gpio$GPIO_ID/value)
+    unexport_gpio $GPIO_ID
+	return $v
+}
+
+
+# for MB031
+
+# WIFI_PWR_EN: enabled
+set_gpio 2 "out" 1

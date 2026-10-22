@@ -1,0 +1,573 @@
+From 39bc71c941bc14d8ef65e873f03a7636a784ff36 Mon Sep 17 00:00:00 2001
+From: nihui <nihuini@tencent.com>
+Date: Wed, 1 Nov 2023 14:55:01 +0800
+Subject: [PATCH 08/54] support big endian platform, add powerpc ci (#5121)
+
+---
+ .ci/test-coverage.yml                        | 160 ++++++++++++++++++-
+ .github/workflows/linux-ppc64-cpu-gcc.yml    |  48 ++++++
+ src/modelbin.cpp                             |  49 ++++++
+ src/net.cpp                                  |  13 ++
+ src/paramdict.cpp                            |  23 +++
+ src/platform.h.in                            |  22 +++
+ toolchains/powerpc-linux-gnu.toolchain.cmake |  16 ++
+ 7 files changed, 330 insertions(+), 1 deletion(-)
+ create mode 100644 toolchains/powerpc-linux-gnu.toolchain.cmake
+
+diff --git a/.ci/test-coverage.yml b/.ci/test-coverage.yml
+index 1c5e72ed..0b016be1 100644
+--- a/.ci/test-coverage.yml
++++ b/.ci/test-coverage.yml
+@@ -596,6 +596,164 @@ jobs:
+     - name: codecov
+       run: ./codecov -t ${{settings.CODECOV_TOKEN.access_token}} -C ${{ ci.sha }} -B ${{ ci.head_ref }} -f build/lcov.info
+ 
++  linux-gcc-powerpc:
++    name: linux-gcc-powerpc
++    strategy:
++      matrix:
++        OPENMP: ['OFF', 'ON']
++
++    runs-on:
++      pool-name: docker
++      container:
++        image: bkci/ci:ubuntu
++    steps:
++    - name: checkout
++      checkout: self
++      with:
++        strategy: FRESH_CHECKOUT
++        enableSubmodule: false
++        enableGitLfs: false
++
++    - name: install-deps
++      run: |
++        apt-get update
++        apt-get install -y lcov g++-powerpc-linux-gnu libcapstone4 libglib2.0-0
++        curl https://uploader.codecov.io/verification.gpg | gpg --no-default-keyring --keyring trustedkeys.gpg --import
++        curl -Os https://uploader.codecov.io/latest/linux/codecov
++        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
++        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
++        gpgv codecov.SHA256SUM.sig codecov.SHA256SUM
++        shasum -a 256 -c codecov.SHA256SUM
++        chmod +x codecov
++
++    - name: cache-qemu
++      id: cache-qemu
++      uses: cache@1.*
++      with:
++        cachePaths: qemu-install
++        cacheKey: qemu-ppc-install-20220831-1
++
++    - name: checkout-qemu
++      if: steps.cache-qemu.outputs.cacheHit != 'true'
++      checkout: https://github.com/qemu/qemu.git
++      with:
++        pullType: COMMIT_ID
++        refName: 621da7789083b80d6f1ff1c0fb499334007b4f51
++        localPath: qemu
++        enableSubmodule: false
++        enableGitLfs: false
++
++    - name: qemu
++      if: steps.cache-qemu.outputs.cacheHit != 'true'
++      run: |
++        echo 'deb-src http://mirrors.cloud.tencent.com/debian bullseye main' | tee -a /etc/apt/sources.list
++        echo 'deb-src http://mirrors.cloud.tencent.com/debian bullseye-updates main' | tee -a /etc/apt/sources.list
++        apt-get update
++        apt-get build-dep -y qemu
++        cd qemu
++        ./configure --prefix=${{ci.workspace}}/qemu-install --target-list=ppc-linux-user --disable-system
++        make -j$(nproc)
++        make install
++
++    - name: build
++      run: |
++        mkdir build && cd build
++        cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/powerpc-linux-gnu.toolchain.cmake -DCMAKE_BUILD_TYPE=debug -DNCNN_COVERAGE=ON -DNCNN_RUNTIME_CPU=OFF -DNCNN_OPENMP=${{matrix.OPENMP}} -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_TESTS=ON ..
++        cmake --build . -j $(nproc)
++    - name: test
++      run: |
++        export PATH=${{ci.workspace}}/qemu-install/bin:$PATH
++        cd build
++        TESTS_EXECUTABLE_LOADER=qemu-ppc TESTS_EXECUTABLE_LOADER_ARGUMENTS="-L;/usr/powerpc-linux-gnu" ctest --output-on-failure -j $(nproc)
++    - name: lcov-collect
++      run: |
++        cd build
++        lcov -d ./src -c -o lcov.info
++        lcov -r lcov.info '/usr/*' -o lcov.info
++        lcov -r lcov.info '*/build/*' -o lcov.info
++        lcov --list lcov.info
++    - name: codecov
++      run: ./codecov -t ${{settings.CODECOV_TOKEN.access_token}} -C ${{ ci.sha }} -B ${{ ci.head_ref }} -f build/lcov.info
++
++  linux-gcc-powerpc64le:
++    name: linux-gcc-powerpc64le
++    strategy:
++      matrix:
++        OPENMP: ['OFF', 'ON']
++
++    runs-on:
++      pool-name: docker
++      container:
++        image: bkci/ci:ubuntu
++    steps:
++    - name: checkout
++      checkout: self
++      with:
++        strategy: FRESH_CHECKOUT
++        enableSubmodule: false
++        enableGitLfs: false
++
++    - name: install-deps
++      run: |
++        apt-get update
++        apt-get install -y lcov g++-powerpc64le-linux-gnu libcapstone4 libglib2.0-0
++        curl https://uploader.codecov.io/verification.gpg | gpg --no-default-keyring --keyring trustedkeys.gpg --import
++        curl -Os https://uploader.codecov.io/latest/linux/codecov
++        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
++        curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
++        gpgv codecov.SHA256SUM.sig codecov.SHA256SUM
++        shasum -a 256 -c codecov.SHA256SUM
++        chmod +x codecov
++
++    - name: cache-qemu
++      id: cache-qemu
++      uses: cache@1.*
++      with:
++        cachePaths: qemu-install
++        cacheKey: qemu-ppc64le-install-20220831-1
++
++    - name: checkout-qemu
++      if: steps.cache-qemu.outputs.cacheHit != 'true'
++      checkout: https://github.com/qemu/qemu.git
++      with:
++        pullType: COMMIT_ID
++        refName: 621da7789083b80d6f1ff1c0fb499334007b4f51
++        localPath: qemu
++        enableSubmodule: false
++        enableGitLfs: false
++
++    - name: qemu
++      if: steps.cache-qemu.outputs.cacheHit != 'true'
++      run: |
++        echo 'deb-src http://mirrors.cloud.tencent.com/debian bullseye main' | tee -a /etc/apt/sources.list
++        echo 'deb-src http://mirrors.cloud.tencent.com/debian bullseye-updates main' | tee -a /etc/apt/sources.list
++        apt-get update
++        apt-get build-dep -y qemu
++        cd qemu
++        ./configure --prefix=${{ci.workspace}}/qemu-install --target-list=ppc64le-linux-user --disable-system
++        make -j$(nproc)
++        make install
++
++    - name: build
++      run: |
++        mkdir build && cd build
++        cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/powerpc64le-linux-gnu.toolchain.cmake -DCMAKE_BUILD_TYPE=debug -DNCNN_COVERAGE=ON -DNCNN_RUNTIME_CPU=OFF -DNCNN_OPENMP=${{matrix.OPENMP}} -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_TESTS=ON ..
++        cmake --build . -j $(nproc)
++    - name: test
++      run: |
++        export PATH=${{ci.workspace}}/qemu-install/bin:$PATH
++        cd build
++        TESTS_EXECUTABLE_LOADER=qemu-ppc64le TESTS_EXECUTABLE_LOADER_ARGUMENTS="-L;/usr/powerpc64le-linux-gnu" ctest --output-on-failure -j $(nproc)
++    - name: lcov-collect
++      run: |
++        cd build
++        lcov -d ./src -c -o lcov.info
++        lcov -r lcov.info '/usr/*' -o lcov.info
++        lcov -r lcov.info '*/build/*' -o lcov.info
++        lcov --list lcov.info
++    - name: codecov
++      run: ./codecov -t ${{settings.CODECOV_TOKEN.access_token}} -C ${{ ci.sha }} -B ${{ ci.head_ref }} -f build/lcov.info
++
+   linux-gcc-riscv64:
+     name: linux-gcc-riscv64
+     strategy:
+@@ -951,4 +1109,4 @@ jobs:
+         lcov -r lcov.info '*/build/*' -o lcov.info
+         lcov --list lcov.info
+     - name: codecov
+-      run: ./codecov -t ${{settings.CODECOV_TOKEN.access_token}} -C ${{ ci.sha }} -B ${{ ci.head_ref }} -f build/lcov.info
+\ No newline at end of file
++      run: ./codecov -t ${{settings.CODECOV_TOKEN.access_token}} -C ${{ ci.sha }} -B ${{ ci.head_ref }} -f build/lcov.info
+diff --git a/.github/workflows/linux-ppc64-cpu-gcc.yml b/.github/workflows/linux-ppc64-cpu-gcc.yml
+index 821fff46..88fdccee 100644
+--- a/.github/workflows/linux-ppc64-cpu-gcc.yml
++++ b/.github/workflows/linux-ppc64-cpu-gcc.yml
+@@ -27,6 +27,53 @@ permissions:
+   contents: read
+ 
+ jobs:
++  linux-gcc-ppc:
++    runs-on: ubuntu-20.04
++    steps:
++    - uses: actions/checkout@v4
++
++    - name: cache-qemu
++      id: cache-qemu
++      uses: actions/cache@v3
++      with:
++        path: qemu-install
++        key: qemu-ppc-install-20220502-2
++    - name: install-qemu-build-deps
++      if: steps.cache-qemu.outputs.cache-hit != 'true'
++      run: |
++        sudo apt-get update
++        sudo apt-get install autoconf automake autotools-dev ninja-build
++    - name: checkout-qemu
++      if: steps.cache-qemu.outputs.cache-hit != 'true'
++      uses: actions/checkout@v4
++      with:
++        repository: qemu/qemu
++        path: qemu
++        ref: f5643914a9e8f79c606a76e6a9d7ea82a3fc3e65
++    - name: qemu
++      if: steps.cache-qemu.outputs.cache-hit != 'true'
++      run: |
++        cd qemu
++        ./configure --prefix=$GITHUB_WORKSPACE/qemu-install --target-list=ppc-linux-user --disable-system
++        make -j2
++        make install
++
++    - name: powerpc-gnu-toolchain
++      run: |
++        sudo apt-get update
++        sudo apt-get install g++-powerpc-linux-gnu
++
++    - name: configure
++      run: mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=../toolchains/powerpc-linux-gnu.toolchain.cmake -DNCNN_BUILD_TOOLS=OFF -DNCNN_BUILD_EXAMPLES=OFF -DNCNN_BUILD_TESTS=ON ..
++    - name: build
++      run: cmake --build build -j 2
++
++    - name: test
++      run: |
++        export PATH=$GITHUB_WORKSPACE/qemu-install/bin:$PATH
++        cd build
++        TESTS_EXECUTABLE_LOADER=qemu-ppc TESTS_EXECUTABLE_LOADER_ARGUMENTS="-L;/usr/powerpc-linux-gnu" ctest --output-on-failure -j 2
++
+   linux-gcc-ppc64le:
+     runs-on: ubuntu-20.04
+     steps:
+@@ -73,6 +120,7 @@ jobs:
+         export PATH=$GITHUB_WORKSPACE/qemu-install/bin:$PATH
+         cd build
+         TESTS_EXECUTABLE_LOADER=qemu-ppc64le TESTS_EXECUTABLE_LOADER_ARGUMENTS="-L;/usr/powerpc64le-linux-gnu" ctest --output-on-failure -j 2
++
+   linux-gcc-power8le-vsx:
+     runs-on: ubuntu-20.04
+     steps:
+diff --git a/src/modelbin.cpp b/src/modelbin.cpp
+index 85e27026..3425ad6c 100644
+--- a/src/modelbin.cpp
++++ b/src/modelbin.cpp
+@@ -117,6 +117,10 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+             return Mat();
+         }
+ 
++#if __BIG_ENDIAN__
++        swap_endianness_32(&flag_struct.tag);
++#endif
++
+         unsigned int flag = (int)flag_struct.f0 + flag_struct.f1 + flag_struct.f2 + flag_struct.f3;
+ 
+         if (flag_struct.tag == 0x01306B47)
+@@ -124,6 +128,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+             // half-precision data
+             size_t align_data_size = alignSize(w * sizeof(unsigned short), 4);
+ 
++#if !__BIG_ENDIAN__
+             // try reference data
+             const void* refbuf = 0;
+             nread = d->dr.reference(align_data_size, &refbuf);
+@@ -132,6 +137,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 m = Mat::from_float16((const unsigned short*)refbuf, w);
+             }
+             else
++#endif
+             {
+                 std::vector<unsigned short> float16_weights;
+                 float16_weights.resize(align_data_size);
+@@ -142,6 +148,13 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                     return Mat();
+                 }
+ 
++#if __BIG_ENDIAN__
++                for (int i = 0; i < w; i++)
++                {
++                    swap_endianness_16(&float16_weights[i]);
++                }
++#endif
++
+                 m = Mat::from_float16(&float16_weights[0], w);
+             }
+ 
+@@ -152,6 +165,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+             // int8 data
+             size_t align_data_size = alignSize(w, 4);
+ 
++#if !__BIG_ENDIAN__
+             // try reference data
+             const void* refbuf = 0;
+             nread = d->dr.reference(align_data_size, &refbuf);
+@@ -160,6 +174,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 m = Mat(w, (void*)refbuf, (size_t)1u);
+             }
+             else
++#endif
+             {
+                 std::vector<signed char> int8_weights;
+                 int8_weights.resize(align_data_size);
+@@ -181,6 +196,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+         }
+         else if (flag_struct.tag == 0x0002C056)
+         {
++#if !__BIG_ENDIAN__
+             // try reference data
+             const void* refbuf = 0;
+             nread = d->dr.reference(w * sizeof(float), &refbuf);
+@@ -189,6 +205,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 m = Mat(w, (void*)refbuf);
+             }
+             else
++#endif
+             {
+                 m.create(w);
+                 if (m.empty())
+@@ -201,6 +218,13 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                     NCNN_LOGE("ModelBin read weight_data failed %zd", nread);
+                     return Mat();
+                 }
++
++#if __BIG_ENDIAN__
++                for (int i = 0; i < w; i++)
++                {
++                    swap_endianness_32((float*)m + i);
++                }
++#endif
+             }
+ 
+             return m;
+@@ -221,6 +245,13 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 return Mat();
+             }
+ 
++#if __BIG_ENDIAN__
++            for (int i = 0; i < 256; i++)
++            {
++                swap_endianness_32(&quantization_value[i]);
++            }
++#endif
++
+             size_t align_weight_data_size = alignSize(w * sizeof(unsigned char), 4);
+             std::vector<unsigned char> index_array;
+             index_array.resize(align_weight_data_size);
+@@ -239,6 +270,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+         }
+         else if (flag_struct.f0 == 0)
+         {
++#if !__BIG_ENDIAN__
+             // try reference data
+             const void* refbuf = 0;
+             nread = d->dr.reference(w * sizeof(float), &refbuf);
+@@ -247,6 +279,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 m = Mat(w, (void*)refbuf);
+             }
+             else
++#endif
+             {
+                 m.create(w);
+                 if (m.empty())
+@@ -259,6 +292,13 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                     NCNN_LOGE("ModelBin read weight_data failed %zd", nread);
+                     return Mat();
+                 }
++
++#if __BIG_ENDIAN__
++                for (int i = 0; i < w; i++)
++                {
++                    swap_endianness_32((float*)m + i);
++                }
++#endif
+             }
+         }
+ 
+@@ -266,6 +306,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+     }
+     else if (type == 1)
+     {
++#if !__BIG_ENDIAN__
+         // try reference data
+         const void* refbuf = 0;
+         size_t nread = d->dr.reference(w * sizeof(float), &refbuf);
+@@ -274,6 +315,7 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+             m = Mat(w, (void*)refbuf);
+         }
+         else
++#endif
+         {
+             m.create(w);
+             if (m.empty())
+@@ -286,6 +328,13 @@ Mat ModelBinFromDataReader::load(int w, int type) const
+                 NCNN_LOGE("ModelBin read weight_data failed %zd", nread);
+                 return Mat();
+             }
++
++#if __BIG_ENDIAN__
++            for (int i = 0; i < w; i++)
++            {
++                swap_endianness_32((float*)m + i);
++            }
++#endif
+         }
+ 
+         return m;
+diff --git a/src/net.cpp b/src/net.cpp
+index f4e70e98..8ffcfcf7 100644
+--- a/src/net.cpp
++++ b/src/net.cpp
+@@ -1522,12 +1522,25 @@ int Net::load_param(const DataReader& dr)
+ 
+ int Net::load_param_bin(const DataReader& dr)
+ {
++#if __BIG_ENDIAN__
++#define READ_VALUE(buf)                            \
++    if (dr.read(&buf, sizeof(buf)) != sizeof(buf)) \
++    {                                              \
++        NCNN_LOGE("read " #buf " failed");         \
++        return -1;                                 \
++    }                                              \
++    if (sizeof(buf) == 2)                          \
++        swap_endianness_16(&buf);                  \
++    if (sizeof(buf) == 4)                          \
++        swap_endianness_32(&buf);
++#else
+ #define READ_VALUE(buf)                            \
+     if (dr.read(&buf, sizeof(buf)) != sizeof(buf)) \
+     {                                              \
+         NCNN_LOGE("read " #buf " failed");         \
+         return -1;                                 \
+     }
++#endif
+ 
+     int magic = 0;
+     READ_VALUE(magic)
+diff --git a/src/paramdict.cpp b/src/paramdict.cpp
+index e2aa5eb4..1c28d433 100644
+--- a/src/paramdict.cpp
++++ b/src/paramdict.cpp
+@@ -368,6 +368,10 @@ int ParamDict::load_param_bin(const DataReader& dr)
+         return -1;
+     }
+ 
++#if __BIG_ENDIAN__
++    swap_endianness_32(&id);
++#endif
++
+     while (id != -233)
+     {
+         bool is_array = id <= -23300;
+@@ -392,6 +396,10 @@ int ParamDict::load_param_bin(const DataReader& dr)
+                 return -1;
+             }
+ 
++#if __BIG_ENDIAN__
++            swap_endianness_32(&len);
++#endif
++
+             d->params[id].v.create(len);
+ 
+             float* ptr = d->params[id].v;
+@@ -402,6 +410,13 @@ int ParamDict::load_param_bin(const DataReader& dr)
+                 return -1;
+             }
+ 
++#if __BIG_ENDIAN__
++            for (int i = 0; i < len; i++)
++            {
++                swap_endianness_32(ptr + i);
++            }
++#endif
++
+             d->params[id].type = 4;
+         }
+         else
+@@ -413,6 +428,10 @@ int ParamDict::load_param_bin(const DataReader& dr)
+                 return -1;
+             }
+ 
++#if __BIG_ENDIAN__
++            swap_endianness_32(&d->params[id].f);
++#endif
++
+             d->params[id].type = 1;
+         }
+ 
+@@ -422,6 +441,10 @@ int ParamDict::load_param_bin(const DataReader& dr)
+             NCNN_LOGE("ParamDict read EOP failed %zd", nread);
+             return -1;
+         }
++
++#if __BIG_ENDIAN__
++        swap_endianness_32(&id);
++#endif
+     }
+ 
+     return 0;
+diff --git a/src/platform.h.in b/src/platform.h.in
+index be1dd508..21cf16cd 100644
+--- a/src/platform.h.in
++++ b/src/platform.h.in
+@@ -235,6 +235,28 @@ private:
+     Mutex& mutex;
+ };
+ 
++static inline void swap_endianness_16(void* x)
++{
++    unsigned char* xx = (unsigned char*)x;
++    unsigned char x0 = xx[0];
++    unsigned char x1 = xx[1];
++    xx[0] = x1;
++    xx[1] = x0;
++}
++
++static inline void swap_endianness_32(void* x)
++{
++    unsigned char* xx = (unsigned char*)x;
++    unsigned char x0 = xx[0];
++    unsigned char x1 = xx[1];
++    unsigned char x2 = xx[2];
++    unsigned char x3 = xx[3];
++    xx[0] = x3;
++    xx[1] = x2;
++    xx[2] = x1;
++    xx[3] = x0;
++}
++
+ } // namespace ncnn
+ 
+ #if NCNN_SIMPLESTL
+diff --git a/toolchains/powerpc-linux-gnu.toolchain.cmake b/toolchains/powerpc-linux-gnu.toolchain.cmake
+new file mode 100644
+index 00000000..a1be1bb9
+--- /dev/null
++++ b/toolchains/powerpc-linux-gnu.toolchain.cmake
+@@ -0,0 +1,16 @@
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR powerpc)
++
++set(CMAKE_C_COMPILER "powerpc-linux-gnu-gcc")
++set(CMAKE_CXX_COMPILER "powerpc-linux-gnu-g++")
++
++set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++
++set(CMAKE_C_FLAGS "-mcpu=powerpc")
++set(CMAKE_CXX_FLAGS "-mcpu=powerpc")
++
++# cache flags
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "c++ flags")
+-- 
+2.47.1
+

@@ -1,0 +1,48 @@
+From 2ecaf37a3ee49b8c92aefa6afb2bfc7a458e3bd6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E5=BC=B5=E5=B0=8F=E5=87=A1?=
+ <2672931+whyb@users.noreply.github.com>
+Date: Fri, 10 Nov 2023 19:07:24 +0800
+Subject: [PATCH 12/54] Fix find GPU driver dll path in windows (#5141)
+
+---
+ docs/developer-guide/vulkan-driver-loader.md | 4 ++--
+ src/simplevk.cpp                             | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/docs/developer-guide/vulkan-driver-loader.md b/docs/developer-guide/vulkan-driver-loader.md
+index c84475f9..9ce0e56c 100644
+--- a/docs/developer-guide/vulkan-driver-loader.md
++++ b/docs/developer-guide/vulkan-driver-loader.md
+@@ -73,12 +73,12 @@ Requires static meltvk driver linking and should always succeed
+ If failed, it will try to find graphics driver object and load it
+ 
+ #### Windows
+-search ```C:\Windows\System32\DriverStore\FileRepository``` for
++for 64bit applications. search in ```%SystemRoot%\System32\DriverStore\FileRepository```
+ - nvoglv64.dll
+ - amdvlk64.dll
+ - igvk64.dll
+ 
+-for 32bit applications
++for 32bit applications. search in ```%SystemRoot%\System32\DriverStore\FileRepository```
+ - nvoglv32.dll
+ - amdvlk32.dll
+ - igvk32.dll
+diff --git a/src/simplevk.cpp b/src/simplevk.cpp
+index 96b66117..b4d1d778 100644
+--- a/src/simplevk.cpp
++++ b/src/simplevk.cpp
+@@ -554,8 +554,8 @@ int load_vulkan_driver(const char* driver_path)
+         for (int i = 0; i < well_known_path_count; i++)
+         {
+ #if defined _WIN32
+-            // find driver dll in C:\\Windows\\System32\\DriverStore\\FileRepository
+-            std::string dllpath = search_file("C:\\Windows\\System32\\DriverStore\\FileRepository", well_known_path[i]);
++            // find driver dll in %SystemRoot%\System32\DriverStore\FileRepository  (32bit and 64bit both and in here)
++            std::string dllpath = search_file("%SystemRoot%\\System32\\DriverStore\\FileRepository", well_known_path[i]);
+             if (dllpath.empty())
+                 continue;
+ 
+-- 
+2.47.1
+

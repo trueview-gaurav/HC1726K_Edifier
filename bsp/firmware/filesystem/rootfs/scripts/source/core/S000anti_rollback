@@ -1,0 +1,107 @@
+#!/bin/sh
+
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# S000anti_rollback - System boot with anti-rollback prtection via secure element
+# Copyright (C) 2024 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc
+
+
+SW_VERSION_FILE=/etc/sw-version
+SECURE_ELEMENT_PATH=/system/bin/secure_element_demo
+major_bit=11
+minor_bit=5
+patch_bit=5
+sw_ver_int=0
+
+verify_version() {
+    # Read software version
+    if [ -f "$SW_VERSION_FILE" ]; then
+        sw_ver_int=$(sed -n '2p' "$SW_VERSION_FILE")
+        sw_ver_int=$((sw_ver_int))  # convert to int
+        echo "SW version integer: $sw_ver_int"
+    else
+        echo "Anti-rollback error: Software version file not found. Halting."
+        halt -f
+    fi
+
+    # Read counter value in the secure element
+    output=$($SECURE_ELEMENT_PATH -D 1 -C)
+    counter_value=$(echo "$output" | grep "Counter value:" | awk '{print $NF}')
+
+    # Check if the counter_value was extracted successfully
+    if [ -z "$counter_value" ]; then
+        echo "Anti-rollback error: Counter value not found in the output. Halting."
+        halt -f
+    else
+    	echo "Counter value: $counter_value"
+    fi
+
+    # Check if counter value is a valid number
+    if ! echo "$counter_value" | awk '/^[0-9]+$/ { exit 0 } { exit 1 }'; then
+        echo "Anti-rollback error: Counter value is not a valid number. Halting."
+        halt -f
+    fi
+
+    # Check if sw_ver_int is a valid numeric integer
+    if ! [[ "$sw_ver_int" =~ ^[0-9]+$ ]]; then
+        echo "Anti-rollback error: sw_ver_int must be a numeric integer. Halting."
+        halt -f
+    fi
+
+    # Calculate total_bits from major, minor, and patch bit values
+    total_bits=$((major_bit + minor_bit + patch_bit))
+
+    # Check if sw_ver_int is within the valid range
+    if [ "$sw_ver_int" -lt 0 ] || [ "$sw_ver_int" -ge $((1 << total_bits)) ]; then
+        echo "Anti-rollback error: Valid range of sw_ver_int is 0 to $((1 << total_bits - 1)). Halting."
+        halt -f
+    fi
+
+    # Compare counter value with software version
+    if [[ "$counter_value" -gt "$sw_ver_int" ]]; then
+        echo "Anti-rollback error: Counter value is greater than software version. Halting."
+        halt -f
+    fi
+}
+
+increment_counter() {
+    # Increment counter value to the desired software version
+    output=$($SECURE_ELEMENT_PATH -D 1 -I $sw_ver_int)
+
+    # Extract counter value from the output
+    counter_value=$(echo "$output" | grep "Counter value:" | awk '{print $NF}')
+    
+    # Check if the counter_value was extracted successfully
+    if [ -z "$counter_value" ]; then
+	    echo "Anti-rollback error: Counter value not found in the output. Halting."
+	    halt -f
+    fi
+    
+    # Check if counter_value is equal to sw_ver_int
+    if [ "$counter_value" -eq "$sw_ver_int" ]; then
+	    echo "Anti-rollback success: Counter value incremented to $sw_ver_int."
+    else
+	    echo "Anti-rollback error: Counter value ($counter_value) does not match the desired value ($sw_ver_int). Halting."
+	    halt -f
+    fi
+}
+
+case "$1" in
+    start)
+        verify_version
+	increment_counter
+        ;;
+    stop|restart|reload)
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit 0
+

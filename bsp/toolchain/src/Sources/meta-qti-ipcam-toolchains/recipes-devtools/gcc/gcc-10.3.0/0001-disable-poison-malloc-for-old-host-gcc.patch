@@ -1,0 +1,26 @@
+--- a/libcpp/system.h
++++ b/libcpp/system.h
+@@ -449,7 +449,9 @@
+ #undef malloc
+ #undef realloc
+  #pragma GCC poison calloc strdup
++#ifndef __cplusplus
+  #pragma GCC poison malloc realloc
++#endif
+
+ /* Libiberty macros that are no longer used in GCC.  */
+ #undef ANSI_PROTOTYPES
+
+--- a/gcc/system.h
++++ b/gcc/system.h
+@@ -880,8 +880,10 @@
+ #if !defined(FLEX_SCANNER) && !defined(YYBISON)
+ #undef malloc
+ #undef realloc
++#ifndef __cplusplus
+  #pragma GCC poison malloc realloc
+ #endif
++#endif
+
+ /* The %m format should be used when GCC's main diagnostic functions
+    supporting %m are available, and xstrerror from libiberty

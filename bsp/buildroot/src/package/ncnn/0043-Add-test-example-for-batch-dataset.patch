@@ -1,0 +1,218 @@
+From 6671b2072a3f91b7ce0929d15bba4022429dd306 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Thu, 22 Feb 2024 10:49:45 +0800
+Subject: [PATCH 43/54] Add test example for batch dataset
+
+---
+ examples/CMakeLists.txt   |   1 +
+ examples/test_dataset.cpp | 186 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 187 insertions(+)
+ create mode 100755 examples/test_dataset.cpp
+
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index d7443122..f580103b 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -68,6 +68,7 @@ if(NCNN_PIXEL)
+         # ncnn_add_example(scrfd_crowdhuman)
+         ncnn_add_example(custom)
+         ncnn_add_example(custom_rgb)
++        ncnn_add_example(test_dataset)
+         if(OpenCV_FOUND)
+             ncnn_add_example(yolov4)
+             ncnn_add_example(rvm)
+diff --git a/examples/test_dataset.cpp b/examples/test_dataset.cpp
+new file mode 100755
+index 00000000..0a48bd9f
+--- /dev/null
++++ b/examples/test_dataset.cpp
+@@ -0,0 +1,186 @@
++// Tencent is pleased to support the open source community by making ncnn available.
++//
++// Copyright (C) 2018 THL A29 Limited, a Tencent company. All rights reserved.
++//
++// Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
++// in compliance with the License. You may obtain a copy of the License at
++//
++// https://opensource.org/licenses/BSD-3-Clause
++//
++// Unless required by applicable law or agreed to in writing, software distributed
++// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
++// CONDITIONS OF ANY KIND, either express or implied. See the License for the
++// specific language governing permissions and limitations under the License.
++
++#include "net.h"
++
++#include <algorithm>
++#if defined(USE_NCNN_SIMPLEOCV)
++#include "simpleocv.h"
++#else
++#include <opencv2/core/core.hpp>
++#include <opencv2/highgui/highgui.hpp>
++#endif
++#include <stdio.h>
++#include <vector>
++
++#include <fstream>
++#include <iostream>
++#include <dirent.h>
++//#include <unordered_map>
++
++static int detect(const cv::Mat& bgr, std::vector<float>& cls_scores, const char* paramfile, const char* binfile)
++{
++	ncnn::Net model;
++
++	model.opt.use_vulkan_compute = false;
++	model.opt.use_int8_inference = true;
++	model.opt.use_a53_a55_optimized_kernel = true;
++	model.opt.use_fp16_packed = false;
++	model.opt.use_fp16_storage = false;
++	model.opt.use_fp16_arithmetic = false;
++	model.opt.num_threads = 1;
++
++	// https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe
++	// models can be downloaded from https://github.com/miaow1988/ShuffleNet_V2_pytorch_caffe/releases
++//	fprintf(stderr, "file path: %s\n", paramfile);
++	if (model.load_param(paramfile))
++		exit(-1);
++	if (model.load_model(binfile))
++		exit(-1);
++
++	ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR2GRAY, bgr.cols, bgr.rows, 192, 192);
++//    ncnn::Mat in = ncnn::Mat::from_pixels(bgr.data, ncnn::Mat::PIXEL_GRAY, bgr.cols, bgr.rows);
++
++	const float mean_vals[1] = { 0.44f*255.f }; // 112.2
++	const float norm_vals[1] = { 1 / 0.265f / 255.f }; // 0.014798382
++	in.substract_mean_normalize(mean_vals, norm_vals);
++
++//    for(int q=0; q<std::min(in.c, 1); q++){
++//        const float* ptr = in.channel(q);
++//        for(int y=0; y<std::min(in.h, 30); y++){
++//            for(int x=0; x<std::min(in.w, 30); x++){
++//                printf("%.1f ", ptr[x]);
++//            }
++//            ptr += in.w;
++//            printf("\n");
++//        }
++//        printf("----------------\n");
++//    }
++
++	ncnn::Extractor ex = model.create_extractor();
++
++	ex.input("images", in);
++
++	ncnn::Mat out;
++	ex.extract("output0", out);
++
++	// manually call softmax on the fc output
++	// convert result into probability
++	// skip if your model already has softmax operation
++	{
++		// ncnn::Layer* softmax = ncnn::create_layer("Softmax");
++		ncnn::Layer* sigmoid = ncnn::create_layer("Sigmoid");
++
++		ncnn::ParamDict pd;
++		sigmoid->load_param(pd);
++
++		sigmoid->forward_inplace(out, model.opt);
++
++		delete sigmoid;
++	}
++
++	out = out.reshape(out.w * out.h * out.c);
++
++	cls_scores.resize(out.w);
++	for (int j = 0; j < out.w; j++)
++	{
++		cls_scores[j] = out[j];
++	}
++
++	return 0;
++}
++
++static int print_topk(const std::vector<float>& cls_scores, int topk)
++{
++	// partial sort topk with index
++	int size = cls_scores.size();
++	std::vector<std::pair<float, int> > vec;
++	vec.resize(size);
++	for (int i = 0; i < size; i++)
++	{
++		vec[i] = std::make_pair(cls_scores[i], i);
++	}
++
++	std::partial_sort(vec.begin(), vec.begin() + topk, vec.end(),
++		std::greater<std::pair<float, int> >());
++
++	// print topk and score
++	for (int i = 0; i < topk; i++)
++	{
++		float score = vec[i].first;
++		int index = vec[i].second;
++		fprintf(stderr, "%d = %f\n", index, score);
++	}
++
++	return 0;
++}
++
++int main(int argc, char** argv)
++{
++	if (argc != 4)
++	{
++		fprintf(stderr, "Usage: %s [imagepath]\n", argv[0]);
++		return -1;
++	}
++
++	const char* imagepath = argv[3];
++	const char* paramfile = argv[1];
++	const char* binfile = argv[2];
++
++    std::string outputFile = "output.csv";
++
++    DIR *dir;
++    struct dirent *ent;
++    std::string img_path;
++    img_path = imagepath;
++    std::string txt_path = img_path + "test.txt";
++
++    std::vector<std::string> names;
++    std::ifstream ifs(txt_path.c_str(), std::ios::in);
++    if (!ifs.is_open()) {
++        std::cout << "Failed to open file.\n";
++        return 1; // EXIT_FAILURE
++    }
++
++    std::string s;
++    std::string csv_path = img_path + "result.csv";
++    std::ofstream myFile(csv_path.c_str());
++    myFile << "image"  << ',' << "gt" << ',' << "person" << '\n';
++    while (std::getline(ifs, s)) {
++//        std::cout << s << std::endl;
++        cv::Mat m = cv::imread(img_path + s, 1);
++
++        if (m.empty())
++        {
++            std::cout << "empty:" << s << std::endl;
++            continue;
++        }
++
++        std::vector<float> cls_scores;
++        detect(m, cls_scores, paramfile, binfile);
++        if(s.find("Positive") != std::string::npos){
++            myFile << s << ',' << 1 << ',' << cls_scores[0] << '\n';
++        }else if(s.find("Negative") != std::string::npos){
++            myFile << s << ',' << 0 << ',' << cls_scores[0] << '\n';
++        }else{
++            std::cout << "Naming error!!" << std::endl;
++        }
++        std::cout << s << ',' << cls_scores[0] << std::endl;
++
++    }
++    myFile.close();
++    ifs.close();
++
++	return 0;
++}
+-- 
+2.47.1
+

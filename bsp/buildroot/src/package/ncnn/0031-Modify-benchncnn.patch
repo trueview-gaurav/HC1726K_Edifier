@@ -1,0 +1,98 @@
+From c2004fceff25a91050c3551ef22ce36c9df648a8 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 13 Dec 2023 15:22:06 +0800
+Subject: [PATCH 31/54] Modify benchncnn
+
+---
+ benchmark/benchncnn.cpp      | 19 ++++++++-----------
+ benchmark/benchncnn_int8.cpp | 13 +++++--------
+ 2 files changed, 13 insertions(+), 19 deletions(-)
+
+diff --git a/benchmark/benchncnn.cpp b/benchmark/benchncnn.cpp
+index 9f1b954c..d2959d3b 100755
+--- a/benchmark/benchncnn.cpp
++++ b/benchmark/benchncnn.cpp
+@@ -89,6 +89,11 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+ #endif
+ 
+ 	struct rusage usage_start, usage_end;
++    double time_min = DBL_MAX;
++    double time_max = -DBL_MAX;
++    double time_avg = 0;
++    double start, end, time;
++
+ 	getrusage(RUSAGE_SELF, &usage_start);
+ 
+     if (fixed_path)
+@@ -120,8 +125,6 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+         return;
+     }
+ 
+-	
+-
+     // initialize input
+     for (size_t j = 0; j < input_names.size(); ++j)
+     {
+@@ -146,15 +149,9 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+         }
+     }
+ 
+-    double time_min = DBL_MAX;
+-    double time_max = -DBL_MAX;
+-    double time_avg = 0;
+-
+-	
+-
+     for (int i = 0; i < g_loop_count; i++)
+     {
+-        double start = ncnn::get_current_time();
++        start = ncnn::get_current_time();
+         {
+             ncnn::Extractor ex = net.create_extractor();
+             for (size_t j = 0; j < input_names.size(); ++j)
+@@ -170,9 +167,9 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+             }
+         }
+ 
+-        double end = ncnn::get_current_time();
++        end = ncnn::get_current_time();
+ 
+-        double time = end - start;
++        time = end - start;
+ 
+         time_min = std::min(time_min, time);
+         time_max = std::max(time_max, time);
+diff --git a/benchmark/benchncnn_int8.cpp b/benchmark/benchncnn_int8.cpp
+index 35290301..f1169e56 100755
+--- a/benchmark/benchncnn_int8.cpp
++++ b/benchmark/benchncnn_int8.cpp
+@@ -89,6 +89,11 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+ #endif
+ 
+     struct rusage usage_start, usage_end;
++    double time_min = DBL_MAX;
++    double time_max = -DBL_MAX;
++    double time_avg = 0;
++    double start, end, time;
++
+     getrusage(RUSAGE_SELF, &usage_start);
+ 
+     if (fixed_path)
+@@ -146,14 +151,6 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+         }
+     }
+ 
+-    double time_min = DBL_MAX;
+-    double time_max = -DBL_MAX;
+-    double time_avg = 0;
+-
+-    double start = 0;
+-    double end = 0;
+-//    double time = 0;
+-
+     for (int i = 0; i < g_loop_count; i++)
+     {
+         start = ncnn::get_current_time();
+-- 
+2.47.1
+

@@ -1,0 +1,51 @@
+From 37a108c4c47f450702a6920839586be31937f47e Mon Sep 17 00:00:00 2001
+From: nihui <nihuini@tencent.com>
+Date: Fri, 27 Oct 2023 16:18:51 +0800
+Subject: [PATCH 02/54] pnnx run test_inference by default (#5110)
+
+---
+ tools/pnnx/src/ir.cpp        | 8 ++++++++
+ tools/pnnx/src/save_ncnn.cpp | 8 ++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/tools/pnnx/src/ir.cpp b/tools/pnnx/src/ir.cpp
+index a4602095..e0e48fba 100644
+--- a/tools/pnnx/src/ir.cpp
++++ b/tools/pnnx/src/ir.cpp
+@@ -2688,6 +2688,14 @@ int Graph::python(const std::string& pypath, const std::string& pnnxbinpath)
+         }
+     }
+ 
++    fprintf(pyfp, "\n");
++
++    // main
++    {
++        fprintf(pyfp, "if __name__ == \"__main__\":\n");
++        fprintf(pyfp, "    print(test_inference())\n");
++    }
++
+     fclose(pyfp);
+ 
+     return 0;
+diff --git a/tools/pnnx/src/save_ncnn.cpp b/tools/pnnx/src/save_ncnn.cpp
+index 6a440787..c6d1e37c 100644
+--- a/tools/pnnx/src/save_ncnn.cpp
++++ b/tools/pnnx/src/save_ncnn.cpp
+@@ -448,6 +448,14 @@ int save_ncnn(const Graph& g, const std::string& parampath, const std::string& b
+         fprintf(pyfp, "        return tuple(out)\n");
+     }
+ 
++    fprintf(pyfp, "\n");
++
++    // main
++    {
++        fprintf(pyfp, "if __name__ == \"__main__\":\n");
++        fprintf(pyfp, "    print(test_inference())\n");
++    }
++
+     fclose(pyfp);
+ 
+     return 0;
+-- 
+2.47.1
+

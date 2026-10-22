@@ -1,0 +1,47 @@
+From 77bbd6bffa7f88566a5d652c214f53d1c914a73b Mon Sep 17 00:00:00 2001
+From: "Vivian.Lai im267" <vivian.lai@augentix.com>
+Date: Fri, 21 Feb 2025 17:23:02 +0800
+Subject: [PATCH 53/54] Add uClibc non FPU cmake
+
+---
+ ...rm-augentix-linux-uclibcgnueabi.toolchain.cmake | 28 ++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+ create mode 100644 toolchains/arm-augentix-linux-uclibcgnueabi.toolchain.cmake
+
+diff --git a/toolchains/arm-augentix-linux-uclibcgnueabi.toolchain.cmake b/toolchains/arm-augentix-linux-uclibcgnueabi.toolchain.cmake
+new file mode 100644
+index 00000000..2673786d
+--- /dev/null
++++ b/toolchains/arm-augentix-linux-uclibcgnueabi.toolchain.cmake
+@@ -0,0 +1,28 @@
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
++
++set(CMAKE_C_COMPILER "arm-augentix-linux-uclibcgnueabi-gcc")
++set(CMAKE_CXX_COMPILER "arm-augentix-linux-uclibcgnueabi-g++")
++
++set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
++
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
++
++set(CMAKE_C_FLAGS "-march=armv7-a -mfloat-abi=soft" CACHE STRING "c flags")
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfloat-abi=soft" CACHE STRING "c++ flags")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables")
++
++# cache flags
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "c++ flags")
+-- 
+2.12.0.windows.1
+

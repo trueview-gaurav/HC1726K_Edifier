@@ -1,0 +1,28 @@
+#!/bin/sh
+
+do_usb_storage() {
+	# Load g_mass_storage.ko if file does exist
+	if [ -f /lib/modules/`uname -r`/kernel/drivers/usb/gadget/legacy/g_mass_storage.ko ] && 
+	   [ -e /dev/mmcblk0 ]
+	then
+		modprobe g_mass_storage file=/dev/mmcblk0 stall=0 removable=1
+	fi
+}
+
+adjust_gpio() {
+	devmem 0x80001654 32 0
+	echo 67 > /sys/class/gpio/export
+	echo 'out' > /sys/class/gpio/gpio67/direction
+	echo 1 > /sys/class/gpio/gpio67/value
+}
+
+case "$1" in
+	start)
+		do_usb_storage &
+		adjust_gpio &
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+esac

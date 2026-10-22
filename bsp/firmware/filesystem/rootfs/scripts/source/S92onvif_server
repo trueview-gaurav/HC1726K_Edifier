@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Start/stop onvif_server
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE=/var/run/onvif_server.pid
+ONVIF_BIN=/system/bin/onvif_server
+
+case "$1" in
+  start)
+	echo "Starting onvif_server..."
+	start-stop-daemon -S -m -b -x $ONVIF_BIN -p $PIDFILE
+	;;
+  stop)
+	printf "Stopping onvif_server..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

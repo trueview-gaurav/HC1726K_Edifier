@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop uvcd
+#
+
+PIDFILE=/var/run/uvcd.pid
+UVCD_BIN=/system/bin/uvcd
+
+case "$1" in
+  start)
+	echo "Starting uvc daemon..."
+	start-stop-daemon -S -m -b -x $UVCD_BIN -p $PIDFILE
+	;;
+  stop)
+	printf "Stopping uvc daemon..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

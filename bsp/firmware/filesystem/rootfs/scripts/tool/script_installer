@@ -1,0 +1,106 @@
+#!/bin/bash
+
+###############################################################################
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# script installer - Augentix init script installer
+# Copyright (C) 2019 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc.
+#
+# * Author: ShihChieh Lin <shihchieh.lin@augentix.com>
+#
+###############################################################################
+
+listfile=
+srcdir=
+destdir=
+
+usage()
+{
+	echo "Usage: script_installer -l [LIST_FILE] -i [SRCDIR] -o [DESTDIR]"
+}
+
+usage_exit()
+{
+	usage
+	exit 0
+}
+
+install_common_script() {
+	for mode in develop user factory; do
+		cp -f $srcdir/common/* $destdir/$mode/
+	done
+}
+
+install_product_script() {
+	mode=
+	exec < $listfile
+	while read f; do
+		case $f in
+		\[core\])
+			mode=core
+			;;
+		\[develop\])
+			mode=develop
+			;;
+		\[user\])
+			mode=user
+			;;
+		\[factory\])
+			mode=factory
+			;;
+		*)
+			if [ $mode != core ]; then
+				if [ ! -f $srcdir/$f ]; then
+					echo "[ERROR] file $srcdir/$f does not exist!"
+					exit 1
+				fi
+				cp -f $srcdir/$f $destdir/$mode/$(basename $f)
+			else
+				if [ ! -f $srcdir/$mode/$f ]; then
+					echo "[ERROR] file $srcdir/$mode/$f does not exist!"
+					exit 1
+				fi
+				cp -f $srcdir/$mode/$f $destdir/$(basename $f)
+			fi
+			;;
+		esac
+	done
+}
+
+
+if [ ! $# -eq 6 ]; then
+	usage_exit
+fi
+
+while [ $# -gt 0 ]; do
+	key="$1"
+	case $key in
+	-l)
+		listfile=$2
+		shift
+		shift
+		;;
+	-i)
+		srcdir=$2
+		shift
+		shift
+		;;
+	-o)
+		destdir=$2
+		shift
+		shift
+		;;
+	*)
+		usage_exit
+		;;
+	esac
+done
+
+mkdir -p $destdir/factory $destdir/user $destdir/develop
+install_common_script
+install_product_script

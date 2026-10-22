@@ -1,0 +1,112 @@
+#!/bin/sh
+
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# S000anti_rollback_tee - System boot with anti-rollback prtection via TEE
+# Copyright (C) 2025 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc
+
+SW_VERSION_FILE=/etc/sw-version
+COUNTER_PATH=/system/bin/monotonic_counter
+COUNTER_MAX=4294967295 # (2 ^ 32 - 1)
+COUNTER_MIN=0
+ROOTFS_COUNTER_ID=1
+
+rootfs_version=0
+
+verify_version() {
+	# Read software version from SW_VERSION_FILE
+	if [ -f "$SW_VERSION_FILE" ]; then
+		rootfs_version=$(awk -F':' '/^rootfs_ver:/ {print $2}' "$SW_VERSION_FILE")
+
+		# Check if rootfs_version is numeric
+		if ! echo "$rootfs_version" | grep -qE '^[0-9]+$'; then
+			echo "Anti-rollback error: Invalid rootfs_ver format. Halting."
+			halt -f
+		fi
+
+		# Check range
+		if ! echo "$rootfs_version" | awk -v min="$COUNTER_MIN" -v max="$COUNTER_MAX" \
+			'$1 >= min && $1 <= max { exit 0 } { exit 1 }'; then
+			echo "Anti-rollback error: rootfs_version ($rootfs_version) out of range [$COUNTER_MIN, $COUNTER_MAX]. Halting."
+			halt -f
+		fi
+
+		echo "Rootfs version: $rootfs_version"
+	else
+		echo "Anti-rollback error: Software version file not found. Halting."
+		halt -f
+	fi
+
+	# Read counter value
+	output=$($COUNTER_PATH -g $ROOTFS_COUNTER_ID)
+	rootfs_counter_value=$(echo "$output" | awk "/Get counter $ROOTFS_COUNTER_ID with value/ {print \$NF}")
+
+	# Validate counter value is present
+	if [ -z "$rootfs_counter_value" ]; then
+		echo "Anti-rollback error: Counter value not found in the output. Halting."
+		halt -f
+	else
+		echo "Counter value: $rootfs_counter_value"
+	fi
+
+	# Check if counter value is numeric
+	if ! echo "$rootfs_counter_value" | grep -qE '^[0-9]+$'; then
+		echo "Anti-rollback error: Counter value is not a valid number. Halting."
+		halt -f
+	fi
+
+	# Compare counter value with software version
+	if [ "$rootfs_counter_value" -gt "$rootfs_version" ]; then
+		echo "Anti-rollback error: Counter value is greater than software version. Halting."
+		halt -f
+	elif [ "$rootfs_counter_value" -eq "$rootfs_version" ]; then
+		return 1 # no need to increment counter
+	else
+		return 0 # need to increment counter
+	fi
+}
+
+increment_counter() {
+	# Increment counter value to the desired software version
+	output=$($COUNTER_PATH -s $ROOTFS_COUNTER_ID -v $rootfs_version)
+	counter_value=$(echo "$output" | awk "/Set counter $ROOTFS_COUNTER_ID with value/ {print \$6}")
+
+	# Check if the counter_value was extracted successfully
+	if [ -z "$counter_value" ]; then
+		echo "Anti-rollback error: Counter value not found in the output. Halting."
+		halt -f
+	fi
+
+	# Check if counter_value is equal to rootfs_version
+	if [ "$counter_value" -ne "$rootfs_version" ]; then
+		echo "Anti-rollback error: Counter value ($counter_value) does not match the desired value ($rootfs_version). Halting."
+		halt -f
+	fi
+
+	# Reboot to update counter
+	echo "Reboot, updating counter..."
+	reboot -f
+}
+
+case "$1" in
+	start)
+		verify_version
+			
+		if [ $? -eq 0 ]; then
+			increment_counter
+		fi
+		;;
+	stop|restart|reload)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit 0
+

@@ -1,0 +1,1 @@
+../template/emac_ut01.sh

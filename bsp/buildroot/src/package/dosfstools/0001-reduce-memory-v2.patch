@@ -1,0 +1,236 @@
+--- a/src/io.c	2025-12-01 13:38:33.489123733 +0800
++++ b/src/io.c	2025-12-01 16:43:55.853031081 +0800
+@@ -40,6 +40,7 @@
+ #include <sys/stat.h>
+ #include <errno.h>
+ #include <fcntl.h>
++#include <sys/mman.h>
+ 
+ #include "fsck.fat.h"
+ #include "common.h"
+@@ -184,3 +185,35 @@
+ {
+     return ! !changes || did_change;
+ }
++
++void *fs_mmap(loff_t pos, int size)
++{
++    char *mapped; /* Convert to char* to be able to add an offset to it */
++    unsigned long pagesize = sysconf(_SC_PAGESIZE);
++    int pos_correction = pos % pagesize;
++
++    /* mmap requires page-aligned offset and size */
++    pos -= pos_correction;
++    size += pos_correction;
++    size = (size + pagesize - 1) / pagesize * pagesize;
++
++    mapped = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, pos);
++    if (mapped == MAP_FAILED)
++        pdie("mmapping %d bytes at 0x%08lx", size, (unsigned long)pos);
++
++    return mapped + pos_correction;
++}
++
++void fs_munmap(void *mapped, int size)
++{
++    unsigned long addr = (unsigned long) mapped;
++    unsigned long pagesize = sysconf(_SC_PAGESIZE);
++    int pos_correction = addr % pagesize;
++
++    addr -= pos_correction;
++    size += pos_correction;
++    /* for munmap, size doesn't have to be a multiple of pagesize */
++    mapped = (void *)addr;
++    if (munmap(mapped, size))
++        pdie("munmapping %d bytes from %p", size, mapped);
++}
+\ No newline at end of file
+--- a/src/io.h	2025-12-01 16:45:24.509528469 +0800
++++ b/src/io.h	2025-12-01 16:45:35.669592890 +0800
+@@ -60,4 +60,15 @@
+ 
+ /* Determines whether the filesystem has changed. See fs_close. */
+ 
++void *fs_mmap(loff_t pos, int size);
++
++/* maps SIZE bytes starting at POS into memory. Does not perform any
++   changes. */
++
++void fs_munmap(void *mapped, int size);
++
++/* unmaps SIZE bytes at mapped, which have been mapped before with fs_mmap
++ */
++
++
+ #endif
+--- a/src/fsck.fat.h	2025-12-01 18:11:46.048965455 +0800
++++ b/src/fsck.fat.h	2025-12-01 18:14:17.114050636 +0800
+@@ -180,6 +180,7 @@
+ extern int only_uppercase_label;
+ extern unsigned n_files;
+ extern void *mem_queue;
++extern int use_mmap;
+ 
+ /* value to use as end-of-file marker */
+ #define FAT_EOF(fs)	((atari_format ? 0xfff : 0xff8) | FAT_EXTD(fs))
+
+--- a/src/fsck.fat.c	2021-01-31 20:49:12.000000000 +0800
++++ b/src/fsck.fat.c	2025-12-02 15:53:44.887510939 +0800
+@@ -52,6 +52,7 @@
+ int no_spaces_in_sfns = 0;
+ int only_uppercase_label = 0;
+ int boot_only = 0;
++int use_mmap = 0;
+ unsigned n_files = 0;
+ void *mem_queue = NULL;
+ 
+@@ -79,6 +80,8 @@
+     fprintf(stderr, "  -f              salvage unused chains to files\n");
+     fprintf(stderr, "  -F NUM          specify FAT table NUM used for filesystem access\n");
+     fprintf(stderr, "  -l              list path names\n");
++	fprintf(stderr, "  -m              use mmap to readFAT (requires -w and -r or -a) \n");
++	fprintf(stderr, "  -N              no salvage file \n");
+     fprintf(stderr, "  -n              no-op, check non-interactively without changing\n");
+     fprintf(stderr, "  -p              same as -a, for compat with other *fsck\n");
+     fprintf(stderr, "  -r              interactively repair the filesystem (default)\n");
+@@ -100,6 +103,7 @@
+ {
+     DOS_FS fs;
+     int salvage_files, verify, c;
++	int no_salvage_files = 0;
+     uint32_t free_clusters = 0;
+     struct termios tio;
+     char *tmp;
+@@ -124,7 +128,7 @@
+     rw = interactive = 1;
+     check_atari();
+ 
+-    while ((c = getopt_long(argc, argv, "Aac:d:bfF:lnprStu:UvVwy",
++    while ((c = getopt_long(argc, argv, "Aac:d:bfF:lmNnprStu:UvVwy",
+ 				    long_options, NULL)) != -1)
+ 	switch (c) {
+ 	case 'A':		/* toggle Atari format */
+@@ -169,6 +173,12 @@
+ 	case 'l':
+ 	    list = 1;
+ 	    break;
++	case 'm':
++		use_mmap = 1;
++		break;
++	case 'N':
++		no_salvage_files = 1;
++		break;
+ 	case 'n':
+ 	    rw = 0;
+ 	    interactive = 0;
+@@ -242,7 +252,7 @@
+     check_label(&fs);
+     if (test)
+ 	fix_bad(&fs);
+-    if (salvage_files)
++    if (salvage_files && !no_salvage_files)
+ 	reclaim_file(&fs);
+     else
+ 	reclaim_free(&fs);
+--- a/src/fatlabel.c	2025-12-02 16:00:22.939040709 +0800
++++ b/src/fatlabel.c	2025-12-02 16:00:46.742138757 +0800
+@@ -50,6 +50,7 @@
+ long fat_table = 0;
+ unsigned n_files = 0;
+ void *mem_queue = NULL;
++int use_mmap = 0;
+ 
+ 
+ static void handle_label(bool change, bool reset, const char *device, char *newlabel)
+--- a/src/fat.c	2021-01-31 20:49:12.000000000 +0800
++++ b/src/fat.c	2025-12-02 16:02:30.075023392 +0800
+@@ -29,6 +29,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <sys/mman.h>
+ 
+ #include "common.h"
+ #include "fsck.fat.h"
+@@ -138,13 +139,25 @@
+ 	     * casing the last entry in get_fat() */
+ 	    alloc_size = (total_num_clusters * 12 + 23) / 24 * 3;
+ 
+-    first = alloc(alloc_size);
+-    fs_read(fs->fat_start, eff_size, first);
++	if (use_mmap) {
++		first = fs_mmap(fs->fat_start, eff_size);
++	}
++	else { /* !use_mmap */
++    	first = alloc(alloc_size);
++		fs_read(fs->fat_start, eff_size, first);
++	}
++
+     get_fat(&first_media, first, 0, fs);
+     first_ok = (first_media.value & FAT_EXTD(fs)) == FAT_EXTD(fs);
+     if (fs->nfats > 1) {
+-	second = alloc(alloc_size);
+-	fs_read(fs->fat_start + fs->fat_size, eff_size, second);
++		if (use_mmap) {
++			second = fs_mmap(fs->fat_start + fs->fat_size, eff_size);
++		} 
++		else { /* !use_mmap */
++			second = alloc(alloc_size);
++			fs_read(fs->fat_start + fs->fat_size, eff_size, second);
++		}
++
+ 	get_fat(&second_media, second, 0, fs);
+ 	second_ok = (second_media.value & FAT_EXTD(fs)) == FAT_EXTD(fs);
+     }
+@@ -165,10 +178,16 @@
+ 	    die("FATs differ, please run fsck.fat");
+ 	if (first_ok && !second_ok) {
+ 	    printf("FATs differ - using first FAT.\n");
+-	    fs_write(fs->fat_start + fs->fat_size, eff_size, first);
++		if (use_mmap) {
++			memcpy(second, first, eff_size);
++		} else { /* !use_mmap */
++			fs_write(fs->fat_start + fs->fat_size, eff_size, first);
++		}
+ 	} else if (!first_ok && second_ok) {
+ 	    printf("FATs differ - using second FAT.\n");
+-	    fs_write(fs->fat_start, eff_size, second);
++		if (!use_mmap) {
++			fs_write(fs->fat_start, eff_size, second);
++		}
+ 	    memcpy(first, second, eff_size);
+ 	} else {
+ 	    if (first_ok && second_ok)
+@@ -179,17 +198,25 @@
+ 			   2,
+ 			   1, "Use first FAT",
+ 			   2, "Use second FAT") == 1) {
+-		if (!first_ok) {
+-		    fix_first_cluster(fs, first);
+-		    fs_write(fs->fat_start, (fs->fat_bits + 7) / 8, first);
+-		}
+-		fs_write(fs->fat_start + fs->fat_size, eff_size, first);
++			if (!first_ok) {
++				fix_first_cluster(fs, first);
++				if (!use_mmap) {
++					fs_write(fs->fat_start, (fs->fat_bits + 7) / 8, first);
++				}
++			}
++			if (!use_mmap) {
++				fs_write(fs->fat_start + fs->fat_size, eff_size, first);
++			}
+ 	    } else {
+ 		if (!second_ok) {
+ 		    fix_first_cluster(fs, second);
+-		    fs_write(fs->fat_start + fs->fat_size, (fs->fat_bits + 7) / 8, second);
++			if (!use_mmap) {
++				fs_write(fs->fat_start + fs->fat_size, (fs->fat_bits + 7) / 8, second);
++			}
++		}
++		if (!use_mmap) {
++			fs_write(fs->fat_start, eff_size, second);
+ 		}
+-		fs_write(fs->fat_start, eff_size, second);
+ 		memcpy(first, second, eff_size);
+ 	    }
+ 	}

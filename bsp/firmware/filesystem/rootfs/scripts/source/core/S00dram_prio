@@ -1,0 +1,88 @@
+#!/bin/sh -f
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+do_start() {
+	#Priority: Audio > USB > CPU > others
+	#AUDIO (Priority Highest)
+	csr darb.darb.ini_score_w_02 0x1F
+	csr darb.darb.ini_score_r_00 0x1F
+	csr darb.darb.wait_cnt_norm_w_02 0x0
+	csr darb.darb.wait_cnt_norm_r_00 0x0
+	csr darb.darb.page_match_score_w_02 0xF
+	csr darb.darb.page_match_score_r_00 0xF
+	
+	#USB (Priority Medium)
+	csr darb.darb.ini_score_w_13 0x10
+	csr darb.darb.ini_score_r_13 0x10
+	csr darb.darb.wait_cnt_norm_w_13 0x1
+	csr darb.darb.wait_cnt_norm_r_13 0x1
+	csr darb.darb.page_match_score_w_13 0xD
+	csr darb.darb.page_match_score_r_13 0xD
+
+	#CPU data
+	csr darb.darb.ini_score_w_14 0x0F
+	csr darb.darb.ini_score_r_14 0x0F
+	csr darb.darb.wait_cnt_norm_w_14 0x2
+	csr darb.darb.wait_cnt_norm_r_14 0x2
+	csr darb.darb.page_match_score_w_14 0xC
+	csr darb.darb.page_match_score_r_14 0xC
+	
+	#CPU instruction
+	csr darb.darb.ini_score_r_15 0x0F
+	csr darb.darb.wait_cnt_norm_r_15 0x2
+	csr darb.darb.page_match_score_r_15 0xC
+	
+	echo 'Set DRAM arbiter priority: Audio > USB > CPU > others'
+}
+
+do_stop() {
+	#AUDIO 
+	csr darb.darb.ini_score_w_02 0x0
+	csr darb.darb.ini_score_r_00 0x0
+	csr darb.darb.wait_cnt_norm_w_02 0x5
+	csr darb.darb.wait_cnt_norm_r_00 0x5
+	csr darb.darb.page_match_score_w_02 0x8
+	csr darb.darb.page_match_score_r_00 0x8
+
+	#USB
+	csr darb.darb.ini_score_w_13 0x0
+	csr darb.darb.ini_score_r_13 0x0
+	csr darb.darb.wait_cnt_norm_w_13 0x5
+	csr darb.darb.wait_cnt_norm_r_13 0x5
+	csr darb.darb.page_match_score_w_13 0x8
+	csr darb.darb.page_match_score_r_13 0x8		
+	
+	#CPU data
+	csr darb.darb.ini_score_w_14 0x0
+	csr darb.darb.ini_score_r_14 0x0
+	csr darb.darb.wait_cnt_norm_w_14 0x5
+	csr darb.darb.wait_cnt_norm_r_14 0x5
+	csr darb.darb.page_match_score_w_14 0x8
+	csr darb.darb.page_match_score_r_14 0x8
+	
+	#CPU instruction 
+	csr darb.darb.ini_score_r_15 0x0
+	csr darb.darb.wait_cnt_norm_r_15 0x5
+	csr darb.darb.page_match_score_r_15 0x8
+	
+	echo 'Set DRAM arbiter priority to default.'
+}
+
+ID=`csr pc.pc.chip_id | awk '{print $3}'`
+if [ $ID != '0x19811030' ]
+then
+	echo "[Warning] This chip is not supported. DRAM priority remains as default."
+	exit
+fi
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+esac

@@ -1,0 +1,52 @@
+#!/bin/sh -f
+
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  randomizemac - Randomize MAC address if default MAC address is not programmed
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script should be executed after S40network
+#
+
+IFACE=eth0
+
+ETHADDR=$(cat /sys/class/net/$IFACE/address)
+
+# Default MAC address set by U-Boot
+ETHADDR_DEFAULT=02:00:00:00:00:00
+
+set_random_ethaddr() {
+	ETHADDR=$(tr -dc A-F0-9 < /dev/urandom | head -c 6 | \
+		  sed -r 's/(..)/\1:/g;s/:$//;s/^/12:34:56:/')
+	echo "Randomize MAC address: $ETHADDR"
+	/sbin/ifdown $IFACE
+	ifconfig $IFACE hw ether $ETHADDR
+	/sbin/ifup $IFACE
+}
+
+
+case "$1" in
+	start)
+		# set MAC address to 12:34:56:XX:XX:XX
+		# if default MAC address is applied
+		if [ $ETHADDR = $ETHADDR_DEFAULT ]; then
+		        set_random_ethaddr
+		fi
+	;;
+	stop)
+	;;
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+	;;
+esac
+

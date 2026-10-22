@@ -1,0 +1,51 @@
+#!/bin/sh
+
+STAMEN_PIDFILE=/var/run/stamen
+STAMEN_BIN=/system/bin/stamen
+
+# Access mode
+MODE=/system/bin/mode
+# Production tool flag
+run_prod_tool="/mnt/sdcard/RunProductionTool"
+
+start() {
+
+	# get Timezone
+	export TZ=$(cat /etc/TZ)
+
+	printf "Start stamen daemon: "
+	start-stop-daemon -S -m -b -p $STAMEN_PIDFILE \
+		-x $STAMEN_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stop stamen daemon: "
+	start-stop-daemon -K -q -p $STAMEN_PIDFILE \
+		-x $STAMEN_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+	start)
+		mode=$($MODE)
+		# Production tool to be skipped on user mode unless invoked
+		if [ $mode == "user" ] && [ ! -f $run_prod_tool ]; then
+			return 0
+		fi
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

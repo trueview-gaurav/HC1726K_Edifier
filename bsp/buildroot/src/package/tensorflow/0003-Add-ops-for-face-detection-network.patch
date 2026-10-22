@@ -1,0 +1,360 @@
+From b64b235a7bcfd22cdc41a10e01e3ff295705402b Mon Sep 17 00:00:00 2001
+From: "Takchoi.Yu im147" <takchoi.yu@augentix.com>
+Date: Wed, 1 Sep 2021 12:12:53 +0800
+Subject: [PATCH 3/8] Add ops for face detection network
+
+1. SUB
+2. NEG
+3. MUL
+4. SOFTMAX
+5. PRELU
+---
+ Makefile.lite                          |  8 ++--
+ Makefile.micro                         |  2 +-
+ tensorflow/lite/kernels/activations.cc | 64 ++++++++++++++++++--------
+ tensorflow/lite/kernels/register.cc    | 20 ++++----
+ 4 files changed, 60 insertions(+), 34 deletions(-)
+
+diff --git a/Makefile.lite b/Makefile.lite
+index c7b85997..cf85a155 100644
+--- a/Makefile.lite
++++ b/Makefile.lite
+@@ -1,6 +1,6 @@
+ # Make uses /bin/sh by default, which is incompatible with the bashisms seen
+ # below.
+-include Makefile.tmp
++# include Makefile.tmp
+ SHELL   := /bin/bash
+ root = $(realpath $(CURDIR))
+ TF_PATH =$(root)
+@@ -187,7 +187,6 @@ $(root)/tensorflow/lite/kernels/unique.cc \
+ $(root)/tensorflow/lite/kernels/pack.cc \
+ $(root)/tensorflow/lite/kernels/unpack.cc \
+ $(root)/tensorflow/lite/kernels/zeros_like.cc \
+-$(root)/tensorflow/lite/kernels/sub.cc \
+ $(root)/tensorflow/lite/kernels/add.cc \
+ $(root)/tensorflow/lite/kernels/sparse_to_dense.cc \
+ $(root)/tensorflow/lite/experimental/resource/static_hashtable.cc \
+@@ -206,10 +205,8 @@ $(root)/tensorflow/lite/kernels/atan2.cc \
+ $(root)/tensorflow/lite/kernels/sign.cc \
+ $(root)/tensorflow/lite/kernels/exp.cc \
+ $(root)/tensorflow/lite/kernels/shape.cc \
+-$(root)/tensorflow/lite/kernels/neg.cc \
+ $(root)/tensorflow/lite/kernels/squeeze.cc \
+ $(root)/tensorflow/lite/tools/optimize/sparsity/format_converter.cc \
+-$(root)/tensorflow/lite/kernels/mul.cc \
+ $(root)/tensorflow/lite/kernels/maximum_minimum.cc \
+ $(root)/tensorflow/lite/kernels/div.cc \
+ $(root)/tensorflow/lite/kernels/batch_matmul.cc \
+@@ -218,6 +215,9 @@ $(shell find tensorflow/lite/tools/make/downloads/absl/absl/ \
+ $(root)/tensorflow/lite/kernels/elementwise.cc \
+ 
+ CORE_CC_KERNEL_FILTER_SRCS_UNVERIFIED += \
++$(root)/tensorflow/lite/kernels/neg.cc \
++$(root)/tensorflow/lite/kernels/sub.cc \
++$(root)/tensorflow/lite/kernels/mul.cc \
+ $(root)/tensorflow/lite/optional_debug_tools.cc \
+ $(root)/tensorflow/lite/profiling/memory_info.cc \
+ $(root)/tensorflow/lite/profiling/platform_profiler.cc \
+diff --git a/Makefile.micro b/Makefile.micro
+index 3d72b87b..b6564076 100644
+--- a/Makefile.micro
++++ b/Makefile.micro
+@@ -17,7 +17,7 @@ ifneq (3.82,$(firstword $(sort $(MAKE_VERSION) 3.82)))
+   $(error "Requires make version 3.82 or later (current is $(MAKE_VERSION))")
+ endif
+ 
+-include Makefile.tmp
++# include Makefile.tmp
+ # root directory of tensorflow
+ root = $(realpath $(CURDIR))
+ TENSORFLOW_ROOT := $(root)
+diff --git a/tensorflow/lite/kernels/activations.cc b/tensorflow/lite/kernels/activations.cc
+index 32e06aef..31a80147 100644
+--- a/tensorflow/lite/kernels/activations.cc
++++ b/tensorflow/lite/kernels/activations.cc
+@@ -567,7 +567,9 @@ TfLiteStatus SigmoidPrepare(TfLiteContext* context, TfLiteNode* node) {
+   return context->ResizeTensor(context, output,
+                                TfLiteIntArrayCopy(input->dims));
+ }
++#endif // !LITE_RELU_ONLY
+ 
++#ifdef LITE_SOFTMAX
+ template <KernelType kernel_type>
+ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+   auto* params = reinterpret_cast<TfLiteSoftmaxParams*>(node->builtin_data);
+@@ -628,7 +630,9 @@ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+       data->params.zero_point = output->params.zero_point;
+       data->params.scale = output->params.scale;
+     }
+-  } else if (input->type == kTfLiteInt16) {
++  } 
++#ifndef LITE_OPTIM_DTYPE
++    else if (input->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_EQ(context, input->params.zero_point, 0);
+     TF_LITE_ENSURE_EQ(context, output->params.zero_point, 0);
+ 
+@@ -650,11 +654,15 @@ TfLiteStatus SoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+     QuantizeMultiplier(input_scale_beta_rescale, &data->params.input_multiplier,
+                        &data->params.input_left_shift);
+   }
++#endif // !LITE_OPTIM_DTYPE
+ 
+   return context->ResizeTensor(context, output,
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
++#endif // LITE_SOFTMAX
++
++#ifndef LITE_RELU_ONLY
+ template <KernelType kernel_type>
+ TfLiteStatus LogSoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+   LogSoftmaxOpData* data = reinterpret_cast<LogSoftmaxOpData*>(node->user_data);
+@@ -704,6 +712,8 @@ TfLiteStatus LogSoftmaxPrepare(TfLiteContext* context, TfLiteNode* node) {
+                                TfLiteIntArrayCopy(input->dims));
+ }
+ 
++#endif // !LITE_RELU_ONLY
++
+ TfLiteStatus PreluPrepare(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_EQ(context, NumInputs(node), 2);
+   TF_LITE_ENSURE_EQ(context, NumOutputs(node), 1);
+@@ -762,8 +772,6 @@ TfLiteStatus PreluPrepare(TfLiteContext* context, TfLiteNode* node) {
+   return kTfLiteOk;
+ }
+ 
+-#endif // !LITE_RELU_ONLY
+-
+ TfLiteStatus ReluEval(TfLiteContext* context, TfLiteNode* node) {
+   const TfLiteTensor* input;
+   TF_LITE_ENSURE_OK(context, GetInputSafe(context, node, 0, &input));
+@@ -1090,7 +1098,9 @@ TfLiteStatus SoftmaxFloat(TfLiteContext* context, const TfLiteTensor* input,
+   }
+   return kTfLiteOk;
+ }
++#endif //!LITE_RELU_ONLY
+ 
++#ifdef LITE_SOFTMAX
+ template <typename In, typename Out>
+ TfLiteStatus SoftmaxQuantized(TfLiteContext* context, const TfLiteTensor* input,
+                               TfLiteTensor* output, SoftmaxOpData* data,
+@@ -1155,6 +1165,7 @@ TfLiteStatus SoftmaxQuantized<uint8_t, uint8_t>(TfLiteContext* context,
+   return kTfLiteOk;
+ }
+ 
++#ifndef LITE_OPTIM_DTYPE
+ template <>
+ TfLiteStatus SoftmaxQuantized<int16, int16>(TfLiteContext* context,
+                                             const TfLiteTensor* input,
+@@ -1174,6 +1185,7 @@ TfLiteStatus SoftmaxQuantized<int16, int16>(TfLiteContext* context,
+     return kTfLiteError;
+   }
+ }
++#endif
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+@@ -1186,17 +1198,21 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetOutputSafe(context, node, 0, &output));
+ 
+   switch (input->type) {
++#ifndef LITE_OPTIM_DTYPE
+     case kTfLiteFloat32: {
+       return SoftmaxFloat(context, input, output, params, kernel_type);
+     }
++#endif
+     case kTfLiteUInt8: {
+       switch (output->type) {
+         case kTfLiteUInt8:
+           return SoftmaxQuantized<uint8_t, uint8_t>(context, input, output,
+                                                     data, kernel_type);
++#ifndef LITE_OPTIM_DTYPE
+         case kTfLiteInt16:
+           return SoftmaxQuantized<uint8_t, int16_t>(context, input, output,
+                                                     data, kernel_type);
++#endif
+         default:
+           TF_LITE_KERNEL_LOG(context,
+                              "Only uint8_t and int16_t outputs are supported "
+@@ -1210,9 +1226,11 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+         case kTfLiteInt8:
+           return SoftmaxQuantized<int8_t, int8_t>(context, input, output, data,
+                                                   kernel_type);
++#ifndef LITE_OPTIM_DTYPE
+         case kTfLiteInt16:
+           return SoftmaxQuantized<int8_t, int16_t>(context, input, output, data,
+                                                    kernel_type);
++#endif
+         default:
+           TF_LITE_KERNEL_LOG(context,
+                              "Only int8_t and int16_t outputs are supported "
+@@ -1221,11 +1239,12 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+           return kTfLiteError;
+       }
+     }
++#ifndef LITE_OPTIM_DTYPE
+     case kTfLiteInt16: {
+       return SoftmaxQuantized<int16_t, int16_t>(context, input, output, data,
+                                                 kernel_type);
+     }
+-
++#endif // LITE_OPTIM_DTYPE
+     default:
+       TF_LITE_KERNEL_LOG(context,
+                          "Only float32, uint8_t, Int8_t, Int16_t are supported "
+@@ -1234,7 +1253,9 @@ TfLiteStatus SoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+       return kTfLiteError;
+   }
+ }
++#endif // LITE_SOFTMAX
+ 
++#ifndef LITE_RELU_ONLY
+ template <KernelType kernel_type>
+ TfLiteStatus LogSoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   const LogSoftmaxOpData* data =
+@@ -1304,6 +1325,8 @@ TfLiteStatus LogSoftmaxEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
++#endif //!LITE_RELU_ONLY
++
+ template <typename T>
+ T ApplyPrelu(T input, T alpha) {
+   return input >= 0.0 ? input : input * alpha;
+@@ -1319,6 +1342,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+   TF_LITE_ENSURE_OK(context, GetOutputSafe(context, node, 0, &output));
+   const PreluOpData* data = reinterpret_cast<PreluOpData*>(node->user_data);
+   switch (input->type) {
++#ifndef LITE_OPTIM_DTYPE
+     case kTfLiteFloat32: {
+       if (kernel_type == kGenericOptimized) {
+         tflite::ArithmeticParams op_params;
+@@ -1355,6 +1379,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+       }
+       return kTfLiteOk;
+     } break;
++#endif // !LITE_OPTIM_DTYPE
+     case kTfLiteUInt8: {
+       PreluParams op_params;
+       op_params.input_offset = -input->params.zero_point;
+@@ -1408,6 +1433,7 @@ TfLiteStatus PreluEval(TfLiteContext* context, TfLiteNode* node) {
+   }
+ }
+ 
++#ifndef LITE_RELU_ONLY
+ template <typename T>
+ void QuantizeLeakyRelu(const TfLiteTensor* input, TfLiteTensor* output,
+                        const LeakyReluOpData* data) {
+@@ -1514,6 +1540,21 @@ TfLiteRegistration* Register_RELU() {
+   return &r;
+ }
+ 
++TfLiteRegistration* Register_SOFTMAX() {
++  static TfLiteRegistration r = {
++      activations::SoftmaxInit, activations::SoftmaxFree,
++      activations::SoftmaxPrepare<activations::kGenericOptimized>,
++      activations::SoftmaxEval<activations::kGenericOptimized>};
++  return &r;
++}
++
++TfLiteRegistration* Register_PRELU() {
++  static TfLiteRegistration r = {
++      activations::PreluInit, activations::PreluFree, activations::PreluPrepare,
++      activations::PreluEval<activations::kGenericOptimized>};
++  return &r;
++}
++
+ #ifndef LITE_RELU_ONLY
+ 
+ TfLiteRegistration* Register_ELU() {
+@@ -1606,14 +1647,6 @@ TfLiteRegistration* Register_SOFTMAX_REF() {
+   return &r;
+ }
+ 
+-TfLiteRegistration* Register_SOFTMAX() {
+-  static TfLiteRegistration r = {
+-      activations::SoftmaxInit, activations::SoftmaxFree,
+-      activations::SoftmaxPrepare<activations::kGenericOptimized>,
+-      activations::SoftmaxEval<activations::kGenericOptimized>};
+-  return &r;
+-}
+-
+ TfLiteRegistration* Register_LOG_SOFTMAX_REF() {
+   static TfLiteRegistration r = {
+       activations::LogSoftmaxInit, activations::LogSoftmaxFree,
+@@ -1637,13 +1670,6 @@ TfLiteRegistration* Register_PRELU_REF() {
+   return &r;
+ }
+ 
+-TfLiteRegistration* Register_PRELU() {
+-  static TfLiteRegistration r = {
+-      activations::PreluInit, activations::PreluFree, activations::PreluPrepare,
+-      activations::PreluEval<activations::kGenericOptimized>};
+-  return &r;
+-}
+-
+ TfLiteRegistration* Register_LEAKY_RELU() {
+   static TfLiteRegistration r = {
+       activations::LeakyReluInit, activations::LeakyReluFree,
+diff --git a/tensorflow/lite/kernels/register.cc b/tensorflow/lite/kernels/register.cc
+index a65f26a4..a2264ab7 100644
+--- a/tensorflow/lite/kernels/register.cc
++++ b/tensorflow/lite/kernels/register.cc
+@@ -84,9 +84,9 @@ BuiltinOpResolver::BuiltinOpResolver() {
+              /* max_version = */ 9);
+   //AddBuiltin(BuiltinOperator_LSH_PROJECTION, Register_LSH_PROJECTION());
+   //AddBuiltin(BuiltinOperator_HASHTABLE_LOOKUP, Register_HASHTABLE_LOOKUP());
+-  //AddBuiltin(BuiltinOperator_SOFTMAX, Register_SOFTMAX(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 3);
++  AddBuiltin(BuiltinOperator_SOFTMAX, Register_SOFTMAX(),
++             /* min_version = */ 1,
++             /* max_version = */ 3);
+   AddBuiltin(BuiltinOperator_CONCATENATION, Register_CONCATENATION(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+@@ -99,8 +99,8 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   //AddBuiltin(BuiltinOperator_BATCH_TO_SPACE_ND, Register_BATCH_TO_SPACE_ND(),
+   //           /* min_version = */ 1,
+   //           /* max_version = */ 3);
+-  //AddBuiltin(BuiltinOperator_MUL, Register_MUL(), /* min_version = */ 1,
+-  //           /* max_version = */ 5);
++  AddBuiltin(BuiltinOperator_MUL, Register_MUL(), /* min_version = */ 1,
++             /* max_version = */ 5);
+   //AddBuiltin(BuiltinOperator_L2_NORMALIZATION, Register_L2_NORMALIZATION(),
+   //           /* min_version = */ 1,
+   //           /* max_version = */ 2);
+@@ -145,9 +145,9 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   //AddBuiltin(BuiltinOperator_DIV, Register_DIV(),
+   //           /* min_version */ 1,
+   //           /* max_version */ 2);
+-  //AddBuiltin(BuiltinOperator_SUB, Register_SUB(),
+-  //           /* min_version = */ 1,
+-  //           /* max_version = */ 5);
++  AddBuiltin(BuiltinOperator_SUB, Register_SUB(),
++             /* min_version = */ 1,
++             /* max_version = */ 5);
+   AddBuiltin(BuiltinOperator_SPLIT, Register_SPLIT(),
+              /* min_version = */ 1,
+              /* max_version = */ 4);
+@@ -172,7 +172,7 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   AddBuiltin(BuiltinOperator_DEQUANTIZE, Register_DEQUANTIZE(),
+              /* min_version = */ 1,
+              /* max_version = */ 4);
+-  //AddBuiltin(BuiltinOperator_PRELU, Register_PRELU());
++  AddBuiltin(BuiltinOperator_PRELU, Register_PRELU());
+   //AddBuiltin(BuiltinOperator_MAXIMUM, Register_MAXIMUM(),
+   //           /* min_version = */ 1,
+   //           /* max_version = */ 4);
+@@ -200,7 +200,7 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   //AddBuiltin(BuiltinOperator_FLOOR, Register_FLOOR());
+   //AddBuiltin(BuiltinOperator_CEIL, Register_CEIL());
+   //AddBuiltin(BuiltinOperator_ROUND, Register_ROUND());
+-  //AddBuiltin(BuiltinOperator_NEG, Register_NEG());
++  AddBuiltin(BuiltinOperator_NEG, Register_NEG());
+   //AddBuiltin(BuiltinOperator_SELECT, Register_SELECT(),
+   //           /* min_version = */ 1,
+   //           /* max_version = */ 2);
+-- 
+2.47.1
+

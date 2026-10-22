@@ -1,0 +1,41 @@
+From ec987c2d41233e159ba1648307fb99dc75bbc0ed Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 11 Dec 2023 16:50:45 +0800
+Subject: [PATCH 24/54] Fix bugs on pooling 3x3 pack8 int8
+
+---
+ src/layer/arm/pooling_3x3_pack8_int8.h | 3 +--
+ src/layer/arm/pooling_arm.cpp          | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/layer/arm/pooling_3x3_pack8_int8.h b/src/layer/arm/pooling_3x3_pack8_int8.h
+index 990b29cd..ebe1f338 100755
+--- a/src/layer/arm/pooling_3x3_pack8_int8.h
++++ b/src/layer/arm/pooling_3x3_pack8_int8.h
+@@ -10,8 +10,7 @@ static void pooling3x3s2_max_pack8_int8_neon(const Mat& bottom_blob, Mat& top_bl
+     int outw = top_blob.w;
+     int outh = top_blob.h;
+ 
+-    const int tailstep = (w - 2 * outw + w) * 16;
+-    NCNN_LOGE("pooling3x3s2_max_pack8_int8_neon inch=%d outh=%d outw=%d", inch, outh, outw);
++    const int tailstep = (w - 2 * outw + w) * 8;
+ 
+     #pragma omp parallel for num_threads(opt.num_threads)
+     for (int q = 0; q < inch; q++)
+diff --git a/src/layer/arm/pooling_arm.cpp b/src/layer/arm/pooling_arm.cpp
+index f153646e..37265821 100644
+--- a/src/layer/arm/pooling_arm.cpp
++++ b/src/layer/arm/pooling_arm.cpp
+@@ -99,8 +99,7 @@ int Pooling_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+     int elempack = bottom_blob.elempack;
+ 
+ #if __ARM_NEON
+-    NCNN_LOGE("Pooling input %d x %d  pad = %d %d %d %d  ksize=%d %d  stride=%d %d elempack=%d elemsize=%d", w, h, pad_left, pad_right, pad_top, pad_bottom, kernel_w, kernel_h, stride_w, stride_h, elempack, elemsize);
+-    NCNN_LOGE("global_pooling=%d pooling_type=%d", global_pooling, pooling_type);
++//    NCNN_LOGE("Pooling input %d x %d  pad = %d %d %d %d  ksize=%d %d  stride=%d %d elempack=%d elemsize=%d", w, h, pad_left, pad_right, pad_top, pad_bottom, kernel_w, kernel_h, stride_w, stride_h, elempack, elemsize);
+     if (elempack == 8){
+         Mat bottom_blob_bordered;
+         make_padding(bottom_blob, bottom_blob_bordered, opt);
+-- 
+2.47.1
+

@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Start/stop connsel
+#
+
+PIDFILE=/var/run/connsel.pid
+
+case "$1" in
+	start)
+		printf "Start connsel: "
+		start-stop-daemon -S -m -b -x /system/bin/connsel -p $PIDFILE
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	stop)
+		printf "Stop connsel: "
+		start-stop-daemon -K -o -p $PIDFILE
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

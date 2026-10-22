@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Switch IR cut to default settings for TB007
+#
+
+case "$1" in
+	start)
+		# IR CUT sensor0
+		echo 16 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio16/direction
+		echo 0 > /sys/class/gpio/gpio16/value
+
+		# IR CUT sensor1
+		echo 17 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio17/direction
+		echo 0 > /sys/class/gpio/gpio17/value
+
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?

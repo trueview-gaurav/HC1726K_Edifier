@@ -1,0 +1,1 @@
+../template/sdc_system_test.sh

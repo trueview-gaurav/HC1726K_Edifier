@@ -1,0 +1,1598 @@
+From c395ec5c8f7a32087312f08a675bf2f88b405fef Mon Sep 17 00:00:00 2001
+From: Adam Chang <hunghsia@qti.qualcomm.com>
+Date: Sun, 22 Feb 2026 02:52:36 +0000
+Subject: [PATCH] libc/string/arm: update string routines (string.h support)
+
+---
+ libc/string/arm/_memcpy.S      | 736 ---------------------------------
+ libc/string/arm/arm-features.h |  59 +++
+ libc/string/arm/memcpy.S       | 361 +++++++++++++---
+ libc/string/arm/memmove.S      | 370 ++++++++++++++---
+ libc/string/arm/memset.S       |   1 +
+ 5 files changed, 689 insertions(+), 838 deletions(-)
+ delete mode 100644 libc/string/arm/_memcpy.S
+ create mode 100644 libc/string/arm/arm-features.h
+
+diff --git a/libc/string/arm/_memcpy.S b/libc/string/arm/_memcpy.S
+deleted file mode 100644
+index 2999e8e..0000000
+--- a/libc/string/arm/_memcpy.S
++++ /dev/null
+@@ -1,736 +0,0 @@
+-/*-
+- * Copyright (c) 1997 The NetBSD Foundation, Inc.
+- * All rights reserved.
+- *
+- * This code is derived from software contributed to The NetBSD Foundation
+- * by Neil A. Carson and Mark Brinicombe
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. All advertising materials mentioning features or use of this software
+- *    must display the following acknowledgement:
+- *        This product includes software developed by the NetBSD
+- *        Foundation, Inc. and its contributors.
+- * 4. Neither the name of The NetBSD Foundation nor the names of its
+- *    contributors may be used to endorse or promote products derived
+- *    from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
+- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
+- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
+- *
+- * Adapted for uClibc from NetBSD _memcpy.S,v 1.6 2003/10/09
+- * by Erik Andersen <andersen@codepoet.org>
+- */
+-
+-#include <features.h>
+-#include <endian.h>
+-#include <bits/arm_asm.h>
+-#include <bits/arm_bx.h>
+-
+-#if !defined(THUMB1_ONLY)
+-/*
+- * This is one fun bit of code ...
+- * Some easy listening music is suggested while trying to understand this
+- * code e.g. Iron Maiden
+- *
+- * For anyone attempting to understand it :
+- *
+- * The core code is implemented here with simple stubs for memcpy()
+- * memmove() and bcopy().
+- *
+- * All local labels are prefixed with Lmemcpy_
+- * Following the prefix a label starting f is used in the forward copy code
+- * while a label using b is used in the backwards copy code
+- * The source and destination addresses determine whether a forward or
+- * backward copy is performed.
+- * Separate bits of code are used to deal with the following situations
+- * for both the forward and backwards copy.
+- * unaligned source address
+- * unaligned destination address
+- * Separate copy routines are used to produce an optimised result for each
+- * of these cases.
+- * The copy code will use LDM/STM instructions to copy up to 32 bytes at
+- * a time where possible.
+- *
+- * Note: r12 (aka ip) can be trashed during the function along with
+- * r0-r3 although r0-r2 have defined uses i.e. dest, src, len throughout.
+- * Additional registers are preserved prior to use i.e. r4, r5 & lr
+- * The return value in r0 must be the destination address.
+- *
+- * Apologies for the state of the comments ;-)
+- */
+-
+-.text
+-.global _memcpy
+-.hidden _memcpy
+-.type _memcpy,%function
+-.align 4
+-
+-/* XXX: The Thumb-2 conditionals can be removed if/when we require an
+-   assembler that supports unified syntax.  */
+-.macro copy regs
+-#if defined(__thumb2__)
+-	ittt	ge
+-	ldmiage	r1!, \regs
+-	stmiage	r0!, \regs
+-#else
+-	ldmgeia	r1!, \regs
+-	stmgeia	r0!, \regs
+-#endif
+-.endm
+-
+-.macro copydb regs
+-#if defined(__thumb2__)
+-	ittt	ge
+-	ldmdbge	r1!, \regs
+-	stmdbge	r0!, \regs
+-#else
+-	ldmgedb	r1!, \regs
+-	stmgedb	r0!, \regs
+-#endif
+-.endm
+-
+-_memcpy:
+-	/* Determine copy direction */
+-	cmp	r1, r0
+-	bcc	.Lmemcpy_backwards
+-
+-	IT(t, eq)			/* Quick abort for src=dst */
+-	BXC(eq, lr)
+-	stmdb	sp!, {r0, lr}		/* memcpy() returns dest addr */
+-	subs	r2, r2, #4
+-	blt	.Lmemcpy_fl4		/* less than 4 bytes */
+-	ands	r12, r0, #3
+-	bne	.Lmemcpy_fdestul	/* oh unaligned destination addr */
+-	ands	r12, r1, #3
+-	bne	.Lmemcpy_fsrcul		/* oh unaligned source addr */
+-
+-.Lmemcpy_ft8:
+-	/* We have aligned source and destination */
+-	subs	r2, r2, #8
+-	blt	.Lmemcpy_fl12		/* less than 12 bytes (4 from above) */
+-	subs	r2, r2, #0x14         
+-	blt	.Lmemcpy_fl32		/* less than 32 bytes (12 from above) */
+-	str	r4, [sp, #-4]!		/* borrow r4 */
+-
+-	/* blat 32 bytes at a time */
+-	/* XXX for really big copies perhaps we should use more registers */
+-.Lmemcpy_floop32:	
+-	ldmia	r1!, {r3, r4, r12, lr}
+-	stmia	r0!, {r3, r4, r12, lr}
+-	ldmia	r1!, {r3, r4, r12, lr}
+-	stmia	r0!, {r3, r4, r12, lr}
+-	subs	r2, r2, #0x20         
+-	bge	.Lmemcpy_floop32
+-
+-	cmn	r2, #0x10
+-	/* blat a remaining 16 bytes */
+-	copy	"{r3, r4, r12, lr}"
+-	subge	r2, r2, #0x10         
+-	ldr	r4, [sp], #4		/* restore r4 */
+-
+-.Lmemcpy_fl32:
+-	adds	r2, r2, #0x14         
+-
+-	/* blat 12 bytes at a time */
+-.Lmemcpy_floop12:
+-	copy	"{r3, r12, lr}"
+-#if defined(__thumb2__)
+-	subsge	r2, r2, #0x0c         
+-#else
+-	subges	r2, r2, #0x0c         
+-#endif
+-	bge	.Lmemcpy_floop12
+-
+-.Lmemcpy_fl12:
+-	adds	r2, r2, #8
+-	blt	.Lmemcpy_fl4
+-
+-	subs	r2, r2, #4
+-	IT(tt, lt)
+-	ldrlt	r3, [r1], #4
+-	strlt	r3, [r0], #4
+-	copy	"{r3, r12}"
+-	subge	r2, r2, #4
+-
+-.Lmemcpy_fl4:
+-	/* less than 4 bytes to go */
+-	adds	r2, r2, #4
+-#if defined(__thumb2__)
+-	it	eq
+-	popeq	{r0, pc}		/* done */
+-#elif defined(__ARM_ARCH_4T__)
+-	ldmeqia	sp!, {r0, r3}		/* done */
+-	bxeq	r3
+-#else
+-	ldmeqia	sp!, {r0, pc}		/* done */
+-#endif
+-
+-	/* copy the crud byte at a time */
+-	cmp	r2, #2
+-	ldrb	r3, [r1], #1
+-	strb	r3, [r0], #1
+-#if defined(__thumb2__)
+-	itt	ge
+-	ldrbge	r3, [r1], #1
+-	strbge	r3, [r0], #1
+-	itt	gt
+-	ldrbgt	r3, [r1], #1
+-	strbgt	r3, [r0], #1
+-#else
+-	ldrgeb	r3, [r1], #1
+-	strgeb	r3, [r0], #1
+-	ldrgtb	r3, [r1], #1
+-	strgtb	r3, [r0], #1
+-#endif
+-#if defined(__ARM_ARCH_4T__)
+-	ldmia	sp!, {r0, r3}
+-	bx	r3
+-#else
+-	ldmia	sp!, {r0, pc}
+-#endif
+-
+-	/* erg - unaligned destination */
+-.Lmemcpy_fdestul:
+-	rsb	r12, r12, #4
+-	cmp	r12, #2
+-
+-	/* align destination with byte copies */
+-	ldrb	r3, [r1], #1
+-	strb	r3, [r0], #1
+-#if defined(__thumb2__)
+-	itt	ge
+-	ldrbge	r3, [r1], #1
+-	strbge	r3, [r0], #1
+-	itt	gt
+-	ldrbgt	r3, [r1], #1
+-	strbgt	r3, [r0], #1
+-#else
+-	ldrgeb	r3, [r1], #1
+-	strgeb	r3, [r0], #1
+-	ldrgtb	r3, [r1], #1
+-	strgtb	r3, [r0], #1
+-#endif
+-	subs	r2, r2, r12
+-	blt	.Lmemcpy_fl4		/* less the 4 bytes */
+-
+-	ands	r12, r1, #3
+-	beq	.Lmemcpy_ft8		/* we have an aligned source */
+-
+-	/* erg - unaligned source */
+-	/* This is where it gets nasty ... */
+-.Lmemcpy_fsrcul:
+-	bic	r1, r1, #3
+-	ldr	lr, [r1], #4
+-	cmp	r12, #2
+-	bgt	.Lmemcpy_fsrcul3
+-	beq	.Lmemcpy_fsrcul2
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_fsrcul1loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5}
+-
+-.Lmemcpy_fsrcul1loop16:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r3, lr, lsl #8
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsr #24
+-	mov	r4, r4, lsl #8
+-	orr	r4, r4, r5, lsr #24
+-	mov	r5, r5, lsl #8
+-	orr	r5, r5, r12, lsr #24
+-	mov	r12, r12, lsl #8
+-	orr	r12, r12, lr, lsr #24
+-#else
+-	mov	r3, lr, lsr #8
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsl #24
+-	mov	r4, r4, lsr #8
+-	orr	r4, r4, r5, lsl #24
+-	mov	r5, r5, lsr #8
+-	orr	r5, r5, r12, lsl #24
+-	mov	r12, r12, lsr #8
+-	orr	r12, r12, lr, lsl #24
+-#endif
+-	stmia	r0!, {r3-r5, r12}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_fsrcul1loop16
+-	ldmia	sp!, {r4, r5}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_fsrcul1l4
+-
+-.Lmemcpy_fsrcul1loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, lr, lsl #8
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsr #24
+-#else
+-	mov	r12, lr, lsr #8
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsl #24
+-#endif
+-	str	r12, [r0], #4
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_fsrcul1loop4
+-
+-.Lmemcpy_fsrcul1l4:
+-	sub	r1, r1, #3
+-	b	.Lmemcpy_fl4
+-
+-.Lmemcpy_fsrcul2:
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_fsrcul2loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5}
+-
+-.Lmemcpy_fsrcul2loop16:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r3, lr, lsl #16
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsr #16
+-	mov	r4, r4, lsl #16
+-	orr	r4, r4, r5, lsr #16
+-	mov	r5, r5, lsl #16
+-	orr	r5, r5, r12, lsr #16
+-	mov	r12, r12, lsl #16
+-	orr	r12, r12, lr, lsr #16
+-#else
+-	mov	r3, lr, lsr #16
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsl #16
+-	mov	r4, r4, lsr #16
+-	orr	r4, r4, r5, lsl #16
+-	mov	r5, r5, lsr #16
+-	orr	r5, r5, r12, lsl #16
+-	mov	r12, r12, lsr #16
+-	orr	r12, r12, lr, lsl #16
+-#endif
+-	stmia	r0!, {r3-r5, r12}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_fsrcul2loop16
+-	ldmia	sp!, {r4, r5}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_fsrcul2l4
+-
+-.Lmemcpy_fsrcul2loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, lr, lsl #16
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsr #16
+-#else
+-	mov	r12, lr, lsr #16
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsl #16
+-#endif
+-	str	r12, [r0], #4
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_fsrcul2loop4
+-
+-.Lmemcpy_fsrcul2l4:
+-	sub	r1, r1, #2
+-	b	.Lmemcpy_fl4
+-
+-.Lmemcpy_fsrcul3:
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_fsrcul3loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5}
+-
+-.Lmemcpy_fsrcul3loop16:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r3, lr, lsl #24
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsr #8
+-	mov	r4, r4, lsl #24
+-	orr	r4, r4, r5, lsr #8
+-	mov	r5, r5, lsl #24
+-	orr	r5, r5, r12, lsr #8
+-	mov	r12, r12, lsl #24
+-	orr	r12, r12, lr, lsr #8
+-#else
+-	mov	r3, lr, lsr #24
+-	ldmia	r1!, {r4, r5, r12, lr}
+-	orr	r3, r3, r4, lsl #8
+-	mov	r4, r4, lsr #24
+-	orr	r4, r4, r5, lsl #8
+-	mov	r5, r5, lsr #24
+-	orr	r5, r5, r12, lsl #8
+-	mov	r12, r12, lsr #24
+-	orr	r12, r12, lr, lsl #8
+-#endif
+-	stmia	r0!, {r3-r5, r12}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_fsrcul3loop16
+-	ldmia	sp!, {r4, r5}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_fsrcul3l4
+-
+-.Lmemcpy_fsrcul3loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, lr, lsl #24
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsr #8
+-#else
+-	mov	r12, lr, lsr #24
+-	ldr	lr, [r1], #4
+-	orr	r12, r12, lr, lsl #8
+-#endif
+-	str	r12, [r0], #4
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_fsrcul3loop4
+-
+-.Lmemcpy_fsrcul3l4:
+-	sub	r1, r1, #1
+-	b	.Lmemcpy_fl4
+-
+-.Lmemcpy_backwards:
+-	add	r1, r1, r2
+-	add	r0, r0, r2
+-	subs	r2, r2, #4
+-	blt	.Lmemcpy_bl4		/* less than 4 bytes */
+-	ands	r12, r0, #3
+-	bne	.Lmemcpy_bdestul	/* oh unaligned destination addr */
+-	ands	r12, r1, #3
+-	bne	.Lmemcpy_bsrcul		/* oh unaligned source addr */
+-
+-.Lmemcpy_bt8:
+-	/* We have aligned source and destination */
+-	subs	r2, r2, #8
+-	blt	.Lmemcpy_bl12		/* less than 12 bytes (4 from above) */
+-	stmdb	sp!, {r4, lr}
+-	subs	r2, r2, #0x14		/* less than 32 bytes (12 from above) */
+-	blt	.Lmemcpy_bl32
+-
+-	/* blat 32 bytes at a time */
+-	/* XXX for really big copies perhaps we should use more registers */
+-.Lmemcpy_bloop32:
+-	ldmdb	r1!, {r3, r4, r12, lr}
+-	stmdb	r0!, {r3, r4, r12, lr}
+-	ldmdb	r1!, {r3, r4, r12, lr}
+-	stmdb	r0!, {r3, r4, r12, lr}
+-	subs	r2, r2, #0x20         
+-	bge	.Lmemcpy_bloop32
+-
+-.Lmemcpy_bl32:
+-	cmn	r2, #0x10            
+-	/* blat a remaining 16 bytes */
+-	copydb	"{r3, r4, r12, lr}"
+-	subge	r2, r2, #0x10         
+-	adds	r2, r2, #0x14         
+-	/* blat a remaining 12 bytes */
+-	copydb	"{r3, r12, lr}"
+-	subge	r2, r2, #0x0c         
+-	ldmia	sp!, {r4, lr}
+-
+-.Lmemcpy_bl12:
+-	adds	r2, r2, #8
+-	blt	.Lmemcpy_bl4
+-	subs	r2, r2, #4
+-	IT(tt, lt)
+-	ldrlt	r3, [r1, #-4]!
+-	strlt	r3, [r0, #-4]!
+-	copydb	"{r3, r12}"
+-	subge	r2, r2, #4
+-
+-.Lmemcpy_bl4:
+-	/* less than 4 bytes to go */
+-	adds	r2, r2, #4
+-	IT(t, eq)
+-	BXC(eq, lr)			/* done */
+-	/* copy the crud byte at a time */
+-	cmp	r2, #2
+-	ldrb	r3, [r1, #-1]!
+-	strb	r3, [r0, #-1]!
+-#ifdef __thumb2__
+-	itt	ge
+-	ldrbge	r3, [r1, #-1]!
+-	strbge	r3, [r0, #-1]!
+-	itt	gt
+-	ldrbgt	r3, [r1, #-1]!
+-	strbgt	r3, [r0, #-1]!
+-#else
+-	ldrgeb	r3, [r1, #-1]!
+-	strgeb	r3, [r0, #-1]!
+-	ldrgtb	r3, [r1, #-1]!
+-	strgtb	r3, [r0, #-1]!
+-#endif
+-	BX(lr)
+-	/* erg - unaligned destination */
+-.Lmemcpy_bdestul:
+-	cmp	r12, #2
+-
+-	/* align destination with byte copies */
+-	ldrb	r3, [r1, #-1]!
+-	strb	r3, [r0, #-1]!
+-#ifdef __thumb2__
+-	itt	ge
+-	ldrbge	r3, [r1, #-1]!
+-	strbge	r3, [r0, #-1]!
+-	itt	gt
+-	ldrbgt	r3, [r1, #-1]!
+-	strbgt	r3, [r0, #-1]!
+-#else
+-	ldrgeb	r3, [r1, #-1]!
+-	strgeb	r3, [r0, #-1]!
+-	ldrgtb	r3, [r1, #-1]!
+-	strgtb	r3, [r0, #-1]!
+-#endif
+-	subs	r2, r2, r12
+-	blt	.Lmemcpy_bl4		/* less than 4 bytes to go */
+-	ands	r12, r1, #3
+-	beq	.Lmemcpy_bt8		/* we have an aligned source */
+-
+-	/* erg - unaligned source */
+-	/* This is where it gets nasty ... */
+-.Lmemcpy_bsrcul:
+-	bic	r1, r1, #3
+-	ldr	r3, [r1, #0]
+-	cmp	r12, #2
+-	blt	.Lmemcpy_bsrcul1
+-	beq	.Lmemcpy_bsrcul2
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_bsrcul3loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5, lr}
+-
+-.Lmemcpy_bsrcul3loop16:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	lr, r3, lsr #8
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsl #24
+-	mov	r12, r12, lsr #8
+-	orr	r12, r12, r5, lsl #24
+-	mov	r5, r5, lsr #8
+-	orr	r5, r5, r4, lsl #24
+-	mov	r4, r4, lsr #8
+-	orr	r4, r4, r3, lsl #24
+-#else
+-	mov	lr, r3, lsl #8
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsr #24
+-	mov	r12, r12, lsl #8
+-	orr	r12, r12, r5, lsr #24
+-	mov	r5, r5, lsl #8
+-	orr	r5, r5, r4, lsr #24
+-	mov	r4, r4, lsl #8
+-	orr	r4, r4, r3, lsr #24
+-#endif
+-	stmdb	r0!, {r4, r5, r12, lr}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_bsrcul3loop16
+-	ldmia	sp!, {r4, r5, lr}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_bsrcul3l4
+-
+-.Lmemcpy_bsrcul3loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, r3, lsr #8
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsl #24
+-#else
+-	mov	r12, r3, lsl #8
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsr #24
+-#endif
+-	str	r12, [r0, #-4]!
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_bsrcul3loop4
+-
+-.Lmemcpy_bsrcul3l4:
+-	add	r1, r1, #3
+-	b	.Lmemcpy_bl4
+-
+-.Lmemcpy_bsrcul2:
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_bsrcul2loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5, lr}
+-
+-.Lmemcpy_bsrcul2loop16:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	lr, r3, lsr #16
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsl #16
+-	mov	r12, r12, lsr #16
+-	orr	r12, r12, r5, lsl #16
+-	mov	r5, r5, lsr #16
+-	orr	r5, r5, r4, lsl #16
+-	mov	r4, r4, lsr #16
+-	orr	r4, r4, r3, lsl #16
+-#else
+-	mov	lr, r3, lsl #16
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsr #16
+-	mov	r12, r12, lsl #16
+-	orr	r12, r12, r5, lsr #16
+-	mov	r5, r5, lsl #16
+-	orr	r5, r5, r4, lsr #16
+-	mov	r4, r4, lsl #16
+-	orr	r4, r4, r3, lsr #16
+-#endif
+-	stmdb	r0!, {r4, r5, r12, lr}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_bsrcul2loop16
+-	ldmia	sp!, {r4, r5, lr}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_bsrcul2l4
+-
+-.Lmemcpy_bsrcul2loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, r3, lsr #16
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsl #16
+-#else
+-	mov	r12, r3, lsl #16
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsr #16
+-#endif
+-	str	r12, [r0, #-4]!
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_bsrcul2loop4
+-
+-.Lmemcpy_bsrcul2l4:
+-	add	r1, r1, #2
+-	b	.Lmemcpy_bl4
+-
+-.Lmemcpy_bsrcul1:
+-	cmp	r2, #0x0c            
+-	blt	.Lmemcpy_bsrcul1loop4
+-	sub	r2, r2, #0x0c         
+-	stmdb	sp!, {r4, r5, lr}
+-
+-.Lmemcpy_bsrcul1loop32:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	lr, r3, lsr #24
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsl #8
+-	mov	r12, r12, lsr #24
+-	orr	r12, r12, r5, lsl #8
+-	mov	r5, r5, lsr #24
+-	orr	r5, r5, r4, lsl #8
+-	mov	r4, r4, lsr #24
+-	orr	r4, r4, r3, lsl #8
+-#else
+-	mov	lr, r3, lsl #24
+-	ldmdb	r1!, {r3-r5, r12}
+-	orr	lr, lr, r12, lsr #8
+-	mov	r12, r12, lsl #24
+-	orr	r12, r12, r5, lsr #8
+-	mov	r5, r5, lsl #24
+-	orr	r5, r5, r4, lsr #8
+-	mov	r4, r4, lsl #24
+-	orr	r4, r4, r3, lsr #8
+-#endif
+-	stmdb	r0!, {r4, r5, r12, lr}
+-	subs	r2, r2, #0x10         
+-	bge	.Lmemcpy_bsrcul1loop32
+-	ldmia	sp!, {r4, r5, lr}
+-	adds	r2, r2, #0x0c         
+-	blt	.Lmemcpy_bsrcul1l4
+-
+-.Lmemcpy_bsrcul1loop4:
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-	mov	r12, r3, lsr #24
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsl #8
+-#else
+-	mov	r12, r3, lsl #24
+-	ldr	r3, [r1, #-4]!
+-	orr	r12, r12, r3, lsr #8
+-#endif
+-	str	r12, [r0, #-4]!
+-	subs	r2, r2, #4
+-	bge	.Lmemcpy_bsrcul1loop4
+-
+-.Lmemcpy_bsrcul1l4:
+-	add	r1, r1, #1
+-	b	.Lmemcpy_bl4
+-
+-#else /* THUMB1_ONLY */
+-
+-/* This is a fairly dumb implementation for when we can't use the 32-bit code
+-   above.  */
+-.text
+-.global _memcpy
+-.hidden _memcpy
+-.type _memcpy,%function
+-.align 4
+-.thumb
+-_memcpy:
+-	push	{r0, r4}
+-	cmp	r2, #0
+-	beq	.Lmemcpy_exit
+-	@ See if we have overlapping regions, and need to reverse the
+-	@ direction of the copy
+-	cmp	r0, r1
+-	bls	.Lmemcpy_forwards
+-	add	r4, r1, r2
+-	cmp	r0, r4
+-	bcc	.Lmemcpy_backwards
+-.Lmemcpy_forwards:
+-	/* Forwards.  */
+-	mov	r3, r0
+-	eor	r3, r1
+-	mov	r4, #3
+-	tst	r3, r4
+-	bne	.Lmemcpy_funaligned
+-	cmp	r2, #8
+-	bcc	.Lmemcpy_funaligned
+-1:	@ copy up to the first word boundary.
+-	tst	r0, r4
+-	beq	1f
+-	ldrb	r3, [r1]
+-	add	r1, r1, #1
+-	strb	r3, [r0]
+-	add	r0, r0, #1
+-	sub	r2, r2, #1
+-	b	1b
+-1:	@ Copy aligned words
+-	ldr	r3, [r1]
+-	add	r1, r1, #4
+-	str	r3, [r0]
+-	add	r0, r0, #4
+-	sub	r2, r2, #4
+-	cmp	r2, #4
+-	bcs	1b
+-	cmp	r2, #0
+-	beq	.Lmemcpy_exit
+-.Lmemcpy_funaligned:
+-1:
+-	ldrb	r3, [r1]
+-	add	r1, r1, #1
+-	strb	r3, [r0]
+-	add	r0, r0, #1
+-	sub	r2, r2, #1
+-	bne	1b
+-.Lmemcpy_exit:
+-	pop	{r0, r4}
+-	bx	lr
+-
+-.Lmemcpy_backwards:
+-	add	r0, r0, r2
+-	add	r1, r1, r2
+-1:
+-	sub	r0, r0, #1
+-	sub	r1, r1, #1
+-	ldrb	r3, [r1]
+-	strb	r3, [r0]
+-	sub	r2, r2, #1
+-	bne	1b
+-	b	.Lmemcpy_exit
+-#endif
+diff --git a/libc/string/arm/arm-features.h b/libc/string/arm/arm-features.h
+new file mode 100644
+index 0000000..80a1e22
+--- /dev/null
++++ b/libc/string/arm/arm-features.h
+@@ -0,0 +1,59 @@
++/* Macros to test for CPU features on ARM.  Generic ARM version.
++   Copyright (C) 2012-2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library.  If not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#ifndef _ARM_ARM_FEATURES_H
++#define _ARM_ARM_FEATURES_H 1
++
++/* An OS-specific arm-features.h file should define ARM_HAVE_VFP to
++   an appropriate expression for testing at runtime whether the VFP
++   hardware is present.  We'll then redefine it to a constant if we
++   know at compile time that we can assume VFP.  */
++
++#ifndef __SOFTFP__
++/* The compiler is generating VFP instructions, so we're already
++   assuming the hardware exists.  */
++# undef ARM_HAVE_VFP
++# define ARM_HAVE_VFP	1
++#endif
++
++/* An OS-specific arm-features.h file may define ARM_ASSUME_NO_IWMMXT
++   to indicate at compile time that iWMMXt hardware is never present
++   at runtime (or that we never care about its state) and so need not
++   be checked for.  */
++
++/* A more-specific arm-features.h file may define ARM_ALWAYS_BX to indicate
++   that instructions using pc as a destination register must never be used,
++   so a "bx" (or "blx") instruction is always required.  */
++
++/* The log2 of the minimum alignment required for an address that
++   is the target of a computed branch (i.e. a "bx" instruction).
++   A more-specific arm-features.h file may define this to set a more
++   stringent requirement.
++
++   Using this only makes sense for code in ARM mode (where instructions
++   always have a fixed size of four bytes), or for Thumb-mode code that is
++   specifically aligning all the related branch targets to match (since
++   Thumb instructions might be either two or four bytes).  */
++#ifndef ARM_BX_ALIGN_LOG2
++# define ARM_BX_ALIGN_LOG2	2
++#endif
++
++/* An OS-specific arm-features.h file may define ARM_NO_INDEX_REGISTER to
++   indicate that the two-register addressing modes must never be used.  */
++
++#endif  /* arm-features.h */
+diff --git a/libc/string/arm/memcpy.S b/libc/string/arm/memcpy.S
+index d2013d2..c3a79af 100644
+--- a/libc/string/arm/memcpy.S
++++ b/libc/string/arm/memcpy.S
+@@ -1,61 +1,318 @@
+-/*-
+- * Copyright (c) 1997 The NetBSD Foundation, Inc.
+- * All rights reserved.
+- *
+- * This code is derived from software contributed to The NetBSD Foundation
+- * by Neil A. Carson and Mark Brinicombe
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. All advertising materials mentioning features or use of this software
+- *    must display the following acknowledgement:
+- *	This product includes software developed by the NetBSD
+- *	Foundation, Inc. and its contributors.
+- * 4. Neither the name of The NetBSD Foundation nor the names of its
+- *    contributors may be used to endorse or promote products derived
+- *    from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
+- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
+- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
+- *
+- * Adapted for uClibc from NetBSD memcpy.S,v 1.3 2003/04/05
+- * by Erik Andersen <andersen@codepoet.org>
++/* Copyright (C) 2006-2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library.  If not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* Thumb requires excessive IT insns here.  */
++#define NO_THUMB
++#include <sysdep.h>
++#include "arm-features.h"
++
++/*
++ * Data preload for architectures that support it (ARM V5TE and above)
++ */
++#if (!defined (__ARM_ARCH_2__) && !defined (__ARM_ARCH_3__) \
++     && !defined (__ARM_ARCH_3M__) && !defined (__ARM_ARCH_4__) \
++     && !defined (__ARM_ARCH_4T__) && !defined (__ARM_ARCH_5__) \
++     && !defined (__ARM_ARCH_5T__))
++#define PLD(code...)    code
++#else
++#define PLD(code...)
++#endif
++
++/*
++ * This can be used to enable code to cacheline align the source pointer.
++ * Experiments on tested architectures (StrongARM and XScale) didn't show
++ * this a worthwhile thing to do.  That might be different in the future.
+  */
++//#define CALGN(code...)        code
++#define CALGN(code...)
++
++/*
++ * Endian independent macros for shifting bytes within registers.
++ */
++#ifndef __ARMEB__
++#define PULL            lsr
++#define PUSH            lsl
++#else
++#define PULL            lsl
++#define PUSH            lsr
++#endif
+ 
+-#include <features.h>
+-#include <bits/arm_asm.h>
++		.text
++		.syntax unified
+ 
+-.text
+-.global memcpy
+-.type memcpy,%function
+-.align 4
++/* Prototype: void *memcpy(void *dest, const void *src, size_t n); */
++
++ENTRY(memcpy)
++ENTRY(_memcpy)
++
++		push	{r0, r4, lr}
++		cfi_adjust_cfa_offset (12)
++		cfi_rel_offset (r4, 4)
++		cfi_rel_offset (lr, 8)
++
++		cfi_remember_state
++
++		subs	r2, r2, #4
++		blo	8f
++		ands	ip, r0, #3
++	PLD(	pld	[r1, #0]		)
++		bne	9f
++		ands	ip, r1, #3
++		bne	10f
++
++1:		subs	r2, r2, #(28)
++		push	{r5 - r8}
++		cfi_adjust_cfa_offset (16)
++		cfi_rel_offset (r5, 0)
++		cfi_rel_offset (r6, 4)
++		cfi_rel_offset (r7, 8)
++		cfi_rel_offset (r8, 12)
++		blo	5f
++
++	CALGN(	ands	ip, r1, #31		)
++	CALGN(	rsb	r3, ip, #32		)
++	CALGN(	sbcsne	r4, r3, r2		)  @ C is always set here
++	CALGN(	bcs	2f			)
++	CALGN(	adr	r4, 6f			)
++	CALGN(	subs	r2, r2, r3		)  @ C gets set
++#ifndef ARM_ALWAYS_BX
++	CALGN(	add	pc, r4, ip, lsl	#(ARM_BX_ALIGN_LOG2 - 2))
++#else
++	CALGN(	add	r4, r4, ip, lsl	#(ARM_BX_ALIGN_LOG2 - 2))
++	CALGN(	bx	r4			)
++#endif
++
++	PLD(	pld	[r1, #0]		)
++2:	PLD(	cmp	r2, #96			)
++	PLD(	pld	[r1, #28]		)
++	PLD(	blo	4f			)
++	PLD(	pld	[r1, #60]		)
++	PLD(	pld	[r1, #92]		)
++
++3:	PLD(	pld	[r1, #124]		)
++4:		ldmia	r1!, {r3, r4, r5, r6, r7, r8, ip, lr}
++		subs	r2, r2, #32
++		stmia	r0!, {r3, r4, r5, r6, r7, r8, ip, lr}
++		bhs	3b
++
++5:		ands	ip, r2, #28
++		rsb	ip, ip, #32
++#ifndef ARM_ALWAYS_BX
++		/* C is always clear here.  */
++		addne	pc, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		b	7f
++#else
++		beq	7f
++		push	{r10}
++		cfi_adjust_cfa_offset (4)
++		cfi_rel_offset (r10, 0)
++0:		add	r10, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		/* If alignment is not perfect, then there will be some
++		   padding (nop) instructions between this BX and label 6.
++		   The computation above assumed that two instructions
++		   later is exactly the right spot.  */
++		add	r10, #(6f - (0b + PC_OFS))
++		bx	r10
++#endif
++		.p2align ARM_BX_ALIGN_LOG2
++6:		nop
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r3, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r4, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r5, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r6, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r7, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r8, [r1], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	lr, [r1], #4
+ 
+-#if defined(__thumb__) && !defined(__thumb2__)
+-.thumb_func
+-memcpy:
+-	push	{r0, lr}
+-	bl	_memcpy
+-	POP_RET
++#ifndef ARM_ALWAYS_BX
++		add	pc, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		nop
+ #else
+-memcpy:
+-	b	_memcpy
++0:		add	r10, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		/* If alignment is not perfect, then there will be some
++		   padding (nop) instructions between this BX and label 66.
++		   The computation above assumed that two instructions
++		   later is exactly the right spot.  */
++		add	r10, #(66f - (0b + PC_OFS))
++		bx	r10
+ #endif
++		.p2align ARM_BX_ALIGN_LOG2
++66:		nop
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r3, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r4, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r5, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r6, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r7, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r8, [r0], #4
++		.p2align ARM_BX_ALIGN_LOG2
++		str	lr, [r0], #4
++
++#ifdef ARM_ALWAYS_BX
++		pop	{r10}
++		cfi_adjust_cfa_offset (-4)
++		cfi_restore (r10)
++#endif
++
++	CALGN(	bcs	2b			)
++
++7:		pop	{r5 - r8}
++		cfi_adjust_cfa_offset (-16)
++		cfi_restore (r5)
++		cfi_restore (r6)
++		cfi_restore (r7)
++		cfi_restore (r8)
++
++8:		movs	r2, r2, lsl #31
++		ldrbne	r3, [r1], #1
++		ldrbcs	r4, [r1], #1
++		ldrbcs	ip, [r1]
++		strbne	r3, [r0], #1
++		strbcs	r4, [r0], #1
++		strbcs	ip, [r0]
++
++#if ((defined (__ARM_ARCH_4T__) && defined(__THUMB_INTERWORK__)) \
++     || defined (ARM_ALWAYS_BX))
++		pop	{r0, r4, lr}
++		cfi_adjust_cfa_offset (-12)
++		cfi_restore (r4)
++		cfi_restore (lr)
++		bx      lr
++#else
++		pop	{r0, r4, pc}
++#endif
++
++		cfi_restore_state
++
++9:		rsb	ip, ip, #4
++		cmp	ip, #2
++		ldrbgt	r3, [r1], #1
++		ldrbge	r4, [r1], #1
++		ldrb	lr, [r1], #1
++		strbgt	r3, [r0], #1
++		strbge	r4, [r0], #1
++		subs	r2, r2, ip
++		strb	lr, [r0], #1
++		blo	8b
++		ands	ip, r1, #3
++		beq	1b
++
++10:		bic	r1, r1, #3
++		cmp	ip, #2
++		ldr	lr, [r1], #4
++		beq	17f
++		bgt	18f
++
++
++		.macro	forward_copy_shift pull push
++
++		subs	r2, r2, #28
++		blo	14f
++
++	CALGN(	ands	ip, r1, #31		)
++	CALGN(	rsb	ip, ip, #32		)
++	CALGN(	sbcsne	r4, ip, r2		)  @ C is always set here
++	CALGN(	subcc	r2, r2, ip		)
++	CALGN(	bcc	15f			)
++
++11:		push	{r5 - r8, r10}
++		cfi_adjust_cfa_offset (20)
++		cfi_rel_offset (r5, 0)
++		cfi_rel_offset (r6, 4)
++		cfi_rel_offset (r7, 8)
++		cfi_rel_offset (r8, 12)
++		cfi_rel_offset (r10, 16)
++
++	PLD(	pld	[r1, #0]		)
++	PLD(	cmp	r2, #96			)
++	PLD(	pld	[r1, #28]		)
++	PLD(	blo	13f			)
++	PLD(	pld	[r1, #60]		)
++	PLD(	pld	[r1, #92]		)
++
++12:	PLD(	pld	[r1, #124]		)
++13:		ldmia	r1!, {r4, r5, r6, r7}
++		mov	r3, lr, PULL #\pull
++		subs	r2, r2, #32
++		ldmia	r1!, {r8, r10, ip, lr}
++		orr	r3, r3, r4, PUSH #\push
++		mov	r4, r4, PULL #\pull
++		orr	r4, r4, r5, PUSH #\push
++		mov	r5, r5, PULL #\pull
++		orr	r5, r5, r6, PUSH #\push
++		mov	r6, r6, PULL #\pull
++		orr	r6, r6, r7, PUSH #\push
++		mov	r7, r7, PULL #\pull
++		orr	r7, r7, r8, PUSH #\push
++		mov	r8, r8, PULL #\pull
++		orr	r8, r8, r10, PUSH #\push
++		mov	r10, r10, PULL #\pull
++		orr	r10, r10, ip, PUSH #\push
++		mov	ip, ip, PULL #\pull
++		orr	ip, ip, lr, PUSH #\push
++		stmia	r0!, {r3, r4, r5, r6, r7, r8, r10, ip}
++		bhs	12b
++
++		pop	{r5 - r8, r10}
++		cfi_adjust_cfa_offset (-20)
++		cfi_restore (r5)
++		cfi_restore (r6)
++		cfi_restore (r7)
++		cfi_restore (r8)
++		cfi_restore (r10)
++
++14:		ands	ip, r2, #28
++		beq	16f
++
++15:		mov	r3, lr, PULL #\pull
++		ldr	lr, [r1], #4
++		subs	ip, ip, #4
++		orr	r3, r3, lr, PUSH #\push
++		str	r3, [r0], #4
++		bgt	15b
++	CALGN(	cmp	r2, #0			)
++	CALGN(	bge	11b			)
++
++16:		sub	r1, r1, #(\push / 8)
++		b	8b
++
++		.endm
++
++
++		forward_copy_shift	pull=8	push=24
++
++17:		forward_copy_shift	pull=16	push=16
+ 
+-.size memcpy,.-memcpy
++18:		forward_copy_shift	pull=24	push=8
+ 
++END(memcpy)
++END(_memcpy)
+ libc_hidden_def(memcpy)
++libc_hidden_def(_memcpy)
+diff --git a/libc/string/arm/memmove.S b/libc/string/arm/memmove.S
+index c11b98d..b9b6000 100644
+--- a/libc/string/arm/memmove.S
++++ b/libc/string/arm/memmove.S
+@@ -1,61 +1,331 @@
+-/*-
+- * Copyright (c) 1997 The NetBSD Foundation, Inc.
+- * All rights reserved.
+- *
+- * This code is derived from software contributed to The NetBSD Foundation
+- * by Neil A. Carson and Mark Brinicombe
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. All advertising materials mentioning features or use of this software
+- *    must display the following acknowledgement:
+- *	This product includes software developed by the NetBSD
+- *	Foundation, Inc. and its contributors.
+- * 4. Neither the name of The NetBSD Foundation nor the names of its
+- *    contributors may be used to endorse or promote products derived
+- *    from this software without specific prior written permission.
++/* Copyright (C) 2006-2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library.  If not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* Thumb requires excessive IT insns here.  */
++#define NO_THUMB
++#include <sysdep.h>
++#include "arm-features.h"
++
++/*
++ * Data preload for architectures that support it (ARM V5TE and above)
++ */
++#if (!defined (__ARM_ARCH_2__) && !defined (__ARM_ARCH_3__) \
++     && !defined (__ARM_ARCH_3M__) && !defined (__ARM_ARCH_4__) \
++     && !defined (__ARM_ARCH_4T__) && !defined (__ARM_ARCH_5__) \
++     && !defined (__ARM_ARCH_5T__))
++#define PLD(code...)    code
++#else
++#define PLD(code...)
++#endif
++
++/*
++ * This can be used to enable code to cacheline align the source pointer.
++ * Experiments on tested architectures (StrongARM and XScale) didn't show
++ * this a worthwhile thing to do.  That might be different in the future.
++ */
++//#define CALGN(code...)        code
++#define CALGN(code...)
++
++/*
++ * Endian independent macros for shifting bytes within registers.
++ */
++#ifndef __ARMEB__
++#define PULL            lsr
++#define PUSH            lsl
++#else
++#define PULL            lsl
++#define PUSH            lsr
++#endif
++
++		.text
++		.syntax unified
++
++/*
++ * Prototype: void *memmove(void *dest, const void *src, size_t n);
+  *
+- * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
+- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
+- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
++ * Note:
+  *
+- * Adapted for uClibc from NetBSD memmove.S,v 1.3 2003/04/05
+- * by Erik Andersen <andersen@codepoet.org>
++ * If the memory regions don't overlap, we simply branch to memcpy which is
++ * normally a bit faster. Otherwise the copy is done going downwards.
+  */
+ 
+-#include <features.h>
+-#include <bits/arm_asm.h>
++ENTRY(memmove)
++
++		subs	ip, r0, r1
++		cmphi	r2, ip
++#if !IS_IN_libc
++		bls	memcpy
++#else
++		bls	HIDDEN_JUMPTARGET(memcpy)
++#endif
++
++		push	{r0, r4, lr}
++		cfi_adjust_cfa_offset (12)
++		cfi_rel_offset (r4, 4)
++		cfi_rel_offset (lr, 8)
++
++		cfi_remember_state
++
++		add	r1, r1, r2
++		add	r0, r0, r2
++		subs	r2, r2, #4
++		blo	8f
++		ands	ip, r0, #3
++	PLD(	pld	[r1, #-4]		)
++		bne	9f
++		ands	ip, r1, #3
++		bne	10f
++
++1:		subs	r2, r2, #(28)
++		push	{r5 - r8}
++		cfi_adjust_cfa_offset (16)
++		cfi_rel_offset (r5, 0)
++		cfi_rel_offset (r6, 4)
++		cfi_rel_offset (r7, 8)
++		cfi_rel_offset (r8, 12)
++		blo     5f
++
++	CALGN(	ands	ip, r1, #31		)
++	CALGN(	sbcsne	r4, ip, r2		)  @ C is always set here
++	CALGN(	bcs	2f			)
++	CALGN(	adr	r4, 6f			)
++	CALGN(	subs	r2, r2, ip		)  @ C is set here
++#ifndef ARM_ALWAYS_BX
++	CALGN(	add	pc, r4, ip, lsl	#(ARM_BX_ALIGN_LOG2 - 2))
++#else
++	CALGN(	add	r4, r4, ip, lsl	#(ARM_BX_ALIGN_LOG2 - 2))
++	CALGN(	bx	r4			)
++#endif
++
++	PLD(	pld	[r1, #-4]		)
++2:	PLD(	cmp	r2, #96			)
++	PLD(	pld	[r1, #-32]		)
++	PLD(    blo     4f                      )
++	PLD(	pld	[r1, #-64]		)
++	PLD(	pld	[r1, #-96]		)
+ 
+-.text
+-.global memmove
+-.type memmove,%function
+-.align 4
++3:	PLD(	pld	[r1, #-128]		)
++4:		ldmdb	r1!, {r3, r4, r5, r6, r7, r8, ip, lr}
++		subs	r2, r2, #32
++		stmdb	r0!, {r3, r4, r5, r6, r7, r8, ip, lr}
++		bhs     3b
+ 
+-#if defined(__thumb__) && !defined(__thumb2__)
+-.thumb_func
+-memmove:
+-	push	{r2, lr}
+-	bl	_memcpy
+-	POP_RET
++5:		ands	ip, r2, #28
++		rsb	ip, ip, #32
++#ifndef ARM_ALWAYS_BX
++		/* C is always clear here.  */
++		addne	pc, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		b	7f
+ #else
+-memmove:
+-	b	_memcpy
++		beq	7f
++		push	{r10}
++		cfi_adjust_cfa_offset (4)
++		cfi_rel_offset (r10, 0)
++0:		add	r10, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		/* If alignment is not perfect, then there will be some
++		   padding (nop) instructions between this BX and label 6.
++		   The computation above assumed that two instructions
++		   later is exactly the right spot.  */
++		add	r10, #(6f - (0b + PC_OFS))
++		bx	r10
+ #endif
++		.p2align ARM_BX_ALIGN_LOG2
++6:		nop
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r3, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r4, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r5, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r6, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r7, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	r8, [r1, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		ldr	lr, [r1, #-4]!
++
++#ifndef ARM_ALWAYS_BX
++		add	pc, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		nop
++#else
++0:		add	r10, pc, ip, lsl #(ARM_BX_ALIGN_LOG2 - 2)
++		/* If alignment is not perfect, then there will be some
++		   padding (nop) instructions between this BX and label 66.
++		   The computation above assumed that two instructions
++		   later is exactly the right spot.  */
++		add	r10, #(66f - (0b + PC_OFS))
++		bx	r10
++#endif
++		.p2align ARM_BX_ALIGN_LOG2
++66:		nop
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r3, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r4, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r5, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r6, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r7, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	r8, [r0, #-4]!
++		.p2align ARM_BX_ALIGN_LOG2
++		str	lr, [r0, #-4]!
++
++#ifdef ARM_ALWAYS_BX
++		pop	{r10}
++		cfi_adjust_cfa_offset (-4)
++		cfi_restore (r10)
++#endif
++
++	CALGN(	bcs	2b			)
++
++7:		pop	{r5 - r8}
++		cfi_adjust_cfa_offset (-16)
++		cfi_restore (r5)
++		cfi_restore (r6)
++		cfi_restore (r7)
++		cfi_restore (r8)
++
++8:		movs	r2, r2, lsl #31
++		ldrbne	r3, [r1, #-1]!
++		ldrbcs	r4, [r1, #-1]!
++		ldrbcs	ip, [r1, #-1]
++		strbne	r3, [r0, #-1]!
++		strbcs	r4, [r0, #-1]!
++		strbcs	ip, [r0, #-1]
++
++#if ((defined (__ARM_ARCH_4T__) && defined (__THUMB_INTERWORK__)) \
++     || defined (ARM_ALWAYS_BX))
++		pop	{r0, r4, lr}
++		cfi_adjust_cfa_offset (-12)
++		cfi_restore (r4)
++		cfi_restore (lr)
++		bx      lr
++#else
++		pop	{r0, r4, pc}
++#endif
++
++		cfi_restore_state
++
++9:		cmp	ip, #2
++		ldrbgt	r3, [r1, #-1]!
++		ldrbge	r4, [r1, #-1]!
++		ldrb	lr, [r1, #-1]!
++		strbgt	r3, [r0, #-1]!
++		strbge	r4, [r0, #-1]!
++		subs	r2, r2, ip
++		strb	lr, [r0, #-1]!
++		blo	8b
++		ands	ip, r1, #3
++		beq	1b
++
++10:		bic	r1, r1, #3
++		cmp	ip, #2
++		ldr	r3, [r1, #0]
++		beq	17f
++		blt	18f
++
++
++		.macro	backward_copy_shift push pull
++
++		subs	r2, r2, #28
++		blo	14f
++
++	CALGN(	ands	ip, r1, #31		)
++	CALGN(	rsb	ip, ip, #32		)
++	CALGN(	sbcsne	r4, ip, r2		)  @ C is always set here
++	CALGN(	subcc	r2, r2, ip		)
++	CALGN(	bcc	15f			)
++
++11:		push	{r5 - r8, r10}
++		cfi_adjust_cfa_offset (20)
++		cfi_rel_offset (r5, 0)
++		cfi_rel_offset (r6, 4)
++		cfi_rel_offset (r7, 8)
++		cfi_rel_offset (r8, 12)
++		cfi_rel_offset (r10, 16)
++
++	PLD(	pld	[r1, #-4]		)
++	PLD(	cmp	r2, #96			)
++	PLD(	pld	[r1, #-32]		)
++	PLD(	blo	13f			)
++	PLD(	pld	[r1, #-64]		)
++	PLD(	pld	[r1, #-96]		)
++
++12:	PLD(	pld	[r1, #-128]		)
++13:		ldmdb   r1!, {r7, r8, r10, ip}
++		mov     lr, r3, PUSH #\push
++		subs    r2, r2, #32
++		ldmdb   r1!, {r3, r4, r5, r6}
++		orr     lr, lr, ip, PULL #\pull
++		mov     ip, ip, PUSH #\push
++		orr     ip, ip, r10, PULL #\pull
++		mov     r10, r10, PUSH #\push
++		orr     r10, r10, r8, PULL #\pull
++		mov     r8, r8, PUSH #\push
++		orr     r8, r8, r7, PULL #\pull
++		mov     r7, r7, PUSH #\push
++		orr     r7, r7, r6, PULL #\pull
++		mov     r6, r6, PUSH #\push
++		orr     r6, r6, r5, PULL #\pull
++		mov     r5, r5, PUSH #\push
++		orr     r5, r5, r4, PULL #\pull
++		mov     r4, r4, PUSH #\push
++		orr     r4, r4, r3, PULL #\pull
++		stmdb   r0!, {r4 - r8, r10, ip, lr}
++		bhs	12b
++
++		pop	{r5 - r8, r10}
++		cfi_adjust_cfa_offset (-20)
++		cfi_restore (r5)
++		cfi_restore (r6)
++		cfi_restore (r7)
++		cfi_restore (r8)
++		cfi_restore (r10)
++
++14:		ands	ip, r2, #28
++		beq	16f
++
++15:		mov     lr, r3, PUSH #\push
++		ldr	r3, [r1, #-4]!
++		subs	ip, ip, #4
++		orr	lr, lr, r3, PULL #\pull
++		str	lr, [r0, #-4]!
++		bgt	15b
++	CALGN(	cmp	r2, #0			)
++	CALGN(	bge	11b			)
++
++16:		add	r1, r1, #(\pull / 8)
++		b	8b
++
++		.endm
++
++
++		backward_copy_shift	push=8	pull=24
++
++17:		backward_copy_shift	push=16	pull=16
++
++18:		backward_copy_shift	push=24	pull=8
+ 
+-.size memmove,.-memmove
+ 
++END(memmove)
+ libc_hidden_def(memmove)
+diff --git a/libc/string/arm/memset.S b/libc/string/arm/memset.S
+index 412270f..6e94df5 100644
+--- a/libc/string/arm/memset.S
++++ b/libc/string/arm/memset.S
+@@ -68,6 +68,7 @@ memset:
+ 	mov	a4, a1
+ 	cmp	a3, $8		@ at least 8 bytes to do?
+ 	blo	2f
++	ands	a2, a2, $255
+ 	orr	a2, a2, a2, lsl $8
+ 	orr	a2, a2, a2, lsl $16
+ 1:
+-- 
+2.43.0
+

@@ -1,0 +1,70 @@
+From 61398be6fa426f2a6177c6631d972081f05d935b Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Tue, 4 Jun 2024 12:10:38 +0800
+Subject: [PATCH 47/54] Fix nccnn2int8 bugs on BinaryOP
+
+---
+ tools/quantize/ncnn2int8.cpp | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index aff555f9..e5782aa9 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -459,7 +459,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
+ 
+-            if (convolution1->weight_data.elemsize != 1u)
++            if (convolution1->weight_data.elemsize != 1u || convolution2->int8_scale_term !=2)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -471,7 +471,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
+ 
+-            if (convolution1->weight_data.elemsize != 1u)
++            if (convolution1->weight_data.elemsize != 1u || convolution2->int8_scale_term !=2)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -482,6 +482,7 @@ int NetQuantize::fuse_requantize()
+         {
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
++
+             if (convolution1->int8_scale_term !=2 || convolution2->int8_scale_term !=2)
+                 continue;
+ 
+@@ -494,7 +495,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
+ 
+-            if (convolution2->weight_data.elemsize != 1u)
++            if (convolution1->int8_scale_term !=2 || convolution2->weight_data.elemsize != 1u)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -506,7 +507,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
+ 
+-            if (convolution2->weight_data.elemsize != 1u)
++            if (convolution1->int8_scale_term !=2 || convolution2->weight_data.elemsize != 1u)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -666,6 +667,9 @@ int NetQuantize::fuse_requantize()
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
+ 
++            if (convolution1->int8_scale_term !=2 || convolution2->int8_scale_term !=2)
++                continue;
++
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales.range(bottom_blob_index,1);
+             fprintf(stderr, "fuse_requantize %s %s %f\n", layers[i]->name.c_str(), layers[j]->name.c_str(), convolution1->top_blob_int8_scales[0]);
+-- 
+2.47.1
+

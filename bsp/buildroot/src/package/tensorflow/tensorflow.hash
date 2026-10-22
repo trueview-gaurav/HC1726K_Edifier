@@ -1,0 +1,4 @@
+# From https://github.com/tensorflow/tensorflow/archive/refs/tags/v2.6.0.tar.gz.sha256
+sha256 41b32eeaddcbc02b0583660bcf508469550e4cd0f86b22d2abe72dfebeacde0f  v2.6.0.tar.gz
+# Locally computed
+sha256 b239c6c598d746a08d1e137b17f3ae752732178b8a3f8a5ee432988409fd0154  LICENSE

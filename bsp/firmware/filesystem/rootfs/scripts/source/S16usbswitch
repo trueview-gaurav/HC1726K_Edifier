@@ -1,0 +1,67 @@
+#!/bin/sh -f
+
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  mountfs - systemfs and usrdatafs mounting script
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script should be executed after sysupd but
+#           before any other daemon.
+#
+
+FW_PRINTENV=/usr/sbin/fw_printenv
+
+reset_to_net_file=/usrdata/reset_to_usbnet
+tmp_reset_to_net_file=/tmp/reset_to_usbnet
+ip=192.168.36.100
+netmask=255.255.255.0
+
+
+sitwch_usb_func() {
+
+	if [ -f $reset_to_net_file ]; then
+		modprobe usbfunc:rndis
+		modprobe dwc2
+		modprobe g_ether
+		ifconfig usb0 up
+		ifconfig usb0 $ip netmask $netmask
+		rm -f $reset_to_net_file
+		touch $tmp_reset_to_net_file		
+	else
+		modprobe usbfunc:uvc
+		modprobe dwc2
+		modprobe g_webcam
+	fi
+	
+}
+
+
+
+
+
+
+case "$1" in
+	start)
+		sitwch_usb_func
+		
+	;;
+	stop)
+		
+		
+	;;
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+	;;
+esac
+
+exit $?

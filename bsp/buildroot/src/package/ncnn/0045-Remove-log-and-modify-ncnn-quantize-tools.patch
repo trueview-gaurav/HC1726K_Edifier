@@ -1,0 +1,287 @@
+From 8f95eaab670bf2077506ef6c0b42e1d99d7a3dcf Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Thu, 23 May 2024 12:06:57 +0800
+Subject: [PATCH 45/54] Remove log and modify ncnn quantize tools
+
+---
+ src/layer/arm/binaryop_arm.cpp |  1 -
+ tools/quantize/ncnn2int8.cpp   |  8 +++--
+ tools/quantize/ncnn2table.cpp  | 60 +++++++++++++++++++++-------------
+ 3 files changed, 44 insertions(+), 25 deletions(-)
+
+diff --git a/src/layer/arm/binaryop_arm.cpp b/src/layer/arm/binaryop_arm.cpp
+index ebce60a1..fabc5b20 100644
+--- a/src/layer/arm/binaryop_arm.cpp
++++ b/src/layer/arm/binaryop_arm.cpp
+@@ -435,7 +435,6 @@ static void binary_op_scalar_inplace(Mat& a, float b, int op_type, const Option&
+ {
+     const int channels = a.c;
+     const int size = a.w * a.h * a.d * a.elempack;
+-    NCNN_LOGE("binary_op_scalar_inplace");
+     #pragma omp parallel for num_threads(opt.num_threads)
+     for (int q = 0; q < channels; q++)
+     {
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index baa42354..aff555f9 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -402,8 +402,9 @@ int NetQuantize::fuse_requantize()
+         if (j == layer_count)
+             continue;
+ 
++
+         // fuse requantize
+-//        fprintf(stderr, "fuse_requantize %s %s\n", layers[i]->name.c_str(), layers[j]->name.c_str());
++        fprintf(stderr, "tried to fuse %s %s\n", layers[i]->name.c_str(), layers[j]->name.c_str());
+ 
+         if (layers[i]->type == "Convolution" && layers[j]->type == "Convolution")
+         {
+@@ -481,6 +482,8 @@ int NetQuantize::fuse_requantize()
+         {
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
++            if (convolution1->int8_scale_term !=2 || convolution2->int8_scale_term !=2)
++                continue;
+ 
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales.range(bottom_blob_index,1);
+@@ -511,6 +514,7 @@ int NetQuantize::fuse_requantize()
+             fprintf(stderr, "fuse_requantize %s %s %f\n", layers[i]->name.c_str(), layers[j]->name.c_str(), convolution1->top_blob_int8_scales[0]);
+         }
+     }
++    fprintf(stderr, "Start fusing op with multiple layers \n");
+ 
+     for (size_t i = 0; i < layer_count; i++)
+     {
+@@ -519,7 +523,7 @@ int NetQuantize::fuse_requantize()
+ 
+         // Convolution/ConvolutionDepthWise/BinaryOp - (Pooling/ Split/ Concat/ ShuffleChannel/ Crop) * N - Convolution/ConvolutionDepthWise/BinaryOp
+         int top_blob_index = layers[i]->tops[0];
+-        printf("On %s %d\n", layers[i]->name.c_str(), (int)i);
++        fprintf(stderr, "On %s %d\n", layers[i]->name.c_str(), (int)i);
+         size_t j = i + 1;
+ 
+         int bottom_blob_index = 0;
+diff --git a/tools/quantize/ncnn2table.cpp b/tools/quantize/ncnn2table.cpp
+index 9fbafa2d..73a8e2e6 100644
+--- a/tools/quantize/ncnn2table.cpp
++++ b/tools/quantize/ncnn2table.cpp
+@@ -108,7 +108,7 @@ public:
+ };
+ 
+ QuantNet::QuantNet()
+-    : blobs(mutable_blobs()), layers(mutable_layers())
++        : blobs(mutable_blobs()), layers(mutable_layers())
+ {
+     quantize_num_threads = ncnn::get_cpu_count();
+ }
+@@ -124,16 +124,26 @@ int QuantNet::init()
+             input_blobs.push_back(layer->tops[0]);
+         }
+     }
++    fprintf(stderr, "layers size = %d\n", layers.size());
+ 
+     // find all conv layers
+     for (int i = 0; i < (int)layers.size(); i++)
+     {
+         const ncnn::Layer* layer = layers[i];
+-        if (layer->type == "Convolution" || layer->type == "ConvolutionDepthWise" || layer->type == "InnerProduct")
++        if (layer->type == "Convolution" || layer->type == "ConvolutionDepthWise" || layer->type == "InnerProduct" ||  (layer->type == "BinaryOp" && layer->bottoms.size() > 1))
+         {
++            fprintf(stderr, "layer  == %s\n", layer->name.c_str());
+             conv_layers.push_back(i);
+             conv_bottom_blobs.push_back(layer->bottoms[0]);
+-            conv_top_blobs.push_back(layer->tops[0]);
++            // layer->bottoms[x] are blob index
++            if(layer->type == "BinaryOp"){
++//                conv_layers.push_back(i);
++                fprintf(stderr, "bottom size = %d\n", layer->bottoms.size());
++                fprintf(stderr, "push blob id %d", layer->bottoms[1]);
++//                fprintf(stderr, "= %s\n", layers[layer->bottoms[1]]->name.c_str());
++                conv_bottom_blobs.push_back(layer->bottoms[1]);
++            }
++            conv_top_blobs.push_back(layer->tops[0]); // for EQ
+         }
+     }
+ 
+@@ -171,16 +181,21 @@ int QuantNet::save_table(const char* tablepath)
+         fprintf(fp, "\n");
+     }
+ 
+-    for (int i = 0; i < conv_bottom_blob_count; i++)
++    for (int i = 0, ii = 0; ii < conv_bottom_blob_count; ii++)
+     {
+-        const ncnn::Mat& bottom_blob_scale = bottom_blob_scales[i];
++        ncnn::Mat& bottom_blob_scale = bottom_blob_scales[ii];
+ 
+         fprintf(fp, "%s ", layers[conv_layers[i]]->name.c_str());
+         for (int j = 0; j < bottom_blob_scale.w; j++)
+         {
+             fprintf(fp, "%f ", bottom_blob_scale[j]);
+         }
++        if(layers[conv_layers[i]]->type == "BinaryOp"){
++            bottom_blob_scale = bottom_blob_scales[++ii];
++            fprintf(fp, "%f ", bottom_blob_scale[0]);
++        }
+         fprintf(fp, "\n");
++        i++;
+     }
+ 
+     fclose(fp);
+@@ -195,7 +210,7 @@ void QuantNet::print_quant_info() const
+     for (int i = 0; i < (int)conv_bottom_blobs.size(); i++)
+     {
+         const QuantBlobStat& stat = quant_blob_stats[i];
+-
++        fprintf(stderr, "print stat %d\n", i);
+         float scale = 127 / stat.threshold;
+ 
+         fprintf(stderr, "%-40s : max = %-15f  threshold = %-15f  scale = %-15f\n", layers[conv_layers[i]]->name.c_str(), stat.absmax, stat.threshold, scale);
+@@ -264,7 +279,7 @@ int QuantNet::quantize_KL()
+     std::vector<ncnn::UnlockedPoolAllocator> workspace_allocators(quantize_num_threads);
+ 
+     // initialize conv weight scales
+-    #pragma omp parallel for num_threads(quantize_num_threads)
++#pragma omp parallel for num_threads(quantize_num_threads)
+     for (int i = 0; i < conv_layer_count; i++)
+     {
+         const ncnn::Layer* layer = layers[conv_layers[i]];
+@@ -362,7 +377,7 @@ int QuantNet::quantize_KL()
+     }
+ 
+     // count the absmax
+-    #pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
++#pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
+     for (int i = 0; i < image_count; i++)
+     {
+         if (i % 100 == 0)
+@@ -416,7 +431,7 @@ int QuantNet::quantize_KL()
+                     }
+                 }
+ 
+-                #pragma omp critical
++#pragma omp critical
+                 {
+                     QuantBlobStat& stat = quant_blob_stats[j];
+                     stat.absmax = std::max(stat.absmax, absmax);
+@@ -426,7 +441,7 @@ int QuantNet::quantize_KL()
+     }
+ 
+     // initialize histogram
+-    #pragma omp parallel for num_threads(quantize_num_threads)
++#pragma omp parallel for num_threads(quantize_num_threads)
+     for (int i = 0; i < conv_bottom_blob_count; i++)
+     {
+         QuantBlobStat& stat = quant_blob_stats[i];
+@@ -436,7 +451,7 @@ int QuantNet::quantize_KL()
+     }
+ 
+     // build histogram
+-    #pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
++#pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
+     for (int i = 0; i < image_count; i++)
+     {
+         if (i % 100 == 0)
+@@ -497,7 +512,7 @@ int QuantNet::quantize_KL()
+                     }
+                 }
+ 
+-                #pragma omp critical
++#pragma omp critical
+                 {
+                     QuantBlobStat& stat = quant_blob_stats[j];
+ 
+@@ -511,7 +526,7 @@ int QuantNet::quantize_KL()
+     }
+ 
+     // using kld to find the best threshold value
+-    #pragma omp parallel for num_threads(quantize_num_threads)
++#pragma omp parallel for num_threads(quantize_num_threads)
+     for (int i = 0; i < conv_bottom_blob_count; i++)
+     {
+         QuantBlobStat& stat = quant_blob_stats[i];
+@@ -726,7 +741,7 @@ int QuantNet::quantize_ACIQ()
+     std::vector<ncnn::UnlockedPoolAllocator> workspace_allocators(quantize_num_threads);
+ 
+     // initialize conv weight scales
+-    #pragma omp parallel for num_threads(quantize_num_threads)
++#pragma omp parallel for num_threads(quantize_num_threads)
+     for (int i = 0; i < conv_layer_count; i++)
+     {
+         const ncnn::Layer* layer = layers[conv_layers[i]];
+@@ -828,7 +843,7 @@ int QuantNet::quantize_ACIQ()
+     }
+ 
+     // count the absmax
+-    #pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
++#pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
+     for (int i = 0; i < image_count; i++)
+     {
+         if (i % 100 == 0)
+@@ -882,7 +897,7 @@ int QuantNet::quantize_ACIQ()
+                     }
+                 }
+ 
+-                #pragma omp critical
++#pragma omp critical
+                 {
+                     QuantBlobStat& stat = quant_blob_stats[j];
+                     stat.absmax = std::max(stat.absmax, absmax);
+@@ -893,7 +908,7 @@ int QuantNet::quantize_ACIQ()
+     }
+ 
+     // alpha gaussian
+-    #pragma omp parallel for num_threads(quantize_num_threads)
++#pragma omp parallel for num_threads(quantize_num_threads)
+     for (int i = 0; i < conv_bottom_blob_count; i++)
+     {
+         QuantBlobStat& stat = quant_blob_stats[i];
+@@ -1072,7 +1087,7 @@ int QuantNet::quantize_EQ()
+ 
+             std::vector<double> avgsims(search_steps, 0.0);
+ 
+-            #pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
++#pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
+             for (int ii = 0; ii < image_count; ii++)
+             {
+                 if (ii % 100 == 0)
+@@ -1146,7 +1161,7 @@ int QuantNet::quantize_EQ()
+ 
+                 delete layer_int8;
+ 
+-                #pragma omp critical
++#pragma omp critical
+                 {
+                     for (int k = 0; k < search_steps; k++)
+                     {
+@@ -1182,7 +1197,7 @@ int QuantNet::quantize_EQ()
+ 
+             std::vector<double> avgsims(search_steps, 0.0);
+ 
+-            #pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
++#pragma omp parallel for num_threads(quantize_num_threads) schedule(static, 1)
+             for (int ii = 0; ii < image_count; ii++)
+             {
+                 if (ii % 100 == 0)
+@@ -1256,7 +1271,7 @@ int QuantNet::quantize_EQ()
+ 
+                 delete layer_int8;
+ 
+-                #pragma omp critical
++#pragma omp critical
+                 {
+                     for (int k = 0; k < search_steps; k++)
+                     {
+@@ -1733,7 +1748,8 @@ int main(int argc, char** argv)
+         return -1;
+     }
+ 
+-    net.print_quant_info();
++    // TODO:: Fix this, currently the conv_layer size is not equal to conv_bottom_blobs size because BinrayOp has two inputs
++//    net.print_quant_info();
+ 
+     net.save_table(outtable);
+ 
+-- 
+2.47.1
+

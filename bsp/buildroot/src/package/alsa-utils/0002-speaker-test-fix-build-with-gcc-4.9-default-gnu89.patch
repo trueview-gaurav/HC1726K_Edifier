@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Carl Su <xuyusu@qti.qualcomm.com>
+Date: Wed, 27 May 2026 00:00:00 +0800
+Subject: [PATCH] speaker-test: fix build with gcc 4.9 default gnu89 mode
+
+Older gcc versions, such as gcc 4.9, default to GNU89 mode and reject
+loop-initial declarations unless an explicit C99 or newer standard is
+selected:
+
+  st2095.c:107:5: error: 'for' loop initial declarations are only allowed in C99 or C11 mode
+
+Move the loop variable declaration out of the for statement so the file
+also builds with compilers using GNU89 as their default C dialect.
+
+Upstream: N/A
+Signed-off-by: Carl Su <xuyusu@qti.qualcomm.com>
+---
+ speaker-test/st2095.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/speaker-test/st2095.c b/speaker-test/st2095.c
+index df3b21c..846d89f 100644
+--- a/speaker-test/st2095.c
++++ b/speaker-test/st2095.c
+@@ -25,6 +25,7 @@ float compute_st2095_noise_measurement( st2095_noise_t *st2095, int period ) {
+ }
+ 
+ void initialize_st2095_noise( st2095_noise_t *st2095, int sample_rate) {
++    int i;
+     // Periodicity in samples must be a power of two, <= 2^31
+     // Typical values are 524288, 1048576, 2097152 or 4194304
+     if (sample_rate > 48000) {
+@@ -104,7 +105,7 @@ void initialize_st2095_noise( st2095_noise_t *st2095, int sample_rate) {
+     st2095->lp6 = 0.0;
+ 
+     // cycle the generator for one complete time series to populate filter-bank delay lines
+-    for (int i=0; i<st2095->samplesPerPeriod; i++)
++    for (i=0; i<st2095->samplesPerPeriod; i++)
+ 	generate_st2095_noise_sample(st2095);
+     st2095->accum = 0.0;
+ }
+-- 
+2.34.1
+

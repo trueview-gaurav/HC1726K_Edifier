@@ -1,0 +1,38 @@
+/bin/busybox
+/bin/cat
+/bin/mount
+/bin/sh
+/bin/umount
+/bin/grep
+/bin/sleep
+/bin/rm
+/usr/bin/awk
+/sbin/halt
+/sbin/switch_root
+
+# library
+/lib/libuClibc-*
+/lib/ld-*
+/lib/libc.*
+/lib/libgcc_s.so.1
+
+# fastboot
+/sbin/modprobe
+/etc/fastboot_video
+/system/bin/mpi_stream
+/system/mpp/case_config/case_config_1004_FHD
+/system/lib/*.ko
+/system/lib/modules/*/augentix/*.ko
+/system/lib/libsensor_0*
+/system/mpp/script/*
+
+# modprobe
+/etc/modprobe.d/mpp.conf
+
+# early audio
+/usr/lib/libasound*
+/usr/share/alsa/*
+/usr/share/alsa/cards/*
+/usr/share/alsa/ctl/*
+/usr/share/alsa/pcm/*
+/etc/asound.conf

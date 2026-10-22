@@ -1,0 +1,364 @@
+#!/bin/sh
+
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# sdcaci - SD card accesss command interface
+# Copyright (C) 2019 Augentix Inc. - All Rights Reserved
+#
+# NOTICE: The information contained herein is the property of Augentix Inc.
+# Copying and distributing of this file, via any medium,
+# must be licensed by Augentix Inc.
+#
+# * Author: ShihChieh Lin <shihchieh.lin@augentix.com>
+#
+
+CALIBDATA_SD_DIR=/mnt/sdcard/calibdata
+RunKeepCalibData=/mnt/sdcard/RunKeepCalibData
+CALIBDATA_DIR=/calib
+CALIB_FACTORY_DIR=/calib/factory_default
+AUTOTEST_DIR=/calib/autotest
+AUTOTEST_SD_DIR=$CALIBDATA_SD_DIR/autotest
+update_tyid_file=/mnt/sdcard/UpdateId
+sd_wpa_conf=/mnt/sdcard/ConnectWifiAp
+wpa_conf=/tmp/wpa_supplicant.conf
+anti_flicker_50_conf=/mnt/sdcard/ForceAntiflicker50HzIntoFlash
+anti_flicker_60_conf=/mnt/sdcard/ForceAntiflicker60HzIntoFlash
+anti_flicker_json=/calib/factory_default/anti_flicker.json
+anti_flicker_update=/usrdata/update_anti_flicker
+anti_flicker_50_reboot="/usrdata/anti_50_reboot"
+anti_flicker_60_reboot="/usrdata/anti_60_reboot"
+
+# SD card upgrade flags
+boot_time_update_flag="/tmp/bt_update"
+upgrade_from_sd_card="/mnt/sdcard/UpgradeFromSDCard"
+upgrade_from_sd_card_onetime="/mnt/sdcard/UpgradeFromSDCardOneTime"
+upgrade_img=""
+sdupdate="/usrdata/sdupdate"
+
+# Factory reset
+factory_reset_onetime="/mnt/sdcard/FactoryResetOneTime"
+facrst_flag="/usrdata/reset_file"
+
+# OTA/SDCard upgrade flags
+system_upgrade_flag="/tmp/SystemUpgradeFlag"
+
+# Mode flags
+factory_mode_file="/mnt/sdcard/FactoryMode"
+develop_mode_file="/mnt/sdcard/DevelopMode"
+user_mode_file="/mnt/sdcard/EndUserMode"
+
+# Production tool flag
+run_prod_tool="/mnt/sdcard/RunProductionTool"
+wifi_on=/system/script/wifi_on.sh
+
+# Access mode
+MODE=/system/bin/mode
+
+# Cue toen file
+cuetone=/system/factory_default/two.ul
+
+FW_SETENV=/usr/sbin/fw_setenv
+FW_PRINTENV=/usr/sbin/fw_printenv
+
+start() {
+	mode=$($MODE)
+
+	# Update Id
+	if [ -f $update_tyid_file ] && [ $mode != "user" ] ; then
+		pid=$(cat $update_tyid_file | grep "PID*" | awk -F "=" '{print $2}')
+		uuid=$(cat $update_tyid_file | grep "UUID*" | awk -F "=" '{print $2}')
+		authkey=$(cat $update_tyid_file | grep "AUTHKEY*" | awk -F "=" '{print $2}')
+		if [ "$pid" != "" ]; then
+			$FW_SETENV IPC_APP_PID $pid
+			echo "Override PID: $pid"
+		fi
+		if [ "$uuid" != "" ]; then
+			$FW_SETENV IPC_APP_UUID $uuid
+			echo "Override UUID: $uuid"
+		fi
+		if [ "$authkey" != "" ]; then
+			$FW_SETENV IPC_APP_AUTHKEY $authkey
+			echo "Override AUTHKEY: $authkey"
+			fi
+	fi
+
+	# Update wpa_supplicant.conf
+	if [ -f $sd_wpa_conf ]; then
+		cp -f $sd_wpa_conf $wpa_conf
+	fi
+
+	# Update anti-flicker setting
+	# 50HZ
+	if [ -f $anti_flicker_50_conf ]; then
+		if [ ! -f $anti_flicker_50_reboot ]; then
+			touch $anti_flicker_50_reboot
+			cp -f $anti_flicker_50_conf $anti_flicker_json
+			touch $anti_flicker_update
+			echo "Override anti-flicker 50HZ setting..."
+			reboot -f
+		else
+			rm -f $anti_flicker_50_reboot
+			echo "anti-flicker = 50HZ"
+		fi
+	else
+		rm -f $anti_flicker_50_reboot
+	fi
+	# 60HZ
+	if [ -f $anti_flicker_60_conf ]; then
+		if [ ! -f $anti_flicker_60_reboot ]; then
+			touch $anti_flicker_60_reboot
+			cp -f $anti_flicker_60_conf $anti_flicker_json
+			touch $anti_flicker_update
+			echo "Override anti-flicker 60HZ setting..."
+			reboot -f
+		else
+			rm -f $anti_flicker_60_reboot
+			echo "anti-flicker = 60HZ"
+		fi
+	else
+		rm -f $anti_flicker_60_reboot
+	fi
+
+	# Factory reset
+	if [ -f $factory_reset_onetime ]; then
+		[ -f $factory_reset_onetime ] && rm -f $factory_reset_onetime
+		touch $facrst_flag
+		echo "Ready to perform factory reset; Rebooting system..."
+		reboot -f
+	fi
+
+	# Check system update file in SD card
+	if [ -f $boot_time_update_flag ] || [ -f $upgrade_from_sd_card ] || [ -f $upgrade_from_sd_card_onetime ]; then
+		if [ ! -f $sdupdate ]; then
+			echo "Ready to system update..."
+			touch $sdupdate
+			touch $system_upgrade_flag
+			if [ -f $upgrade_from_sd_card ]; then
+				upgrade_img=$(cat $upgrade_from_sd_card)
+			elif [ -f $upgrade_from_sd_card_onetime ]; then
+				upgrade_img=$(cat $upgrade_from_sd_card_onetime)
+			fi
+			sleep 2
+			# Invoke LED event
+			/system/bin/setLEDevt.sh LED_OFF 1
+			/system/bin/setLEDevt.sh Card_Upgrade 1
+			if [ "$upgrade_img" == "" ]; then
+				echo " - Run card upgrade with default image"
+				sysupd
+			else
+				echo " - Run card upgrade with specified image \"$upgrade_img\""
+				sysupd -f $upgrade_img
+			fi
+			# Play cue tone if file exist
+			if [ -e "$cuetone" ]; then
+				aplay -t raw -f mu-law -r 8000 -c 1 $cuetone
+				sleep 1
+			fi
+			rm -rf /tmp/*.swu
+			[ -f $upgrade_from_sd_card_onetime ] && rm -f $upgrade_from_sd_card_onetime
+			reboot -f
+		else
+			rm -f $sdupdate
+			echo "System is already updated!"
+		fi
+	else
+		rm -f $sdupdate
+	fi
+
+	# Production tool
+	if [ -f $run_prod_tool ] && [ $mode == "user" ]; then
+		echo "Run Production tool init sequence"
+		echo " - Enabling wifi..."
+		$wifi_on $wpa_conf
+	fi
+
+	# Check factory mode flag
+	if [ -f $factory_mode_file ] && [ $mode != "factory" ] ; then
+		echo "Switch to Factory Mode; Rebooting system..."
+		$MODE factory
+		reboot -f
+		# Check develop mode flag
+	elif [ -f $develop_mode_file ] && [ $mode == "factory" ] ; then
+		echo "Switch to Develop Mode; Rebooting system..."
+		$MODE develop
+		reboot -f
+	# Check user mode flag
+	elif [ -f $user_mode_file ] && [ $mode == "develop" ] ; then
+		echo "Switch to End-User Mode; Rebooting system..."
+		$MODE user
+		reboot -f
+	fi
+
+	if [ -f $RunKeepCalibData ]; then
+
+		if [ ! -d $CALIBDATA_SD_DIR ]; then
+
+			mkdir -p $CALIBDATA_SD_DIR
+
+			serial_number_val=$($FW_PRINTENV -n serial_number)
+
+			if [ "$serial_number_val" != "00000000" ] && [ "$serial_number_val" != "" ] ; then
+
+				echo "copy serial_number to $CALIBDATA_SD_DIR/serial_number"
+				echo $serial_number_val > $CALIBDATA_SD_DIR/serial_number
+
+			fi
+
+
+			IPC_APP_PID_VAL=$($FW_PRINTENV -n IPC_APP_PID)
+
+			if [ $IPC_APP_PID_VAL != "" ]; then
+
+				echo "copy IPC_APP_PID to $CALIBDATA_SD_DIR/IPC_APP_PID"
+				echo $IPC_APP_PID_VAL > $CALIBDATA_SD_DIR/IPC_APP_PID
+
+			fi
+
+			IPC_APP_UUID_VAL=$($FW_PRINTENV -n IPC_APP_UUID)
+
+			if [ $IPC_APP_UUID_VAL != "" ]; then
+
+				echo "copy IPC_APP_UUID to $CALIBDATA_SD_DIR/IPC_APP_UUID"
+				echo $IPC_APP_UUID_VAL > $CALIBDATA_SD_DIR/IPC_APP_UUID
+
+			fi
+
+			IPC_APP_AUTHKEY_VAL=$($FW_PRINTENV -n IPC_APP_AUTHKEY)
+
+			if [ $IPC_APP_AUTHKEY_VAL != "" ]; then
+
+				echo "copy IPC_APP_AUTHKEY to $CALIBDATA_SD_DIR/IPC_APP_AUTHKEY"
+				echo $IPC_APP_AUTHKEY_VAL > $CALIBDATA_SD_DIR/IPC_APP_AUTHKEY
+
+			fi
+
+			if [ -f $anti_flicker_json ]; then
+				echo "copy $anti_flicker_json $CALIBDATA_SD_DIR"
+				cp -f $anti_flicker_json $sd_anti_flicker_json
+			fi
+
+			if [ -f $panorama_json ]; then
+				echo "copy $panorama_json $CALIBDATA_SD_DIR"
+				cp -f $panorama_json $sd_panorama_json
+			fi
+
+			if [ -d $AUTOTEST_DIR ]; then
+				mkdir -p $AUTOTEST_SD_DIR
+				echo "copy auotest to $AUTOTEST_SD_DIR"
+				cp -rf $AUTOTEST_DIR  $CALIBDATA_SD_DIR
+			fi
+
+			echo "complete the calibdata backup"
+
+		else
+
+			if [ -f $CALIBDATA_SD_DIR/serial_number ]; then
+
+				serial_number_val=$($FW_PRINTENV -n serial_number)
+
+				if [ "$serial_number_val" != "00000000" ] && [ "$serial_number_val" != "" ] ; then
+
+					echo "Error: serial_number exists in bootenv"
+					return
+				fi
+
+				serial_number_val="$(cat $CALIBDATA_SD_DIR/serial_number)"
+				echo "set serial_number"
+				$FW_SETENV serial_number $serial_number_val
+			fi
+
+
+			if [ -f $CALIBDATA_SD_DIR/IPC_APP_PID ]; then
+
+				IPC_APP_PID_VAL=$($FW_PRINTENV -n IPC_APP_PID)
+
+				if [ $IPC_APP_PID_VAL != "" ]; then
+
+					echo "Error:IPC_APP_PID exists in bootenv"
+					return
+
+				fi
+
+				IPC_APP_PID_VAL="$(cat $CALIBDATA_SD_DIR/IPC_APP_PID)"
+				echo "set IPC_APP_PID"
+				$FW_SETENV IPC_APP_PID $IPC_APP_PID_VAL
+			fi
+
+
+			if [ -f $CALIBDATA_SD_DIR/IPC_APP_UUID ]; then
+
+				IPC_APP_UUID_VAL=$($FW_PRINTENV -n IPC_APP_UUID)
+
+				if [ $IPC_APP_UUID_VAL != "" ]; then
+
+					echo "Error:IPC_APP_UUID exists in bootenv"
+					return
+
+				fi
+
+				IPC_APP_UUID_VAL="$(cat $CALIBDATA_SD_DIR/IPC_APP_UUID)"
+				echo "set IPC_APP_UUID"
+				$FW_SETENV IPC_APP_UUID $IPC_APP_UUID_VAL
+			fi
+
+			if [ -f $CALIBDATA_SD_DIR/IPC_APP_AUTHKEY ]; then
+
+
+				IPC_APP_AUTHKEY_VAL=$($FW_PRINTENV -n IPC_APP_AUTHKEY)
+
+				if [ $IPC_APP_AUTHKEY_VAL != "" ]; then
+
+					echo "Error:IPC_APP_AUTHKEY exists in bootenv"
+					return
+
+				fi
+
+				IPC_APP_AUTHKEY_VAL="$(cat $CALIBDATA_SD_DIR/IPC_APP_AUTHKEY)"
+				echo "set IPC_APP_AUTHKEY"
+				$FW_SETENV IPC_APP_AUTHKEY $IPC_APP_AUTHKEY_VAL
+			fi
+
+			mkdir -p $CALIB_FACTORY_DIR
+
+			if [ -f $sd_anti_flicker_json ]; then
+				echo "restore anti_flicker.json to $anti_flicker_json"
+				cp -f $sd_anti_flicker_json $anti_flicker_json
+			fi
+
+			if [ -f $sd_panorama_json ]; then
+				echo "restore panorama.json $panorama_json"
+				cp -f $sd_panorama_json $panorama_json
+			fi
+
+
+			if [ -d $AUTOTEST_SD_DIR ]; then
+				echo "restore autotest to $AUTOTEST_DIR"
+				cp -rf $AUTOTEST_SD_DIR $CALIBDATA_DIR
+			fi
+
+			rm -rf $CALIBDATA_SD_DIR
+
+			echo "complete the calibdata recovery"
+
+		fi
+
+	fi
+
+}
+
+case "$1" in
+start)
+	start
+	;;
+stop)
+	;;
+restart|reload)
+	start
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

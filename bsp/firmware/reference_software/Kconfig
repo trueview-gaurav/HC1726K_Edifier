@@ -1,0 +1,8 @@
+mainmenu "Augentix SDK Application Configuration"
+
+source "library/Kconfig"
+source "3rd_party/Kconfig"
+source "apps/Kconfig"
+source "database/Kconfig"
+source "utils/Kconfig"
+source "web/Kconfig"

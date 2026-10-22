@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# S23AGT302-20
+#
+
+case "$1" in
+	start)
+		# IR CUT A
+		echo 12 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio12/direction
+		echo 0 > /sys/class/gpio/gpio12/value
+
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?
+

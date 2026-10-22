@@ -1,0 +1,23 @@
+config BR2_PACKAGE_NCNN
+	bool "ncnn"
+	depends on BR2_INSTALL_LIBSTDCPP
+	default y
+	help
+	  ncnn is pure C++ implementation.
+	  https://github.com/Tencent/ncnn/
+config BR2_PACKAGE_NCNN_COMPACT
+	bool "ncnn_compact"
+	depends on BR2_INSTALL_LIBSTDCPP
+	default y
+	help
+	  ncnn is pure C++ implementation.
+	  https://github.com/Tencent/ncnn/
+config BR2_PACKAGE_NCNN_MINIMAL
+	bool "ncnn_minimal"
+	depends on BR2_INSTALL_LIBSTDCPP
+	default y
+	help
+	  ncnn is pure C++ implementation.
+	  https://github.com/Tencent/ncnn/
+comment "ncnn support needs a toolchain with C++"
+	depends on !BR2_INSTALL_LIBSTDCPP

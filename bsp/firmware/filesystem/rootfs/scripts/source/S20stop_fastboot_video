@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Stop Fastboot video
+#
+
+case "$1" in
+	start)
+		echo "Stopping mpi_stream..."
+		MPI_STREAM_PID=$(ps | grep mpi_stream | head -1 | awk '{print $1}')
+		kill -INT $MPI_STREAM_PID
+		sleep 2
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?

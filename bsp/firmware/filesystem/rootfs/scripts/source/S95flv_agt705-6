@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Start/stop flv_server
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE=/var/run/flv_server.pid
+FLV_BIN=/system/bin/flv_server
+SSL_DIR="/etc/nginx/ssl"
+ENCRYPTED_PRIVATE_KEY="$SSL_DIR/encrypted_priv_key.pem"
+ENCRYPTED_PUBLIC_KEY="$SSL_DIR/encrypted_pub_key.pem"
+ENCRYPTED_CERT="$SSL_DIR/encrypted.crt"
+ENCRYPTED_PRIVATE_KEY_MAC="$SSL_DIR/encrypted_priv_key_mac.bin"
+ENCRYPTED_PUBLIC_KEY_MAC="$SSL_DIR/encrypted_pub_key_mac.bin"
+ENCRYPTED_CERT_MAC="$SSL_DIR/encrypted_mac.bin"
+TMP_PRIVATE_KEY="/tmp/key.pem"
+TMP_CERT="/tmp/cert.pem"
+SE="/system/bin/secure_element_demo"
+
+case "$1" in
+  start)
+	echo "Starting flv_server..."
+	$SE -D 1 -E -t $ENCRYPTED_PRIVATE_KEY -m $ENCRYPTED_PRIVATE_KEY_MAC -g $TMP_PRIVATE_KEY > /dev/null
+	$SE -D 1 -E -t $ENCRYPTED_CERT -m $ENCRYPTED_CERT_MAC -g $TMP_CERT > /dev/null
+	start-stop-daemon -S -m -b -p $PIDFILE -x $FLV_BIN -- -s -c $TMP_CERT -k $TMP_PRIVATE_KEY -a 127.0.0.1
+	;;
+  stop)
+	printf "Stopping flv_server..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

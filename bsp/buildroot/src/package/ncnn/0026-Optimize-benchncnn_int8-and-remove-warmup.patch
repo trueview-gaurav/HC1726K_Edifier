@@ -1,0 +1,106 @@
+From 9f064f173d7f61e610f4905cd00fd6697f04e5c2 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 11 Dec 2023 16:57:33 +0800
+Subject: [PATCH 26/54] Optimize benchncnn_int8 and remove warmup
+
+---
+ benchmark/benchncnn_int8.cpp | 43 ++++++++++++++++++++++++------------
+ 1 file changed, 29 insertions(+), 14 deletions(-)
+
+diff --git a/benchmark/benchncnn_int8.cpp b/benchmark/benchncnn_int8.cpp
+index 56120b2f..35290301 100755
+--- a/benchmark/benchncnn_int8.cpp
++++ b/benchmark/benchncnn_int8.cpp
+@@ -45,7 +45,7 @@ public:
+     }
+ };
+ 
+-static int g_warmup_loop_count = 8;
++static int g_warmup_loop_count = 0;
+ static int g_loop_count = 4;
+ static bool g_enable_cooling_down = true;
+ 
+@@ -150,11 +150,13 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+     double time_max = -DBL_MAX;
+     double time_avg = 0;
+ 
+-
++    double start = 0;
++    double end = 0;
++//    double time = 0;
+ 
+     for (int i = 0; i < g_loop_count; i++)
+     {
+-        double start = ncnn::get_current_time();
++        start = ncnn::get_current_time();
+         {
+             ncnn::Extractor ex = net.create_extractor();
+             for (size_t j = 0; j < input_names.size(); ++j)
+@@ -166,17 +168,29 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+             for (size_t j = 0; j < output_names.size(); ++j)
+             {
+                 ncnn::Mat out;
+-                ex.extract(output_names[j], out, 2);
++                ex.extract(output_names[j], out, 0);
++
++//                for(int q=0; q<out.c; q++){
++//                    const float* ptr = out.channel(q);
++//                    for(int y=0; y<out.h; y++){
++//                        for(int x=0; x<out.w; x++){
++//                            printf("%f ", ptr[x]);
++//                        }
++//                        ptr += out.w;
++//                        printf("\n");
++//                    }
++//                    printf("----------------\n");
++//                }
++                out.release();
+             }
++            ex.clear();
+         }
+ 
+-        double end = ncnn::get_current_time();
+-
+-        double time = end - start;
++        end = ncnn::get_current_time();
+ 
+-        time_min = std::min(time_min, time);
+-        time_max = std::max(time_max, time);
+-        time_avg += time;
++        time_min = std::min(time_min, end - start);
++        time_max = std::max(time_max, end - start);
++        time_avg += end - start;
+     }
+     getrusage(RUSAGE_SELF, &usage_end);
+ 
+@@ -184,7 +198,7 @@ void benchmark(const char* comment, const std::vector<ncnn::Mat>& _in, const ncn
+ 
+     long mem_usage = usage_end.ru_maxrss - usage_start.ru_maxrss;
+ 
+-    fprintf(stderr, "%20s  min = %7.2f  max = %7.2f  avg = %7.2f  mem = %ld KB\n", comment, time_min, time_max, time_avg, mem_usage);
++    fprintf(stderr, "%20s  min = %7.2f  max = %7.2f  avg = %7.2f  total mem = %ld KB\n", comment, time_min, time_max, time_avg, mem_usage);
+ }
+ 
+ void benchmark(const char* comment, const ncnn::Mat& _in, const ncnn::Option& opt, bool fixed_path = true)
+@@ -385,14 +399,15 @@ int main(int argc, char** argv)
+     opt.use_sgemm_convolution = true;
+     opt.use_int8_inference = true;
+     opt.use_vulkan_compute = use_vulkan_compute;
+-    opt.use_fp16_packed = true;
+-    opt.use_fp16_storage = true;
+-    opt.use_fp16_arithmetic = true;
++    opt.use_fp16_packed = false;
++    opt.use_fp16_storage = false;
++    opt.use_fp16_arithmetic = false;
+     opt.use_int8_storage = true;
+     opt.use_int8_arithmetic = true;
+     opt.use_packing_layout = true;
+     opt.use_shader_pack8 = false;
+     opt.use_image_storage = false;
++    opt.use_local_pool_allocator = true;
+ 
+     fprintf(stderr, "loop_count = %d\n", g_loop_count);
+     fprintf(stderr, "num_threads = %d\n", num_threads);
+-- 
+2.47.1
+

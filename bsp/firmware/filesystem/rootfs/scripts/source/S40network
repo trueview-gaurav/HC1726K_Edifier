@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# Start the network....
+#
+
+# Debian ifupdown needs the /run/network lock directory
+mkdir -p /run/network
+
+case "$1" in
+  start)
+	/sbin/sysctl -w net.core.rmem_default=524288
+	/sbin/sysctl -w net.core.wmem_default=524288
+	/sbin/sysctl -w net.core.rmem_max=624288
+	/sbin/sysctl -w net.core.wmem_max=724288
+	printf "Starting network: "
+	/sbin/ifup -a
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  stop)
+	printf "Stopping network: "
+	/sbin/ifdown -a
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	/sbin/sysctl -w net.core.rmem_default=163840
+	/sbin/sysctl -w net.core.wmem_default=163840
+	/sbin/sysctl -w net.core.rmem_max=163840
+	/sbin/sysctl -w net.core.wmem_max=163840
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+

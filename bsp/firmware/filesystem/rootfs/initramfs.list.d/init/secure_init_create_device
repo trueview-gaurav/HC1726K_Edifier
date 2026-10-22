@@ -1,0 +1,26 @@
+#!/bin/sh
+
+MAPPER_NAME="rootfs"
+
+mount -n -t proc proc /proc
+mount -n -t devtmpfs devtmpfs /dev
+
+VERITY_MTDID=$(cat /proc/cmdline | awk 'BEGIN{FS="root="}{sub(/ .*/,"",$2);print $2}')
+
+ROOTHASH=$(cat /proc/cmdline | awk 'BEGIN{FS="roothash="}{sub(/ .*/,"",$2);print $2}')
+HASH_OFFSET=$(cat /proc/cmdline | awk 'BEGIN{FS="hash_offset="}{sub(/ .*/,"",$2);print $2}')
+
+veritysetup create ${MAPPER_NAME} --hash-offset ${HASH_OFFSET} ${VERITY_MTDID} ${VERITY_MTDID} ${ROOTHASH}
+mount -o ro /dev/mapper/${MAPPER_NAME} /root
+
+if [[ $? -eq 0 ]]; then
+	echo "rootfs device verification successful !!!"
+	umount /proc
+	umount /dev
+	mount -n -t devtmpfs devtmpfs /root/dev
+	exec switch_root /root /sbin/init
+else
+	echo "rootfs device verification failed, force system halt !!!"
+	sleep 1
+	halt -f
+fi

@@ -1,0 +1,26 @@
+#EIRQ [1]
+devmem 0x80000014 32 0x2
+#TIMER0~3 [3:0] 
+devmem 0x80000018 32 0xF
+#TRNG [0]
+devmem 0x8000001C 32 0x1
+#I2CM0~2 [2:0]
+devmem 0x80000020 32 0x7
+#SPI0~1 / SPI_SLAVE [2:0]
+devmem 0x80000024 32 0x7
+#PWM0~6 [6:0]
+devmem 0x80000028 32 0x7F
+#UART0~2 [2:0]
+devmem 0x8000002C 32 0x7
+#PVT // no need
+devmem 0x800000D4 32 0
+#SDC0~1 [8, 0]
+devmem 0x80000034 32 0x101
+#EMAC [0]
+devmem 0x80000038 32 0x1
+#USB [8, 0]
+devmem 0x8000003C 32 0x101
+#MIPI_CHOP0 //no need
+devmem 0x80000044 32 0
+#USB_FM // no need
+devmem 0x80000058 32 0

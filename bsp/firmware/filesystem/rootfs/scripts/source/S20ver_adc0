@@ -1,0 +1,15 @@
+#!/bin/sh
+
+VER=$(/system/bin/adc_read 0)
+
+do_start() {
+	echo -n $VER > /tmp/VER
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	*)
+		echo "Usage: $0 {start}"
+esac

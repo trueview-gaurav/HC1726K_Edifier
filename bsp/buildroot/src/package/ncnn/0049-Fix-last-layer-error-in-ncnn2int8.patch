@@ -1,0 +1,43 @@
+From bb4ecb6689f16d201f097c2abafd8788507d0f4b Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Tue, 4 Jun 2024 18:30:45 +0800
+Subject: [PATCH 49/54] Fix last layer error in ncnn2int8
+
+---
+ tools/quantize/ncnn2int8.cpp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index eaa7a483..0699cf86 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -540,6 +540,9 @@ int NetQuantize::fuse_requantize()
+         // ----------------------------------------
+ 
+         j = blobs[layers[i]->tops[0]].consumer;
++        if (j == layer_count)
++            continue;
++
+         if (layers[j]->type != "Pooling" && layers[j]->type != "Split" && layers[j]->type != "Concat" &&
+             layers[j]->type != "ShuffleChannel" && layers[j]->type != "Crop") {
+             continue;
+@@ -555,7 +558,7 @@ int NetQuantize::fuse_requantize()
+             if (layers[curLayerIdx]->type == "Pooling" || layers[curLayerIdx]->type == "Split" || layers[curLayerIdx]->type == "Concat" ||
+                 layers[curLayerIdx]->type == "ShuffleChannel" || layers[curLayerIdx]->type == "Crop") {
+                 for (auto &top: layers[curLayerIdx]->tops) {
+-                    if (top < blobs.size()){
++                    if (top < blobs.size() - 1){ // the last layer do not have top blob
+                         lastBlobIdx = top;
+                         layerQueue.push(blobs[top].consumer);
+                     }
+@@ -567,7 +570,6 @@ int NetQuantize::fuse_requantize()
+         if (j == layer_count)
+             continue;
+         if(layers[j]->type != "Convolution" && layers[j]->type != "ConvolutionDepthWise" && layers[j]->type != "BinaryOp"){
+-//            printf("Something Wrong!!!\n");
+             continue;
+         }
+         if (layers[j]->type == "BinaryOp") { // find the bottom blob index that match lastBlobIdx;
+-- 
+2.47.1
+

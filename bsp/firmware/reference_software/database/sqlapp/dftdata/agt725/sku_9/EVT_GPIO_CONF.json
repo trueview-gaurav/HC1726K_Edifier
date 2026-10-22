@@ -1,0 +1,13 @@
+{
+  "cmd_id": "AGTX_CMD_GPIO_CONF",
+  "json_content": {
+    "gpio_alias": [
+      {
+        "name": "",
+        "dir": "IN",
+        "pin_num": -1,
+        "value": -1
+      }
+    ]
+  }
+}

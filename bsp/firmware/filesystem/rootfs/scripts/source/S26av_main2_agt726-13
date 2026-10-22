@@ -1,0 +1,126 @@
+#!/bin/sh
+#
+# Start/stop av_main2 and agtx-rtsp-server on AGT726-11
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+TZ=$(cat /etc/TZ)
+export TZ
+
+AV_MAIN2_BIN=/system/bin/av_main2
+PIDFILE_AV_MAIN2=/var/run/av_main2.pid
+
+RTSP_SERVER_BIN="/system/bin/agtx-rtsp-server"
+PIDFILE_RTSP_SERVER="/var/run/agtx-rtsp-server.pid"
+
+# ─────────────────────────────────────────────
+# av_main2
+# ─────────────────────────────────────────────
+
+do_start_av_main2() {
+    echo 3 > /proc/sys/kernel/printk
+    start-stop-daemon -S -m -b -x $AV_MAIN2_BIN -p $PIDFILE_AV_MAIN2
+    if [ $? = 1 ]; then
+        echo "Failed to start av_main2."
+        exit 1
+    fi
+}
+
+do_stop_av_main2() {
+    start-stop-daemon -K -o -p $PIDFILE_AV_MAIN2
+    if [ $? = 1 ]; then
+        echo "Failed to stop av_main2."
+        exit 1
+    fi
+    if [ -f "$PIDFILE_AV_MAIN2" ]; then
+        PID=$(cat "$PIDFILE_AV_MAIN2")
+        while kill -0 "$PID" 2>/dev/null; do
+            sleep 1
+        done
+    else
+        echo "av_main2 PID file does not exist."
+    fi
+}
+
+# ─────────────────────────────────────────────
+# RTSP Server
+# ─────────────────────────────────────────────
+
+do_start_rtsp_server() {
+    local pidfile=$PIDFILE_RTSP_SERVER
+    echo "Starting RTSP Server ..."
+    start-stop-daemon --start --background --make-pidfile \
+        --pidfile "$pidfile" \
+        --exec "$RTSP_SERVER_BIN" \
+        -- -S
+    echo "Started RTSP Server."
+}
+
+do_stop_rtsp_server() {
+    local pidfile=$PIDFILE_RTSP_SERVER
+    start-stop-daemon -K -o -p $pidfile
+    if [ $? = 1 ]; then
+        echo "Failed to stop rtsp server."
+        exit 1
+    fi
+    if [ -f "$pidfile" ]; then
+        PID=$(cat "$pidfile")
+        while kill -0 "$PID" 2>/dev/null; do
+            sleep 1
+        done
+    else
+        echo "RTSP server PID file does not exist."
+    fi
+}
+
+# ─────────────────────────────────────────────
+# Composite start / stop / restart
+# ─────────────────────────────────────────────
+
+do_start() {
+    echo "Starting av_main2..."
+    sh /system/mpp/script/load_mpp.sh -i
+    do_start_av_main2
+    sleep 1
+    do_start_rtsp_server
+}
+
+do_stop() {
+    printf "Stopping av_main2..."
+    do_stop_av_main2
+    echo "done."
+
+    printf "Stopping RTSP Server..."
+    do_stop_rtsp_server
+    echo "done."
+
+    # ✅ Unload MPP only after ALL users are confirmed stopped
+    echo "Unloading MPP..."
+    sh /system/mpp/script/load_mpp.sh -e
+}
+
+do_restart() {
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+}
+
+# ─────────────────────────────────────────────
+# Entry point
+# ─────────────────────────────────────────────
+
+case "$1" in
+    start)
+        do_start
+        ;;
+    stop)
+        do_stop
+        ;;
+    restart|reload)
+        do_restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac

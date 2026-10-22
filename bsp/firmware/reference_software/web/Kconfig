@@ -1,0 +1,39 @@
+menu "web"
+
+config APP_WEBCGI
+	bool "webcgi"
+	depends on APP_AV_MAIN2 && APP_CENTCTRL
+	default y
+
+config APP_SE_AUTH
+	depends on APP_WEBCGI
+	bool "se_auth"
+	help
+		use secure element to encrypt and store username and password
+	default n
+
+config APP_TEE_AUTH
+	depends on APP_WEBCGI
+	bool "tee_auth"
+	help
+		use TEE to encrypt and store username and password
+	default n
+
+config SECURE_WEB_PAGE
+	bool "secure web page"
+	depends on APP_WEBCGI
+	help
+		install secure web page assets and configs.
+	default n
+
+if APP_WEBCGI
+
+config APP_WEBCGI_DEMO
+	bool "Demo apps"
+	default n
+	help
+	  Install demo web apps to the target.
+
+endif
+
+endmenu

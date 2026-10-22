@@ -1,0 +1,137 @@
+From aad3cdf263e6d5bd284056eecad853dcd4aa9e7f Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Fri, 8 Dec 2023 10:48:29 +0800
+Subject: [PATCH 23/54] Add pooling 3x3 pack8 int8
+
+---
+ src/layer/arm/pooling_3x3_pack8_int8.h | 69 ++++++++++++++++++++++++++
+ src/layer/arm/pooling_arm.cpp          | 29 ++++++++++-
+ 2 files changed, 97 insertions(+), 1 deletion(-)
+ create mode 100755 src/layer/arm/pooling_3x3_pack8_int8.h
+
+diff --git a/src/layer/arm/pooling_3x3_pack8_int8.h b/src/layer/arm/pooling_3x3_pack8_int8.h
+new file mode 100755
+index 00000000..990b29cd
+--- /dev/null
++++ b/src/layer/arm/pooling_3x3_pack8_int8.h
+@@ -0,0 +1,69 @@
++//
++// Created by Jason Lin im247 on 2023/12/7.
++//
++
++static void pooling3x3s2_max_pack8_int8_neon(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
++{
++    int w = bottom_blob.w;
++    int inch = bottom_blob.c;
++
++    int outw = top_blob.w;
++    int outh = top_blob.h;
++
++    const int tailstep = (w - 2 * outw + w) * 16;
++    NCNN_LOGE("pooling3x3s2_max_pack8_int8_neon inch=%d outh=%d outw=%d", inch, outh, outw);
++
++    #pragma omp parallel for num_threads(opt.num_threads)
++    for (int q = 0; q < inch; q++)
++    {
++        const Mat img0 = bottom_blob.channel(q);
++        signed char* outptr = top_blob.channel(q);
++
++        const signed char* r0 = (const signed char*)img0.row(0);
++        const signed char* r1 = (const signed char*)img0.row(1);
++        const signed char* r2 = (const signed char*)img0.row(2);
++
++        for (int i = 0; i < outh; i++)
++        {
++            int j = 0;
++
++//            for (; j + 3 < outw; j += 4)
++//            {
++//
++//            }
++//            for (; j + 1 < outw; j += 2)
++//            {
++//
++//            }
++            for (; j < outw; j++)
++            {
++                int8x8_t _r00 = vld1_s8(r0);
++                int8x8_t _r01 = vld1_s8(r0 + 8);
++                int8x8_t _r02 = vld1_s8(r0 + 16);
++                int8x8_t _r10 = vld1_s8(r1);
++                int8x8_t _r11 = vld1_s8(r1 + 8);
++                int8x8_t _r12 = vld1_s8(r1 + 16);
++                int8x8_t _r20 = vld1_s8(r2);
++                int8x8_t _r21 = vld1_s8(r2 + 8);
++                int8x8_t _r22 = vld1_s8(r2 + 16);
++
++                int8x8_t _max0 = vmax_s8(vmax_s8(_r00, _r01), _r02);
++                int8x8_t _max1 = vmax_s8(vmax_s8(_r10, _r11), _r12);
++                int8x8_t _max2 = vmax_s8(vmax_s8(_r20, _r21), _r22);
++
++                int8x8_t _max = vmax_s8(vmax_s8(_max0, _max1), _max2);
++
++                vst1_s8(outptr, _max);
++
++                r0 += 16;
++                r1 += 16;
++                r2 += 16;
++                outptr += 8;
++            }
++
++            r0 += tailstep;
++            r1 += tailstep;
++            r2 += tailstep;
++        }
++    }
++}
+diff --git a/src/layer/arm/pooling_arm.cpp b/src/layer/arm/pooling_arm.cpp
+index bdda34e2..f153646e 100644
+--- a/src/layer/arm/pooling_arm.cpp
++++ b/src/layer/arm/pooling_arm.cpp
+@@ -34,6 +34,7 @@ namespace ncnn {
+ #include "pooling_3x3_pack4.h"
+ #include "pooling_2x2_pack4_bf16s.h"
+ #include "pooling_3x3_pack4_bf16s.h"
++#include "pooling_3x3_pack8_int8.h"
+ #endif
+ 
+ Pooling_arm::Pooling_arm()
+@@ -98,8 +99,34 @@ int Pooling_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+     int elempack = bottom_blob.elempack;
+ 
+ #if __ARM_NEON
+-    //     NCNN_LOGE("Pooling     input %d x %d  pad = %d %d %d %d  ksize=%d %d  stride=%d %d", w, h, pad_left, pad_right, pad_top, pad_bottom, kernel_w, kernel_h, stride_w, stride_h);
++    NCNN_LOGE("Pooling input %d x %d  pad = %d %d %d %d  ksize=%d %d  stride=%d %d elempack=%d elemsize=%d", w, h, pad_left, pad_right, pad_top, pad_bottom, kernel_w, kernel_h, stride_w, stride_h, elempack, elemsize);
++    NCNN_LOGE("global_pooling=%d pooling_type=%d", global_pooling, pooling_type);
++    if (elempack == 8){
++        Mat bottom_blob_bordered;
++        make_padding(bottom_blob, bottom_blob_bordered, opt);
++        if (bottom_blob_bordered.empty())
++            return -100;
++
++        w = bottom_blob_bordered.w;
++        h = bottom_blob_bordered.h;
++
++        int outw = (w - kernel_w) / stride_w + 1;
++        int outh = (h - kernel_h) / stride_h + 1;
++
++        top_blob.create(outw, outh, channels, elemsize, elempack, opt.blob_allocator);
++        if (top_blob.empty())
++            return -100;
+ 
++        if (pooling_type == PoolMethod_MAX)
++        {
++            if (kernel_w == 3 && kernel_h == 3 && stride_w == 2 && stride_h == 2)
++            {
++                pooling3x3s2_max_pack8_int8_neon(bottom_blob_bordered, top_blob, opt);
++                return 0;
++            }
++        }
++        return 0;
++    }
+     if (elempack == 4)
+     {
+         if (global_pooling)
+-- 
+2.47.1
+

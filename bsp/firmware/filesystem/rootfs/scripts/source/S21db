@@ -1,0 +1,53 @@
+#!/bin/sh
+
+DB_PIDFILE=/var/run/dbmonitor.pid
+TMP_DB=/tmp/ini.db
+ACTIVE_DB=/usrdata/active_setting/ini.db
+FACTORY_DB=/system/factory_default/ini.db
+DB_BIN="/system/bin/dbmonitor $TMP_DB $ACTIVE_DB" 
+
+DB_RST_FLAG=/usrdata/dbrst
+
+start() {
+	# Check for active DB reset
+	if [ -f $DB_RST_FLAG ]; then
+		echo "Reset active DB..."
+		cp $FACTORY_DB $ACTIVE_DB
+		rm $DB_RST_FLAG
+	fi
+
+	# Check active DB integrity
+	printf "Validating active DB: "
+	/usr/bin/repair_db.sh $ACTIVE_DB $FACTORY_DB
+	printf "\nStart DB monitor: "
+	cp -f $ACTIVE_DB $TMP_DB
+	start-stop-daemon -S -m -b -p $DB_PIDFILE \
+		-x $DB_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stop DB monitor: "
+	start-stop-daemon -K -q -p $DB_PIDFILE \
+		-x $DB_BIN
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

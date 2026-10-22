@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Start/stop the mpi_stream on AGT725-3
+#
+
+app_dir=/usrdata/secure_app
+
+do_start() {
+	busybox modprobe otp_ep
+	# Load video drivers
+	busybox modprobe mpp.ko
+	# Start mpi_stream
+	"$app_dir/mpi_stream" -d /system/mpp/case_config/case_config_1001_FHD > /dev/null &
+	# Load audio drivers
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	restart)
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac

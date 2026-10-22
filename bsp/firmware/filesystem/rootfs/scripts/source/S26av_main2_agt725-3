@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Start/stop av_main2 on AGT725-3
+#
+
+TZ=$(cat /etc/TZ)
+export TZ
+
+do_start() {
+	# Start av_main2
+	echo "Starting av_main2..."
+	/system/bin/av_main2 &
+}
+
+do_stop() {
+	printf "Stopping av_main2..."
+	AV_MAIN2_PID=$(ps | grep av_main2 | head -1 | awk '{print $1}')
+	kill -TERM "$AV_MAIN2_PID"
+}
+
+do_restart() {
+	"$0" stop
+	# wait for VB clean
+	sleep 3
+	"$0" start
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	restart|reload)
+		do_restart
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

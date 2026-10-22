@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Start/stop Tange Cloud
+#
+
+TANGE_CLOUD_PID=0
+
+do_start() {
+	echo "Starting Tange Cloud..."
+	/system/bin/tange_cloud &
+	if [ $? = 1 ]; then
+	echo "Failed to start tange_cloud."
+		exit 1
+	fi
+}
+
+do_stop() {
+	printf "Stopping Tange Cloud..."
+	TANGE_CLOUD_PID=$(ps | grep tange_cloud | head -1 | awk '{print $1}')
+	kill -9 "$TANGE_CLOUD_PID"
+}
+
+do_restart() {
+	"$0" stop
+	sleep 1
+	"$0" start
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	restart|reload)
+		do_restart
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

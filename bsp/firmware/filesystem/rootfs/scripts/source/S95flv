@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Start/stop flv_server
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+PIDFILE=/var/run/flv_server.pid
+FLV_BIN=/system/bin/flv_server
+CERT_FILE=/usrdata/device-cert.crt;
+KEY_FILE=/etc/nginx/ssl/device_pri_key.pem;
+
+case "$1" in
+  start)
+	echo "Starting flv_server..."
+	start-stop-daemon -S -m -b -p $PIDFILE -x $FLV_BIN -- -t -s -w -c $CERT_FILE -k $KEY_FILE
+	;;
+  stop)
+	printf "Stopping flv_server..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

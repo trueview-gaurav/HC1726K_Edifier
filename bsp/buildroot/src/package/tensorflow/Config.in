@@ -1,0 +1,25 @@
+
+config BR2_PACKAGE_TENSORFLOW
+    bool "tensorflow"
+    help
+        A deep learning model inference c++ library
+
+config BR2_PACKAGE_TENSORFLOW_LITE
+    bool "tensorflow_lite"
+    depends on BR2_PACKAGE_TENSORFLOW
+    default y
+
+config BR2_PACKAGE_TENSORFLOW_LITE_OPTIM
+    bool "tensorflow_lite_optim"
+    depends on BR2_PACKAGE_TENSORFLOW_LITE
+    default y
+
+config BR2_PACKAGE_TFLITE_BENCHMARK_TOOL
+    bool "tensorflow_lite benchmark tool"
+    depends on BR2_PACKAGE_TENSORFLOW_LITE
+    default n
+
+config BR2_PACKAGE_TENSORFLOW_MICROLITE
+    bool "tensorflow_microlite"
+    depends on BR2_PACKAGE_TENSORFLOW
+    default y

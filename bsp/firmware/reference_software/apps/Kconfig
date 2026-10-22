@@ -1,0 +1,73 @@
+menu "apps"
+
+source "apps/av_daemon/Kconfig"
+
+config APP_AIC8800_M40
+	bool "aic8800_m40"
+	default n
+
+config APP_CONNSEL
+	bool "connsel"
+	default y
+
+config APP_EAIF_SERVER
+	bool "eaif_server"
+	depends on APP_AV_MAIN2
+	default n
+
+config APP_IP_ASSIGN
+	bool "ip_assign"
+	default y
+
+config APP_STAMEN
+	bool "stamen"
+	default y
+
+config APP_WIFI
+	bool "wifi"
+	default y
+
+config APP_FLV_SERVER
+	bool "flv_server"
+	default y
+
+config APP_SUPPORT_HTTPS
+	bool "support https"
+	default y
+	depends on APP_FLV_SERVER
+
+config APP_WEBSOCKET_AUDIO_PLAYBACK
+	bool "support audio playback based on websocket"
+	default y
+	depends on APP_SUPPORT_HTTPS
+
+config APP_MP4_RECORDER
+	bool "mp4_recorder"
+	default n
+	help
+		Sample program to demonstrate how to do mp4 recording.
+		The sample code depends on the bento4 module, which must be enabled in buildroot.
+
+config APP_EXIF_SNAPSHOT
+	bool "exif_snapshot"
+	default n
+	help
+		Reference application for capturing MJPEG snapshots with EXIF metadata.
+		This application demonstrates how to capture MJPEG frames and add EXIF
+		information including GPS coordinates, timestamps, and camera information.
+
+config APP_GST_RTSP_SERVER
+	bool "gst_rtsp_server"
+	default n
+	help
+		Gstreamer RTSP server
+
+config APP_GST_RTSP_SERVER_ENABLE_IVA
+	bool "GST RTSP Server enable IVA"
+	select LIBAVFTR
+	depends on APP_GST_RTSP_SERVER
+	default y
+	help
+		When the option is enabled, gstreamer rtsp server use libavftr API to get vaftr shm to generate SEI.
+
+endmenu

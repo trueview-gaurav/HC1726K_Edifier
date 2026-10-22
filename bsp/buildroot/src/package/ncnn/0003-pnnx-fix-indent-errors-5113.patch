@@ -1,0 +1,30 @@
+From 16524ca9378bb87bedd7080ce0165ca465e0979f Mon Sep 17 00:00:00 2001
+From: teng <19603468+cmdbug@users.noreply.github.com>
+Date: Fri, 27 Oct 2023 16:57:07 +0800
+Subject: [PATCH 03/54] pnnx fix indent errors (#5113)
+
+---
+ tools/pnnx/src/save_ncnn.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tools/pnnx/src/save_ncnn.cpp b/tools/pnnx/src/save_ncnn.cpp
+index c6d1e37c..93c0f983 100644
+--- a/tools/pnnx/src/save_ncnn.cpp
++++ b/tools/pnnx/src/save_ncnn.cpp
+@@ -395,10 +395,10 @@ int save_ncnn(const Graph& g, const std::string& parampath, const std::string& b
+         fprintf(pyfp, "\n");
+ 
+         fprintf(pyfp, "    with ncnn.Net() as net:\n");
+-        fprintf(pyfp, "         net.load_param(\"%s\")\n", parampath.c_str());
+-        fprintf(pyfp, "         net.load_model(\"%s\")\n", binpath.c_str());
++        fprintf(pyfp, "        net.load_param(\"%s\")\n", parampath.c_str());
++        fprintf(pyfp, "        net.load_model(\"%s\")\n", binpath.c_str());
+         fprintf(pyfp, "\n");
+-        fprintf(pyfp, "         with net.create_extractor() as ex:\n");
++        fprintf(pyfp, "        with net.create_extractor() as ex:\n");
+ 
+         for (int input_index = 0;; input_index++)
+         {
+-- 
+2.47.1
+

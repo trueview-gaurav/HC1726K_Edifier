@@ -1,0 +1,252 @@
+From 1b0306d514b9965dbfed72ede1de74b29a74c87a Mon Sep 17 00:00:00 2001
+From: "Akai.Kang im212" <akai.kang@augentix.com>
+Date: Sat, 7 Oct 2023 02:18:26 +0800
+Subject: [PATCH 7/8] Add ops and supress the tflite-optim library size
+ (Associates: #59179)
+
+---
+ Makefile.lite                       |  1 -
+ tensorflow/lite/c/common.h          | 28 +++++++++++++++++++++
+ tensorflow/lite/kernels/add.cc      | 39 +++++++++++++++++++++--------
+ tensorflow/lite/kernels/register.cc |  2 +-
+ 4 files changed, 58 insertions(+), 12 deletions(-)
+
+diff --git a/Makefile.lite b/Makefile.lite
+index d2f03b83..f9f437c3 100644
+--- a/Makefile.lite
++++ b/Makefile.lite
+@@ -193,7 +193,6 @@ $(root)/tensorflow/lite/kernels/pack.cc \
+ $(root)/tensorflow/lite/kernels/unpack.cc \
+ $(root)/tensorflow/lite/kernels/zeros_like.cc \
+ $(root)/tensorflow/lite/kernels/sub.cc \
+-$(root)/tensorflow/lite/kernels/add.cc \
+ $(root)/tensorflow/lite/kernels/sparse_to_dense.cc \
+ $(root)/tensorflow/lite/experimental/resource/static_hashtable.cc \
+ $(root)/tensorflow/lite/kernels/resize_bilinear.cc \
+diff --git a/tensorflow/lite/c/common.h b/tensorflow/lite/c/common.h
+index 4aef76ad..6050a927 100644
+--- a/tensorflow/lite/c/common.h
++++ b/tensorflow/lite/c/common.h
+@@ -169,6 +169,7 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+ #define TF_LITE_MAYBE_KERNEL_LOG(context, ...)
+ #endif  // TF_LITE_STRIP_ERROR_STRINGS
+ 
++#ifndef TFLITE_OPTIM
+ // Check whether value is true, and if not return kTfLiteError from
+ // the current function (and report the error string msg).
+ #define TF_LITE_ENSURE_MSG(context, value, msg)        \
+@@ -178,7 +179,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return kTfLiteError;                             \
+     }                                                  \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_MSG(context, value, msg) (void)(value)  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ // Check whether the value `a` is true, and if not return kTfLiteError from
+ // the current function, while also reporting the location of the error.
+ #define TF_LITE_ENSURE(context, a)                                      \
+@@ -189,7 +194,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return kTfLiteError;                                              \
+     }                                                                   \
+   } while (0)
++#else
++#define TF_LITE_ENSURE(context, a) (void)(a)  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ #define TF_LITE_ENSURE_STATUS(a) \
+   do {                           \
+     const TfLiteStatus s = (a);  \
+@@ -197,7 +206,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return s;                  \
+     }                            \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_STATUS(a) (void)(a)  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ // Check whether the value `a == b` is true, and if not return kTfLiteError from
+ // the current function, while also reporting the location of the error.
+ // `a` and `b` may be evaluated more than once, so no side effects or
+@@ -211,7 +224,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return kTfLiteError;                                                 \
+     }                                                                      \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_EQ(context, a, b) (void)(a); (void)(b);  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ #define TF_LITE_ENSURE_TYPES_EQ(context, a, b)                             \
+   do {                                                                     \
+     if ((a) != (b)) {                                                      \
+@@ -221,7 +238,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return kTfLiteError;                                                 \
+     }                                                                      \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_TYPES_EQ(context, a, b) (void)(a); (void)(b);  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ #define TF_LITE_ENSURE_NEAR(context, a, b, epsilon)                          \
+   do {                                                                       \
+     auto delta = ((a) > (b)) ? ((a) - (b)) : ((b) - (a));                    \
+@@ -232,7 +253,11 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return kTfLiteError;                                                   \
+     }                                                                        \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_NEAR(context, a, b, epsilon) (void)(a); (void)(b);  
++#endif
+ 
++#ifndef TFLITE_OPTIM
+ #define TF_LITE_ENSURE_OK(context, status) \
+   do {                                     \
+     const TfLiteStatus s = (status);       \
+@@ -240,6 +265,9 @@ void TfLiteFloatArrayFree(TfLiteFloatArray* a);
+       return s;                            \
+     }                                      \
+   } while (0)
++#else
++#define TF_LITE_ENSURE_OK(context, status) (void)(status)  
++#endif
+ 
+ // Single-precision complex data type compatible with the C99 definition.
+ typedef struct TfLiteComplex64 {
+diff --git a/tensorflow/lite/kernels/add.cc b/tensorflow/lite/kernels/add.cc
+index 18537576..fa886dae 100644
+--- a/tensorflow/lite/kernels/add.cc
++++ b/tensorflow/lite/kernels/add.cc
+@@ -132,6 +132,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+   int input2_scale_log2_rounded{0};
+   int output_scale_log2_rounded{0};
+ 
++#ifndef TFLITE_OPTIM
+   if (input1->type == kTfLiteInt16 && input2->type == kTfLiteInt16 &&
+       output->type == kTfLiteInt16) {
+     // In case of int16, quantization is symmetic and
+@@ -158,6 +159,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+           !input1_scale_is_pot || !input2_scale_is_pot || !output_scale_is_pot;
+     }
+   }
++#endif
+ 
+   data->pot_scale_int16 = !general_scale_int16;
+ 
+@@ -204,6 +206,7 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+     // some of the math in these LSTM cells in fixed-point arithmetic,
+     // we need to have such symmetric, power-of-two quantization
+     // (Fixed-point formats are inherently symmetric, power-of-two).
++  #ifndef TFLITE_OPTIM
+     TF_LITE_ENSURE_EQ(context, input1->params.zero_point, 0);
+     TF_LITE_ENSURE_EQ(context, input2->params.zero_point, 0);
+     TF_LITE_ENSURE_EQ(context, output->params.zero_point, 0);
+@@ -224,11 +227,15 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
+     TF_LITE_ENSURE_STATUS(CalculateActivationRangeQuantized(
+         context, params->activation, output, &data->output_activation_min,
+         &data->output_activation_max));
++   #else
++    TF_LITE_UNSUPPORTED_TYPE(context, output->type, "Add");
++   #endif
+   }
+ 
+   return context->ResizeTensor(context, output, output_size);
+ }
+ 
++#ifndef TFLITE_OPTIM
+ template <KernelType kernel_type>
+ void EvalAdd(TfLiteContext* context, TfLiteNode* node, TfLiteAddParams* params,
+              const OpData* data, const TfLiteTensor* input1,
+@@ -291,6 +298,7 @@ void EvalAdd(TfLiteContext* context, TfLiteNode* node, TfLiteAddParams* params,
+   }
+ #undef TF_LITE_ADD
+ }
++#endif
+ 
+ template <KernelType kernel_type>
+ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
+@@ -335,14 +343,18 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
+         }
+       }
+     } else if (output->type == kTfLiteInt16) {
+-      if (need_broadcast) {
+-        TF_LITE_ADD(reference_ops, BroadcastAdd4DSlow, int16_t);
+-      } else {
+-        reference_ops::Add(
+-            op_params, GetTensorShape(input1), GetTensorData<int16_t>(input1),
+-            GetTensorShape(input2), GetTensorData<int16_t>(input2),
+-            GetTensorShape(output), GetTensorData<int16_t>(output), false);
+-      }
++      #ifndef TFLITE_OPTIM
++        if (need_broadcast) {
++          TF_LITE_ADD(reference_ops, BroadcastAdd4DSlow, int16_t);
++        } else {
++          reference_ops::Add(
++              op_params, GetTensorShape(input1), GetTensorData<int16_t>(input1),
++              GetTensorShape(input2), GetTensorData<int16_t>(input2),
++              GetTensorShape(output), GetTensorData<int16_t>(output), false);
++        }
++      #else
++        TF_LITE_UNSUPPORTED_TYPE(context, output->type, "Add");
++      #endif
+     } else {
+       if (kernel_type == kReference) {
+         if (need_broadcast) {
+@@ -360,6 +372,7 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
+     }
+ #undef TF_LITE_ADD
+   } else if (output->type == kTfLiteInt16) {
++    #ifndef TFLITE_OPTIM
+     tflite::ArithmeticParams op_params;
+     op_params.input1_shift = data->input1_shift;
+     op_params.input2_shift = data->input2_shift;
+@@ -378,6 +391,10 @@ TfLiteStatus EvalAddQuantized(TfLiteContext* context, TfLiteNode* node,
+       TF_LITE_ADD(optimized_ops, Add);
+     }
+ #undef TF_LITE_ADD
++    #else
++      TF_LITE_UNSUPPORTED_TYPE(context, output->type, "Add");
++    #endif
++
+   }
+ 
+   return kTfLiteOk;
+@@ -397,11 +414,13 @@ TfLiteStatus Eval(TfLiteContext* context, TfLiteNode* node) {
+   TfLiteTensor* output;
+   TF_LITE_ENSURE_OK(context,
+                     GetOutputSafe(context, node, kOutputTensor, &output));
+-
++  #ifndef TFLITE_OPTIM
+   if (output->type == kTfLiteFloat32 || output->type == kTfLiteInt32 ||
+       output->type == kTfLiteInt64) {
+     EvalAdd<kernel_type>(context, node, params, data, input1, input2, output);
+-  } else if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
++  }
++  #endif
++  if (output->type == kTfLiteUInt8 || output->type == kTfLiteInt8 ||
+              output->type == kTfLiteInt16) {
+     TF_LITE_ENSURE_OK(context,
+                       EvalAddQuantized<kernel_type>(context, node, params, data,
+diff --git a/tensorflow/lite/kernels/register.cc b/tensorflow/lite/kernels/register.cc
+index 5f76e2c0..c36e490f 100644
+--- a/tensorflow/lite/kernels/register.cc
++++ b/tensorflow/lite/kernels/register.cc
+@@ -100,10 +100,10 @@ BuiltinOpResolver::BuiltinOpResolver() {
+   AddBuiltin(BuiltinOperator_CONCATENATION, Register_CONCATENATION(),
+              /* min_version = */ 1,
+              /* max_version = */ 3);
+-#ifndef TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_ADD, Register_ADD(),
+             /* min_version */ 1,
+             /* max_version */ 4);
++#ifndef TFLITE_OPTIM
+   AddBuiltin(BuiltinOperator_SPACE_TO_BATCH_ND, Register_SPACE_TO_BATCH_ND(),
+             /* min_version = */ 1,
+             /* max_version = */ 3);
+-- 
+2.47.1
+

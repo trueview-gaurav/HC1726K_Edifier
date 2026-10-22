@@ -1,0 +1,25 @@
+From c2ccbf851df71a3389e53d91edcae1b7b93ccf2e Mon Sep 17 00:00:00 2001
+From: nihuini <nihuini@tencent.com>
+Date: Fri, 27 Oct 2023 15:08:42 +0800
+Subject: [PATCH 01/54] pnnx fix filename base
+
+---
+ tools/pnnx/src/main.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/pnnx/src/main.cpp b/tools/pnnx/src/main.cpp
+index 134b6483..17b5d3fa 100644
+--- a/tools/pnnx/src/main.cpp
++++ b/tools/pnnx/src/main.cpp
+@@ -61,7 +61,7 @@ static std::string get_basename(const std::string& path)
+         filename = path;
+     }
+ 
+-    std::string base = filename.substr(0, path.find_last_of('.'));
++    std::string base = filename.substr(0, filename.find_last_of('.'));
+     // sanitize -
+     std::replace(base.begin(), base.end(), '-', '_');
+     return dirpath + base;
+-- 
+2.47.1
+

@@ -1,0 +1,48 @@
+#!/bin/sh
+
+FW_PRINTENV=/usr/sbin/fw_printenv
+FW_SETENV=/usr/sbin/fw_setenv
+
+BOOTPART=
+
+chk_sysupd() {
+	new_boot_slot=0
+	if [ $BOOTPART = 2 ]; then
+		if [ $($FW_PRINTENV -n slot_b_successful) != 1 ]; then
+			$FW_SETENV bootcounter 0;
+			$FW_SETENV slot_b_successful 1;
+			new_boot_slot=1
+			active_slot="B"
+		fi
+	else # Slot A active
+		if [ $($FW_PRINTENV -n slot_a_successful) != 1 ]; then
+			$FW_SETENV bootcounter 0;
+			$FW_SETENV slot_a_successful 1;
+			new_boot_slot=1
+			active_slot="A"
+		fi
+	fi
+
+	if [ $new_boot_slot = 1 ]; then
+		echo -e "[SYSUPD] System updated successfully!\n"\
+		        "\tCurrently active: Slot $active_slot"
+	fi
+}
+
+if [ $($FW_PRINTENV -n slot_b_active) = 1 ]; then
+	BOOTPART=2;
+else
+	BOOTPART=1;
+fi
+
+case "$1" in
+	start)
+		chk_sysupd
+	;;
+	stop|restart)
+	;;
+	*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+exit 0

@@ -1,0 +1,171 @@
+# shellcheck shell=sh
+# FIXME: Configure Amazon KVS before using it.
+export AWS_KVS_LOG_LEVEL=4
+export AWS_KVS_CACERT_PATH=/system/share/amazon_kvs/rootca.pem
+#export AWS_DEFAULT_REGION=xxxxxxxx
+#export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxxx
+#export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#export AWS_CHANNEL_NAME=xxxxxxxx
+KVS_WEBRTC_BIN=/system/bin/kvswebrtcmaster-static
+
+
+WPA_CONF_TMP=/tmp/wpa_supplicant.conf
+WPA_CONF=/etc/wpa_supplicant.conf
+
+FW_PRINTENV=/usr/sbin/fw_printenv
+FW_SETENV=/usr/sbin/fw_setenv
+
+# Please implement this function before using the Amazon KVS.
+datetime() {
+	json=$(curl "http://worldtimeapi.org/api/timezone/UTC" 2> /dev/null)
+	echo "$json" | \
+		cut -d , -f 3 | \
+		sed 's/\"datetime\":"//' | \
+		sed 's/T/ /' | \
+		cut -c 1-19
+}
+
+update_datetime() {
+	date -s "$(datetime)"
+}
+
+
+get_fw_param() {
+    local param_name="$1"
+    $FW_PRINTENV | grep "^${param_name}=" | cut -d '=' -f 2-
+}
+
+do_kvs_key_frome_fw_env() {
+	export AWS_DEFAULT_REGION=$(get_fw_param awsregion)
+	export AWS_ACCESS_KEY_ID=$(get_fw_param awsaki)
+	export AWS_SECRET_ACCESS_KEY=$(get_fw_param awssak)
+	export AWS_CHANNEL_NAME=$(get_fw_param awschannel)
+
+	echo "AWS Reg: $AWS_DEFAULT_REGION"
+	echo "AWS AK: $AWS_ACCESS_KEY_ID"
+	echo "AWS SAK: $AWS_SECRET_ACCESS_KEY"
+	echo "AWS Ch: $AWS_CHANNEL_NAME"
+}
+
+do_wifi_from_fw_env() {
+	if [ ! -e $WPA_CONF_TMP ]; then
+		if [ -e $WPA_CONF ]; then
+			cp $WPA_CONF $WPA_CONF_TMP
+		else
+			echo File $WPA_CONF does not exist
+			exit 1
+		fi
+
+		WIFI_SSID=$(get_fw_param wifissid)
+		WIFI_PSK=$(get_fw_param wifipsk)
+
+		echo "WIFI AP SSID: $WIFI_SSID"
+		echo "WIFI AP Password: $WIFI_PSK"
+
+		SEARCH_PATTERN="ssid=.*"
+		REPLACE_PATTERN="ssid=\"$WIFI_SSID\""
+		sed -i "s/${SEARCH_PATTERN}/${REPLACE_PATTERN}/g" $WPA_CONF_TMP
+
+		SEARCH_PATTERN="psk=.*"
+		REPLACE_PATTERN="psk=\"$WIFI_PSK\""
+		sed -i "s/${SEARCH_PATTERN}/${REPLACE_PATTERN}/g" $WPA_CONF_TMP
+	fi
+}
+
+do_audio_init() {
+	# Initialize Augentix audio system
+	modprobe audio_pcm
+	modprobe audio_machine
+}
+
+do_audio_codec() {
+	# Configure the Audio codec via ALSA
+	amixer cset name="IF1 DAC0 Mux" "Slot0"
+	amixer cset name="IF1 DAC1 Mux" "Slot0"
+	amixer cset name="DAC1 Mux" "IF1 DAC 01"
+	amixer cset name="DAC1 MIXL DAC1 Switch" 1
+	amixer cset name="DAC1 MIXR DAC1 Switch" 1
+	amixer cset name="Stereo DAC MIXL DAC1 L Switch" 1
+	amixer cset name="Stereo DAC MIXL DAC1 R Switch" 1
+	amixer cset name="Stereo DAC MIXR DAC1 R Switch" 0
+	amixer cset name="Stereo DAC MIXR DAC1 L Switch" 0
+	amixer cset name="DAC12 SRC Mux" "STO1 DAC MIX"
+	amixer cset name="OUT1 Playback Switch" 1
+	amixer cset name="OUT2 Playback Switch" 0
+	amixer cset name="ADC Patch" 0
+	amixer cset name="Stereo1 ADC1 Mux" "ADC1/2"
+	amixer cset name="Sto1 ADC MIXL ADC1 Switch" 1
+	amixer cset name="Sto1 ADC MIXR ADC1 Switch" 1
+	amixer cset name="IB01 Mux" "STO1 ADC MIX"
+	amixer cset name="IB01 Bypass Mux" "Bypass"
+	amixer cset name="OB01 MIX IB01 Switch" 1
+	amixer cset name="OB01 Bypass Mux" "Bypass"
+	amixer cset name="IF1 ADC1 Mux" "OB01"
+	amixer cset name="IF1 ADC1 Swap Mux" "L/R"
+	amixer cset name="IF1 ADC TDM Swap Mux" "1/2/3/4"
+	amixer cset name="ADC1 Capture Switch" 1
+	amixer cset name="DSP Pre Set" 1
+	# Load Audio DSP firmware via SPI
+	amixer cset name="DSP VAD Switch" 1
+}
+
+do_wifi() {
+	echo "[DEBUG] modprobe acc1340_drv"
+	modprobe acc1340_drv
+	sleep 1
+	echo "[DEBUG] ifup wlan0"
+	ifup wlan0
+	iw reg set IN
+	# You can use one of the following method to establish the WiFi connection.
+	# Method 1: . /system/script/wifi_on.sh /etc/wpa_supplicant.conf
+	# Method 2: . /system/script/rtsp_wifi_demo.sh start
+
+	# Method 3: Store the account and password using the Linux environment
+	# fw_setenv wifissid xxxxxxxx
+	# fw_setenv wifipsk xxxxxxxx
+	do_wifi_from_fw_env
+	if [[ -n "$WIFI_SSID" ]]; then
+		/system/script/wifi_on.sh /tmp/wpa_supplicant.conf
+	fi
+}
+
+do_kvs_webrtc() {
+	update_datetime
+	# Please implement update_datetime first.
+
+	# Store the AWS key using the Linux environment
+	# fw_setenv awsregion xxxxxxxx
+	# fw_setenv awsaki xxxxxxxxxxxxxxxxxxxx
+	# fw_setenv awssak xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	# fw_setenv awschannel xxxxxxxx
+	do_kvs_key_frome_fw_env
+	if [[ -n "$AWS_ACCESS_KEY_ID" ]]; then
+		echo $KVS_WEBRTC_BIN $AWS_CHANNEL_NAME
+		$KVS_WEBRTC_BIN $AWS_CHANNEL_NAME > /dev/null &
+	fi
+}
+
+# Step 1: Load video driver
+echo "[DEBUG] Load video driver begin"
+busybox modprobe otp_ep
+busybox modprobe mpp.ko
+echo "[DEBUG] Load video driver end"
+
+# Step 2: Start mpi_stream
+echo "[DEBUG] Start mpi_stream begin"
+/system/bin/mpi_stream -d /system/mpp/case_config/DBN101-1 > /dev/null &
+
+# Step 3: Start audio codec
+echo "[DEBUG] Start audio codec begin"
+do_audio_init
+do_audio_codec
+echo "[DEBUG] Start audio codec end"
+
+# Step 4: Start WiFi
+echo "[DEBUG] Start WiFi begin"
+do_wifi
+echo "[DEBUG] Start WiFi end"
+
+# Step 5: Start Amazon KVS WebRTC
+echo "[DEBUG] Load Amazon KVS WebRTC begin"
+do_kvs_webrtc &

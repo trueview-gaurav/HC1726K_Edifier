@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Audio AEC Setting of AGT001-28
+#
+
+REC_MIXER='Gain(In)'
+PLAYBACK_MIXER='Gain(Out)'
+
+case "$1" in
+	start)
+		echo "Set AGT001-28 settings"
+		# Audio settings
+		amixer sset $REC_MIXER 35
+		amixer sset $PLAYBACK_MIXER 30
+		amixer sset 'Analog Gain' 30
+		echo 'AEC 1 1388' > /proc/audio_dsp 
+		echo 'AEC1 1 C0 C1 0 400 40 40 2000 200 20 10 30 40 10 50 300 0' > /proc/audio_dsp
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?
+

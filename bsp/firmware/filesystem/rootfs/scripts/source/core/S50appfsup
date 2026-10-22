@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# Mount system partition
+mount_part()
+{
+	local partFstype=$1;
+	local partName=$2;
+	local mountPath=$3;
+	local flashType;
+	local fsmagic;
+	local partIndex;
+	
+	flashType=`cat /proc/cmdline  | sed -e "s/.*mtdparts=//g" -e "s/:.*//g"`
+
+	echo $flashType
+	echo $partName
+	
+	partIndex=`cat /proc/mtd | grep -e "${partName}" | sed -e "s/:.*//g" | cut -c 4-`
+	[ -z "${partIndex}" ] && return;
+	#wait mtd created.
+	trycount=0;
+	while [ true ] ; do if [ -e /dev/mtdblock${partIndex} ] ; then break; else let trycount++; fi; sleep 0.1; done;
+	echo -e "Tried $trycount times for mtdblock${partIndex}.";
+
+	sleep 0.1;
+
+	fsmagic=$(hexdump -e '/4 "%08X"' /dev/mtdblock${partIndex} -n 4);
+	if [ "$flashType" == "nor_flash" -a "$partFstype" == "auto" ] ; then
+		case "$fsmagic" in 
+		*1985)
+			# JFFS2
+			partFstype="jffs2";
+			;;
+		"28cd3d45")
+			# CRAMFS
+			partFstype="cramfs";
+			;;
+		"73717368")
+			# SQUASHFS
+			partFstype="squashfs";
+			;;
+		*)
+			# JFFS2
+			partFstype="jffs2";
+			;;
+		esac
+	elif [ "$flashType" == "sfc0_nand" -a "$partFstype" == "auto" ] ; then
+		case "$partName" in
+		"config"|"appfs"|"smart"|"else")
+			partFstype="ubifs";
+			;;
+		*)
+			partFstype="yaffs";
+			;;
+		esac
+	fi
+	
+	echo $partFstype
+
+	if [ "$partFstype" == "ubifs" ] ; then
+		local partName=$(cat /proc/mtd | grep "mtd${partIndex}" | cut -d ' ' -f 4)
+		local avlSize=$((((0x$(cat /proc/mtd | grep "mtd${partIndex}" | cut -d ' ' -f 2)/128/1024)-20)*124*1024))
+		ubiattach /dev/ubi_ctrl -m ${partIndex} -d ${partIndex};
+		[ -e /dev/ubi${partIndex}_0 ] || ubimkvol /dev/ubi${partIndex} -N ${partName} -s ${avlSize};
+		mount -t ${partFstype} /dev/ubi${partIndex}_0 ${mountPath} || mount -t yaffs /dev/mtdblock${partIndex} ${mountPath}
+	
+	else
+		mount -t ${partFstype} /dev/mtdblock${partIndex} ${mountPath};
+	fi
+}
+
+failure_save()
+{
+sleep 30;
+if [ ! -x /update/appinstall ] ; then
+	ifconfig eth0 | grep -q "inet addr"; ret=$?;
+	[ $ret -eq 0 ] || ifconfig eth0 192.168.1.188;
+	busybox telnetd;
+fi
+}
+
+echo "Starting up ........"
+
+mkdir -p /lib/modules/$(uname -r)
+
+[ -d /update ] || mkdir /update;
+mount_part auto appfs /update;
+cd /;
+update &
+chmod a+x /update/appinstall; /update/appinstall &
+
+failure_save &

@@ -1,0 +1,751 @@
+From 749e00d631b046e75e53a2238765b925d5e48846 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 21 Aug 2024 17:42:01 +0800
+Subject: [PATCH 51/54] Modify ncnn-optimal to ncnn-compact and add
+ ncnn-minimal
+
+---
+ src/CMakeLists.txt                            |  6 +-
+ src/layer/arm/convolution_arm.cpp             | 66 +++++++++++++++++--
+ src/layer/arm/convolutiondepthwise_arm.cpp    | 25 +++++++
+ src/layer/arm/innerproduct_arm.cpp            | 22 +++++++
+ src/layer/arm/pooling_arm.cpp                 | 19 +++++-
+ src/layer/convolution.cpp                     | 21 +++++-
+ src/layer/convolutiondepthwise.cpp            | 18 ++++-
+ src/layer/innerproduct.cpp                    | 10 +++
+ src/layer/pooling.cpp                         |  6 +-
+ src/platform.h.in                             |  1 +
+ ...ntix-linux-uclibcgnueabihf.toolchain.cmake | 28 ++++++++
+ 11 files changed, 209 insertions(+), 13 deletions(-)
+ create mode 100755 toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 3101fa21..d83acd4c 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -203,7 +203,11 @@ else()
+ endif()
+ 
+ if(NCNN_OPTIMAL)
+-    set_target_properties(ncnn PROPERTIES OUTPUT_NAME "ncnn-optim")
++    set_target_properties(ncnn PROPERTIES OUTPUT_NAME "ncnn-minimal")
++endif()
++
++if(NCNN_COMPACT)
++    set_target_properties(ncnn PROPERTIES OUTPUT_NAME "ncnn-compact")
+ endif()
+ 
+ include(GenerateExportHeader)
+diff --git a/src/layer/arm/convolution_arm.cpp b/src/layer/arm/convolution_arm.cpp
+index 046876ec..208021dd 100644
+--- a/src/layer/arm/convolution_arm.cpp
++++ b/src/layer/arm/convolution_arm.cpp
+@@ -28,14 +28,19 @@
+ namespace ncnn {
+ 
+ #include "convolution_1x1.h"
+-#include "convolution_2x2.h"
+ #include "convolution_3x3.h"
++#if NCNN_OPTIMAL == 0
++#include "convolution_2x2.h"
+ #include "convolution_4x4.h"
+ #include "convolution_5x5.h"
+ #include "convolution_7x7.h"
++#endif // NCNN_OPTIMAL
+ 
++
++#if NCNN_OPTIMAL == 0
+ #include "convolution_packed.h"
+ #include "convolution_3x3_winograd.h"
++#endif // NCNN_OPTIMAL
+ #include "convolution_im2col_gemm.h"
+ 
+ #if NCNN_BF16
+@@ -48,20 +53,26 @@ namespace ncnn {
+ #endif // NCNN_BF16
+ 
+ #if NCNN_INT8
++#if NCNN_OPTIMAL == 0
+ #include "convolution_packed_int8.h"
+-#include "convolution_im2col_gemm_int8.h"
+ #include "convolution_3x3_winograd_int8.h"
++#endif // NCNN_OPTIMAL
++#include "convolution_im2col_gemm_int8.h"
++
+ 
+ // #include "convolution_3x3_int8.h"
+ #endif // NCNN_INT8
+ 
+ #if __ARM_NEON
+-#include "convolution_3x3_pack1to4.h"
++
+ #include "convolution_3x3_pack4.h"
++
++#if NCNN_OPTIMAL == 0
++#include "convolution_3x3_pack1to4.h"
+ #include "convolution_3x3_pack4to1.h"
+ #include "convolution_5x5_pack4.h"
+ #include "convolution_7x7_pack1to4.h"
+-
++#endif // NCNN_OPTIMAL
+ #if NCNN_BF16
+ #include "convolution_3x3_pack1to4_bf16s.h"
+ #include "convolution_3x3_pack4_bf16s.h"
+@@ -212,6 +223,10 @@ int Convolution_arm::create_pipeline(const Option& opt)
+ 
+     if (opt.use_winograd_convolution && prefer_winograd && kernel_w == 3 && kernel_h == 3 && dilation_w == 1 && dilation_h == 1 && stride_w == 1 && stride_h == 1)
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+         // dynamic shape
+         if (opt.use_winograd63_convolution && (num_input <= 128 && num_output <= 128))
+             conv3x3s1_winograd63_transform_kernel(weight_data, weight_winograd63_data, num_input, num_output, opt);
+@@ -219,7 +234,7 @@ int Convolution_arm::create_pipeline(const Option& opt)
+             conv3x3s1_winograd43_transform_kernel(weight_data, weight_winograd43_data, num_input, num_output, opt);
+         else
+             conv3x3s1_winograd23_transform_kernel(weight_data, weight_winograd23_data, num_input, num_output, opt);
+-
++#endif // NCNN_OPTIMAL
+         if (opt.lightmode)
+         {
+             weight_data.release();
+@@ -275,6 +290,10 @@ int Convolution_arm::create_pipeline(const Option& opt)
+         return 0;
+     }
+ 
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     if ((elempack == 4 && out_elempack == 4 && kernel_w == 3 && kernel_h == 3 && dilation_w == 1 && dilation_h == 1 && stride_w == 2 && stride_h == 2)
+             || (elempack == 4 && out_elempack == 4 && kernel_w == 5 && kernel_h == 5 && dilation_w == 1 && dilation_h == 1 && stride_w == 1 && stride_h == 1)
+             || (elempack == 4 && out_elempack == 4 && kernel_w == 5 && kernel_h == 5 && dilation_w == 1 && dilation_h == 1 && stride_w == 2 && stride_h == 2)
+@@ -309,6 +328,7 @@ int Convolution_arm::create_pipeline(const Option& opt)
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int Convolution_arm::destroy_pipeline(const Option& opt)
+@@ -339,6 +359,10 @@ int Convolution_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option
+     }
+ #endif
+ 
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     // flattened blob, implement as InnerProduct
+     if (bottom_blob.dims == 1 && kernel_w == 1 && kernel_h == 1)
+     {
+@@ -723,6 +747,7 @@ int Convolution_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int Convolution_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+@@ -1247,10 +1272,15 @@ int Convolution_arm::create_pipeline_int8_arm(const Option& opt)
+ 
+     if (opt.use_winograd_convolution && prefer_winograd)
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+         if (opt.use_winograd43_convolution)
+             conv3x3s1_winograd43_transform_kernel_int8(weight_data, weight_winograd43_data, num_input, num_output, opt);
+         else
+             conv3x3s1_winograd23_transform_kernel_int8(weight_data, weight_winograd23_data, num_input, num_output, opt);
++#endif // NCNN_OPTIMAL
+     }
+     else if (opt.use_sgemm_convolution)
+     {
+@@ -1258,7 +1288,12 @@ int Convolution_arm::create_pipeline_int8_arm(const Option& opt)
+     }
+     else
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+         convolution_transform_kernel_packed_int8(weight_data, weight_data_tm, num_input, num_output, kernel_w, kernel_h);
++#endif // NCNN_OPTIMAL
+     }
+ 
+     scale_in_data.create(num_output);
+@@ -1368,10 +1403,17 @@ int Convolution_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, con
+ 
+     if (opt.use_winograd_convolution && prefer_winograd)
+     {
+-        if (opt.use_winograd43_convolution && !weight_winograd43_data.empty())
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
++        if (opt.use_winograd43_convolution && !weight_winograd43_data.empty()) {
+             conv3x3s1_winograd43_int8(bottom_blob_bordered, top_blob_int32, weight_winograd43_data, _nT, opt);
+-        else
++        }
++        else{
+             conv3x3s1_winograd23_int8(bottom_blob_bordered, top_blob_int32, weight_winograd23_data, _nT, opt);
++        }
++#endif // NCNN_OPTIMAL
+     }
+     else if (opt.use_sgemm_convolution)
+     {
+@@ -1379,7 +1421,12 @@ int Convolution_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, con
+     }
+     else
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+         convolution_packed_int8(bottom_blob_bordered, top_blob_int32, weight_data_tm, kernel_w, kernel_h, dilation_w, dilation_h, stride_w, stride_h, opt);
++#endif // NCNN_OPTIMAL
+     }
+ 
+     bottom_blob_bordered.release();
+@@ -1408,6 +1455,10 @@ int Convolution_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, con
+ 
+ int Convolution_arm::forwardDilation_arm(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     int w = bottom_blob.w;
+     int h = bottom_blob.h;
+     size_t elemsize = bottom_blob.elemsize;
+@@ -1488,6 +1539,7 @@ int Convolution_arm::forwardDilation_arm(const Mat& bottom_blob, Mat& top_blob,
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ } // namespace ncnn
+diff --git a/src/layer/arm/convolutiondepthwise_arm.cpp b/src/layer/arm/convolutiondepthwise_arm.cpp
+index d9339b44..e04b73f1 100644
+--- a/src/layer/arm/convolutiondepthwise_arm.cpp
++++ b/src/layer/arm/convolutiondepthwise_arm.cpp
+@@ -27,7 +27,9 @@
+ namespace ncnn {
+ 
+ #include "convolutiondepthwise_3x3.h"
++#if NCNN_OPTIMAL == 0
+ #include "convolutiondepthwise_5x5.h"
++#endif // NCNN_OPTIMAL
+ 
+ #if NCNN_INT8
+ #include "convolutiondepthwise_3x3_int8.h"
+@@ -35,7 +37,9 @@ namespace ncnn {
+ 
+ #if __ARM_NEON
+ #include "convolutiondepthwise_3x3_pack4.h"
++#if NCNN_OPTIMAL == 0
+ #include "convolutiondepthwise_5x5_pack4.h"
++#endif // NCNN_OPTIMAL
+ 
+ #if NCNN_BF16
+ #include "convolutiondepthwise_3x3_pack4_bf16s.h"
+@@ -304,6 +308,11 @@ int ConvolutionDepthWise_arm::forward(const Mat& bottom_blob, Mat& top_blob, con
+     }
+ #endif
+ 
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
++
+     int elembits = bottom_blob.elembits();
+ 
+ #if NCNN_ARM82
+@@ -572,10 +581,15 @@ int ConvolutionDepthWise_arm::forward(const Mat& bottom_blob, Mat& top_blob, con
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int ConvolutionDepthWise_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     const Mat& bottom_blob = bottom_blobs[0];
+     const Mat& _weight_data = bottom_blobs[1];
+     Mat& top_blob = top_blobs[0];
+@@ -681,6 +695,7 @@ int ConvolutionDepthWise_arm::forward(const std::vector<Mat>& bottom_blobs, std:
+     delete op;
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ #if NCNN_BF16
+@@ -1194,6 +1209,10 @@ int ConvolutionDepthWise_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_
+             }
+             else
+             {
++#if NCNN_OPTIMAL
++                NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++                return -1;
++#else
+                 const int maxk = kernel_w * kernel_h;
+ 
+                 // kernel offsets
+@@ -1290,12 +1309,17 @@ int ConvolutionDepthWise_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_
+                         }
+                     }
+                 }
++#endif // NCNN_OPTIMAL
+             }
+         }
+ #endif // __ARM_NEON
+ 
+         if (elempack == 1)
+         {
++#if NCNN_OPTIMAL
++            NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++            return -1;
++#else
+             if (kernel_w == 3 && kernel_h == 3 && dilation_w == 1 && dilation_h == 1 && stride_w == 1 && stride_h == 1 && (activation_type == 0 || activation_type == 1))
+             {
+                 if (use_int8_requantize)
+@@ -1477,6 +1501,7 @@ int ConvolutionDepthWise_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_
+                     }
+                 }
+             }
++#endif // NCNN_OPTIMAL
+         }
+ 
+         return 0;
+diff --git a/src/layer/arm/innerproduct_arm.cpp b/src/layer/arm/innerproduct_arm.cpp
+index 6a63b209..ad43e072 100644
+--- a/src/layer/arm/innerproduct_arm.cpp
++++ b/src/layer/arm/innerproduct_arm.cpp
+@@ -62,6 +62,10 @@ int InnerProduct_arm::create_pipeline(const Option& opt)
+     }
+ #endif
+ 
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+ #if NCNN_ARM82
+     if (support_fp16_storage && opt.use_fp16_storage)
+     {
+@@ -128,6 +132,7 @@ int InnerProduct_arm::create_pipeline(const Option& opt)
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int InnerProduct_arm::destroy_pipeline(const Option& opt)
+@@ -153,6 +158,10 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
+ 
+     int elembits = bottom_blob.elembits();
+ 
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+ #if NCNN_ARM82
+     if (support_fp16_storage && opt.use_fp16_storage && elembits == 16)
+     {
+@@ -841,6 +850,7 @@ int InnerProduct_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Optio
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ #if NCNN_BF16
+@@ -1297,6 +1307,10 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+ 
+     if (bottom_blob_int8.dims == 2 && bottom_blob_int8.w == num_input)
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++            return -1;
++#else
+         // gemm
+         Mat bottom_blob_int8_unpacked;
+         Option opt_unpack = opt;
+@@ -1450,6 +1464,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+ 
+         if (num_output_elempack == 1 && out_elempack == 4)
+         {
++            NCNN_LOGE("num_output_elempack == 1 && out_elempack == 4");
+             #pragma omp parallel for num_threads(opt.num_threads)
+             for (int j = 0; j < outh; j++)
+             {
+@@ -1635,6 +1650,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+ 
+         if (num_output_elempack == 1 && out_elempack == 1)
+         {
++            NCNN_LOGE("num_output_elempack == 1 && out_elempack == 1");
+             #pragma omp parallel for num_threads(opt.num_threads)
+             for (int j = 0; j < outh; j++)
+             {
+@@ -1691,6 +1707,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+         }
+ 
+         return 0;
++#endif // NCNN_OPTIMAL
+     }
+ 
+     Mat bottom_blob_int8_flattened = bottom_blob_int8;
+@@ -1718,6 +1735,10 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+ #if __ARM_NEON
+     if (out_elempack == 8)
+     {
++#if NCNN_OPTIMAL
++            NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++            return -1;
++#else
+         // num_output
+         #pragma omp parallel for num_threads(opt.num_threads)
+         for (int p = 0; p < num_output / out_elempack; p++)
+@@ -1787,6 +1808,7 @@ int InnerProduct_arm::forward_int8_arm(const Mat& bottom_blob, Mat& top_blob, co
+             vst1q_f32(outptr, _sumfp32_0);
+             vst1q_f32(outptr + 4, _sumfp32_1);
+         }
++#endif // NCNN_OPTIMAL
+     }
+ #endif // __ARM_NEON
+ 
+diff --git a/src/layer/arm/pooling_arm.cpp b/src/layer/arm/pooling_arm.cpp
+index 37265821..44e84881 100644
+--- a/src/layer/arm/pooling_arm.cpp
++++ b/src/layer/arm/pooling_arm.cpp
+@@ -26,14 +26,18 @@
+ 
+ namespace ncnn {
+ 
++#if NCNN_OPTIMAL == 0
+ #include "pooling_2x2.h"
++#endif // NCNN_OPTIMAL
+ #include "pooling_3x3.h"
+ 
+ #if __ARM_NEON
++#if NCNN_OPTIMAL == 0
+ #include "pooling_2x2_pack4.h"
+-#include "pooling_3x3_pack4.h"
+ #include "pooling_2x2_pack4_bf16s.h"
++#include "pooling_3x3_pack4.h"
+ #include "pooling_3x3_pack4_bf16s.h"
++#endif // NCNN_OPTIMAL
+ #include "pooling_3x3_pack8_int8.h"
+ #endif
+ 
+@@ -128,6 +132,10 @@ int Pooling_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+     }
+     if (elempack == 4)
+     {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+         if (global_pooling)
+         {
+             top_blob.create(channels, elemsize, elempack, opt.blob_allocator);
+@@ -360,6 +368,7 @@ int Pooling_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+         }
+ 
+         return 0;
++#endif // NCNN_OPTIMAL
+     }
+ #endif // __ARM_NEON
+ 
+@@ -396,8 +405,14 @@ int Pooling_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+     if (top_blob.empty())
+         return -100;
+ 
+-    if (kernel_size == 2)
++    if (kernel_size == 2) {
++#if NCNN_OPTIMAL
++        NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+         pooling2x2s2_max_neon(bottom_blob_bordered, top_blob, opt);
++#endif
++    }
+     if (kernel_size == 3)
+         pooling3x3s2_max_neon(bottom_blob_bordered, top_blob, opt);
+ 
+diff --git a/src/layer/convolution.cpp b/src/layer/convolution.cpp
+index 4acf9186..80226400 100644
+--- a/src/layer/convolution.cpp
++++ b/src/layer/convolution.cpp
+@@ -132,6 +132,10 @@ int Convolution::create_pipeline(const Option& opt)
+ 
+ static int convolution(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_data, const Mat& bias_data, int kernel_w, int kernel_h, int stride_w, int stride_h, int dilation_w, int dilation_h, int activation_type, const Mat& activation_params, const Option& opt)
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     const int w = bottom_blob.w;
+     const int inch = bottom_blob.c;
+ 
+@@ -201,17 +205,21 @@ static int convolution(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+ #if NCNN_INT8
+     if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
+     {
+         return forward_int8(bottom_blob, top_blob, opt);
+     }
+ #endif
+-
+     // flattened blob, implement as InnerProduct
+     if (bottom_blob.dims == 1 && kernel_w == 1 && kernel_h == 1)
+     {
+@@ -284,10 +292,15 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob, const Option& op
+         return ret;
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int Convolution::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     const Mat& bottom_blob = bottom_blobs[0];
+     const Mat& _weight_data = bottom_blobs[1];
+     Mat& top_blob = top_blobs[0];
+@@ -334,6 +347,7 @@ int Convolution::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>&
+         return ret;
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ void Convolution::make_padding(const Mat& bottom_blob, Mat& bottom_blob_bordered, const Option& opt) const
+@@ -393,6 +407,10 @@ static inline signed char float2int8(float v)
+ 
+ int Convolution::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     int w = bottom_blob.w;
+     int h = bottom_blob.h;
+     int channels = bottom_blob.c;
+@@ -514,6 +532,7 @@ int Convolution::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Optio
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ #endif // NCNN_INT8
+ 
+diff --git a/src/layer/convolutiondepthwise.cpp b/src/layer/convolutiondepthwise.cpp
+index e820a192..567ba520 100644
+--- a/src/layer/convolutiondepthwise.cpp
++++ b/src/layer/convolutiondepthwise.cpp
+@@ -160,6 +160,7 @@ int ConvolutionDepthWise::create_pipeline(const Option& opt)
+     return 0;
+ }
+ 
++#if NCNN_OPTIMAL == 0
+ static int convolutiondepthwise(const Mat& bottom_blob, Mat& top_blob, const Mat& weight_data, const Mat& bias_data, int kernel_w, int kernel_h, int stride_w, int stride_h, int dilation_w, int dilation_h, int group, int activation_type, const Mat& activation_params, const Option& opt)
+ {
+     const int w = bottom_blob.w;
+@@ -286,12 +287,16 @@ static int convolutiondepthwise(const Mat& bottom_blob, Mat& top_blob, const Mat
+ 
+     return 0;
+ }
++#endif
+ 
+ int ConvolutionDepthWise::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
+     // convolv with NxN kernel
+     // value = value + bias
+-
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+ #if NCNN_INT8
+     if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
+     {
+@@ -325,10 +330,15 @@ int ConvolutionDepthWise::forward(const Mat& bottom_blob, Mat& top_blob, const O
+         return ret;
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ int ConvolutionDepthWise::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     const Mat& bottom_blob = bottom_blobs[0];
+     const Mat& _weight_data = bottom_blobs[1];
+     Mat& top_blob = top_blobs[0];
+@@ -375,6 +385,7 @@ int ConvolutionDepthWise::forward(const std::vector<Mat>& bottom_blobs, std::vec
+         return ret;
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ void ConvolutionDepthWise::make_padding(const Mat& bottom_blob, Mat& bottom_blob_bordered, const Option& opt) const
+@@ -434,6 +445,10 @@ static inline signed char float2int8(float v)
+ 
+ int ConvolutionDepthWise::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     // convolv with NxN kernel
+     // value = value + bias
+ 
+@@ -648,6 +663,7 @@ int ConvolutionDepthWise::forward_int8(const Mat& bottom_blob, Mat& top_blob, co
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ #endif // NCNN_INT8
+ 
+diff --git a/src/layer/innerproduct.cpp b/src/layer/innerproduct.cpp
+index 4cc22981..b4de7073 100644
+--- a/src/layer/innerproduct.cpp
++++ b/src/layer/innerproduct.cpp
+@@ -100,6 +100,10 @@ int InnerProduct::create_pipeline(const Option& opt)
+ 
+ int InnerProduct::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+ #if NCNN_INT8
+     if (opt.use_int8_inference && weight_data.elemsize == (size_t)1u)
+     {
+@@ -178,11 +182,16 @@ int InnerProduct::forward(const Mat& bottom_blob, Mat& top_blob, const Option& o
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ #if NCNN_INT8
+ int InnerProduct::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const
+ {
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++    return -1;
++#else
+     const int num_input = weight_data_size / num_output;
+ 
+     int w = bottom_blob.w;
+@@ -283,6 +292,7 @@ int InnerProduct::forward_int8(const Mat& bottom_blob, Mat& top_blob, const Opti
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ #endif // NCNN_INT8
+ 
+diff --git a/src/layer/pooling.cpp b/src/layer/pooling.cpp
+index 8c8b33f0..c9885950 100644
+--- a/src/layer/pooling.cpp
++++ b/src/layer/pooling.cpp
+@@ -51,7 +51,10 @@ int Pooling::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) c
+ {
+     // max value in NxN window
+     // avg value in NxN window
+-
++#if NCNN_OPTIMAL
++    NCNN_LOGE("please build ncnn without NCNN_OPTIM");
++        return -1;
++#else
+     int w = bottom_blob.w;
+     int h = bottom_blob.h;
+     int channels = bottom_blob.c;
+@@ -356,6 +359,7 @@ int Pooling::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) c
+     }
+ 
+     return 0;
++#endif // NCNN_OPTIMAL
+ }
+ 
+ void Pooling::make_padding(const Mat& bottom_blob, Mat& bottom_blob_bordered, const Option& opt) const
+diff --git a/src/platform.h.in b/src/platform.h.in
+index a0f17f39..c85f7cba 100644
+--- a/src/platform.h.in
++++ b/src/platform.h.in
+@@ -62,6 +62,7 @@
+ #cmakedefine01 NCNN_INT8
+ #cmakedefine01 NCNN_BF16
+ #cmakedefine01 NCNN_FORCE_INLINE
++#cmakedefine01 NCNN_OPTIMAL
+ 
+ #cmakedefine NCNN_VERSION_STRING "@NCNN_VERSION_STRING@"
+ 
+diff --git a/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake b/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
+new file mode 100755
+index 00000000..2ffe7199
+--- /dev/null
++++ b/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
+@@ -0,0 +1,28 @@
++set(CMAKE_SYSTEM_NAME Linux)
++set(CMAKE_SYSTEM_PROCESSOR arm)
++
++set(CMAKE_C_COMPILER "arm-augentix-linux-uclibcgnueabihf-gcc")
++set(CMAKE_CXX_COMPILER "arm-augentix-linux-uclibcgnueabihf-g++")
++
++set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
++
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
++    set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
++endif()
++if(NOT CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
++    set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
++endif()
++
++set(CMAKE_C_FLAGS "-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard" CACHE STRING "c flags")
++set(CMAKE_CXX_FLAGS "-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard" CACHE STRING "c++ flags")
++# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -fno-stack-protector -nostdinc++ -lc")
++
++# cache flags
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" CACHE STRING "c++ flags")
+-- 
+2.47.1
+

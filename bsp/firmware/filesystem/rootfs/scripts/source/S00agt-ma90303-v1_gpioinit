@@ -1,0 +1,74 @@
+#!/bin/sh -f
+
+boot_time_update_flag="/tmp/bt_update"
+
+# export_gpio(): export GPIO pin
+export_gpio() {
+	echo $1 > /sys/class/gpio/export
+}
+
+# unexport_gpio(): unexport GPIO pin
+unexport_gpio() {
+	echo $1 > /sys/class/gpio/unexport
+}
+
+# set_gpio(): GPIO setting function
+set_gpio() {
+	GPIO_ID=$1
+	DIRECTION=$2
+	VALUE=$3
+
+	export_gpio $GPIO_ID
+
+	if [ $DIRECTION = "out" ]; then
+		echo "out" > /sys/class/gpio/gpio$GPIO_ID/direction
+		if [ ! $VALUE ]; then # Output level not specified
+			echo "GPIO output level not specified!"
+			exit 1;
+		elif [ $VALUE = "1" ]; then # HIGH
+			echo 1 > /sys/class/gpio/gpio$GPIO_ID/value
+		elif [ $VALUE = "0" ]; then # LOW
+			echo 0 > /sys/class/gpio/gpio$GPIO_ID/value
+		else #INVALID
+			echo "Invalid GPIO value!"
+			exit 1;
+		fi
+	elif [ $DIRECTION = "in" ]; then
+		echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	fi
+
+    unexport_gpio $GPIO_ID
+}
+
+get_gpio() {
+	GPIO_ID=$1
+	v=0
+	export_gpio $GPIO_ID
+
+	echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	v=$(cat /sys/class/gpio/gpio$GPIO_ID/value)
+    unexport_gpio $GPIO_ID
+	return $v
+}
+
+# Switch to GPIO function: GPIO 0, 1, 2, 3, 5
+# GPIO 2, 3 was also set in U-Boot stage for Boot-up LED signal
+devmem 0x80000000 32 0x0
+devmem 0x80000005 8 0x0
+
+# IR cut pins: disabled
+set_gpio 10 "out" 0
+set_gpio 11 "out" 0
+
+# WIFI_EN: enabled
+set_gpio 57 "out" 1
+
+# Pull up reset key
+devmem 0x80000082 8 0x05
+
+# If pressed, enter update mode later
+get_gpio 12
+value=$?
+if [ "$value" == "0" ]; then
+	touch $boot_time_update_flag
+fi

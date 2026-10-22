@@ -1,0 +1,50 @@
+#!/bin/sh
+
+do_mpi_stream() {
+	modprobe otp_ep || return 1
+	modprobe mpp || return 1
+	modprobe sensor || return 1
+	sh /system/mpp/script/sensor_power_on_sc2336.sh
+	
+	case_config=/system/mpp/case_config/DFN202-113002
+	signal_file="/run/mpi_stream.pid"
+
+	# Check if mpi_stream is running
+	if [ -f "$signal_file" ]; then
+		old_pid=$(cat "$signal_file" 2>/dev/null)
+		if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+			return 0
+		fi
+	fi
+
+	# Remove old signal file and start to stream
+	rm -f "$signal_file"
+	/system/bin/mpi_stream -d "$case_config" >/dev/null &
+	pid=$!
+
+	busybox modprobe audio_pcm.ko
+	busybox modprobe audio_machine.ko
+	# Wait for the signal file with a maximum of 20 retries
+	retry=20
+	timeout_sec=0.1
+	while [ $retry -gt 0 ]; do
+		[ -f "$signal_file" ] && return 0
+		kill -0 "$pid" 2>/dev/null || return 1
+		sleep "$timeout_sec"
+		retry=$((retry - 1))
+	done
+
+	return 1
+}
+
+do_od() {
+	sleep 2
+	od_config=/system/mpp/od_config/od_conf.json
+	/system/bin/od_demo -i "$od_config" >/dev/null &
+
+	sleep 2
+	/system/bin/cmdsender --od 0 0 0 59 63 25 254 0 50 50 640 360 1 >/dev/null || return 0
+}
+
+do_mpi_stream
+do_od

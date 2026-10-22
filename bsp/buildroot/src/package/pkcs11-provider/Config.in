@@ -1,0 +1,11 @@
+config BR2_PACKAGE_PKCS11_PROVIDER
+	bool "pkcs11-provider"
+	depends on !BR2_STATIC_LIBS # dlfcn.h
+	select BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_HOST_MESON
+	select BR2_PACKAGE_HOST_NINJA
+	help
+	  https://github.com/OpenSC/pkcs11-helper
+
+comment "pkcs11-helper needs a toolchain w/ dynamic library"
+	depends on BR2_STATIC_LIBS

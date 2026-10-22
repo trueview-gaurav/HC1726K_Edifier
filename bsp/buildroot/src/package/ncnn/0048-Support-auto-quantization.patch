@@ -1,0 +1,250 @@
+From 1570c14e009ce7ff2c6d1189617d293a895ea77d Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Tue, 4 Jun 2024 18:06:23 +0800
+Subject: [PATCH 48/54] Support auto quantization
+
+---
+ tools/quantize/ncnn2int8.cpp | 119 ++++++++++++++++++-----------------
+ 1 file changed, 60 insertions(+), 59 deletions(-)
+
+diff --git a/tools/quantize/ncnn2int8.cpp b/tools/quantize/ncnn2int8.cpp
+index e5782aa9..eaa7a483 100644
+--- a/tools/quantize/ncnn2int8.cpp
++++ b/tools/quantize/ncnn2int8.cpp
+@@ -21,6 +21,7 @@
+ #include <map>
+ #include <set>
+ #include <vector>
++#include <queue>
+ 
+ // ncnn public header
+ #include "datareader.h"
+@@ -362,6 +363,8 @@ int NetQuantize::quantize_binaryop()
+ int NetQuantize::fuse_requantize()
+ {
+     const size_t layer_count = layers.size();
++
++    fprintf(stderr, "============ Start fusing adjacent ops ============\n");
+     for (size_t i = 0; i < layer_count; i++)
+     {
+         if (layers[i]->type != "Convolution" && layers[i]->type != "ConvolutionDepthWise" && layers[i]->type != "BinaryOp")
+@@ -404,7 +407,7 @@ int NetQuantize::fuse_requantize()
+ 
+ 
+         // fuse requantize
+-        fprintf(stderr, "tried to fuse %s %s\n", layers[i]->name.c_str(), layers[j]->name.c_str());
++//        fprintf(stderr, "tried to fuse %s %s\n", layers[i]->name.c_str(), layers[j]->name.c_str());
+ 
+         if (layers[i]->type == "Convolution" && layers[j]->type == "Convolution")
+         {
+@@ -515,80 +518,76 @@ int NetQuantize::fuse_requantize()
+             fprintf(stderr, "fuse_requantize %s %s %f\n", layers[i]->name.c_str(), layers[j]->name.c_str(), convolution1->top_blob_int8_scales[0]);
+         }
+     }
+-    fprintf(stderr, "Start fusing op with multiple layers \n");
++    fprintf(stderr, "============ Start fusing ops with multiple layers between ============\n");
+ 
+     for (size_t i = 0; i < layer_count; i++)
+     {
+         if (layers[i]->type != "Convolution" && layers[i]->type != "ConvolutionDepthWise" && layers[i]->type != "BinaryOp")
+             continue;
+ 
++        if (layers[i]->type == "BinaryOp") {
++            ncnn::BinaryOp* tempOp = (ncnn::BinaryOp*)layers[i];
++            if (tempOp->int8_scale_term !=2) continue; // skip
++        }
++
+         // Convolution/ConvolutionDepthWise/BinaryOp - (Pooling/ Split/ Concat/ ShuffleChannel/ Crop) * N - Convolution/ConvolutionDepthWise/BinaryOp
+         int top_blob_index = layers[i]->tops[0];
+-        fprintf(stderr, "On %s %d\n", layers[i]->name.c_str(), (int)i);
++        fprintf(stderr, "Checking %s ...\n", layers[i]->name.c_str());
+         size_t j = i + 1;
+ 
+         int bottom_blob_index = 0;
+-        while (j < layer_count)
+-        {
+-            if (layers[j]->type != "Pooling" && layers[j]->type != "Split" && layers[j]->type != "Concat" && layers[j]->type != "ShuffleChannel" && layers[j]->type != "Crop") {
+-                j++;
+-                continue;
+-            } // == Pooling || == Split .....
+-//            printf("%s %d\n", layers[j]->name.c_str(), (int)layers[j]->bottoms.size());
+ 
++        // ----------------------------------------
++
++        j = blobs[layers[i]->tops[0]].consumer;
++        if (layers[j]->type != "Pooling" && layers[j]->type != "Split" && layers[j]->type != "Concat" &&
++            layers[j]->type != "ShuffleChannel" && layers[j]->type != "Crop") {
++            continue;
++        }
++        std::queue<int> layerQueue;
++        layerQueue.push(j);
++
++        // Utilize BFS too find the last layer of DAG
++        int curLayerIdx;
++        int lastBlobIdx;
++        while (!layerQueue.empty()) {
++            curLayerIdx = layerQueue.front(); layerQueue.pop();
++            if (layers[curLayerIdx]->type == "Pooling" || layers[curLayerIdx]->type == "Split" || layers[curLayerIdx]->type == "Concat" ||
++                layers[curLayerIdx]->type == "ShuffleChannel" || layers[curLayerIdx]->type == "Crop") {
++                for (auto &top: layers[curLayerIdx]->tops) {
++                    if (top < blobs.size()){
++                        lastBlobIdx = top;
++                        layerQueue.push(blobs[top].consumer);
++                    }
++                }
++            }
++        }
++        j = curLayerIdx; // take the last one
++
++        if (j == layer_count)
++            continue;
++        if(layers[j]->type != "Convolution" && layers[j]->type != "ConvolutionDepthWise" && layers[j]->type != "BinaryOp"){
++//            printf("Something Wrong!!!\n");
++            continue;
++        }
++        if (layers[j]->type == "BinaryOp") { // find the bottom blob index that match lastBlobIdx;
+             bool is_any_bottom = false;
+             bottom_blob_index = 0;
+-            for(; bottom_blob_index<layers[j]->bottoms.size(); bottom_blob_index++){
+-                if(layers[j]->bottoms[bottom_blob_index] == top_blob_index){
++            for(; bottom_blob_index < layers[j]->bottoms.size(); bottom_blob_index++){
++                if(layers[j]->bottoms[bottom_blob_index] == lastBlobIdx){
+                     is_any_bottom = true;
+                     break;
+                 }
+             }
+             if(!is_any_bottom){
+-                j++;
+-                continue;
+-            }
+-
+-            if(layers[j]->type == "Pooling"){
+-                ncnn::Pooling* temp_layer = (ncnn::Pooling*)layers[j];
+-                top_blob_index = temp_layer->tops[0];
+-                printf("Find Pooling %d\n", (int)j);
+-            }else if(layers[j]->type == "Split"){
+-                ncnn::Split* temp_layer = (ncnn::Split*)layers[j];
+-                top_blob_index = temp_layer->tops[0];
+-                printf("Find Split %d\n", (int)j);
+-            }else if(layers[j]->type == "Concat"){
+-                ncnn::Concat* temp_layer = (ncnn::Concat*)layers[j];
+-                top_blob_index = temp_layer->tops[0];
+-                printf("Find Concat %d\n", (int)j);
+-            }else if(layers[j]->type == "ShuffleChannel"){
+-                ncnn::ShuffleChannel* temp_layer = (ncnn::ShuffleChannel*)layers[j];
+-                top_blob_index = temp_layer->tops[0];
+-                printf("Find ShuffleChannel %d\n", (int)j);
+-            }else if(layers[j]->type == "Crop"){
+-                ncnn::Crop* temp_layer = (ncnn::Crop*)layers[j];
+-                top_blob_index = temp_layer->tops[0];
+-                printf("Find Crop %d\n", (int)j);
+-            }
+-
+-            if (++j == layer_count){
+-                break;
+-            }
+-            if(layers[j]->type == "Convolution" || layers[j]->type == "ConvolutionDepthWise"|| layers[j]->type == "BinaryOp"){
+-                break;
++                printf("!!!!!!!!!! Something Wrong !!!!!!!!!!\n");
++            } else {
++                printf("Find match blob idx = %d\n", bottom_blob_index);
+             }
+         }
+ 
+-        if (j == layer_count)
+-            continue;
+-        if(layers[j]->type != "Convolution" && layers[j]->type != "ConvolutionDepthWise" && layers[j]->type != "BinaryOp"){
+-            printf("Something Wrong!!!\n");
+-            continue;
+-        }
+         // ---------------------------
+ 
+-//        j = blobs[split->tops[0]].consumer;
+-
+         // fuse requantize
+         if (layers[i]->type == "Convolution" && layers[j]->type == "Convolution")
+         {
+@@ -596,7 +595,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
+ 
+             if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
+-             continue;
++                continue;
+ 
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
+@@ -608,7 +607,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
+ 
+             if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
+-             continue;
++                continue;
+ 
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
+@@ -620,7 +619,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
+ 
+             if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
+-             continue;
++                continue;
+ 
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
+@@ -632,7 +631,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
+ 
+             if (convolution1->weight_data.elemsize != 1u || convolution2->weight_data.elemsize != 1u)
+-             continue;
++               continue;
+ 
+             convolution1->int8_scale_term += 100;
+             convolution1->top_blob_int8_scales = convolution2->bottom_blob_int8_scales;
+@@ -643,7 +642,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::ConvolutionDepthWise* convolution1 = (ncnn::ConvolutionDepthWise*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
+ 
+-            if (convolution1->weight_data.elemsize != 1u)
++            if (convolution1->weight_data.elemsize != 1u || convolution2->int8_scale_term !=2)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -655,7 +654,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::Convolution* convolution1 = (ncnn::Convolution*)layers[i];
+             ncnn::BinaryOp* convolution2 = (ncnn::BinaryOp*)layers[j];
+ 
+-            if (convolution1->weight_data.elemsize != 1u)
++            if (convolution1->weight_data.elemsize != 1u || convolution2->int8_scale_term !=2)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -679,7 +678,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::Convolution* convolution2 = (ncnn::Convolution*)layers[j];
+ 
+-            if (convolution2->weight_data.elemsize != 1u)
++            if (convolution1->int8_scale_term !=2 || convolution2->weight_data.elemsize != 1u)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -691,7 +690,7 @@ int NetQuantize::fuse_requantize()
+             ncnn::BinaryOp* convolution1 = (ncnn::BinaryOp*)layers[i];
+             ncnn::ConvolutionDepthWise* convolution2 = (ncnn::ConvolutionDepthWise*)layers[j];
+ 
+-            if (convolution2->weight_data.elemsize != 1u)
++            if (convolution1->int8_scale_term !=2 || convolution2->weight_data.elemsize != 1u)
+                 continue;
+ 
+             convolution1->int8_scale_term += 100;
+@@ -700,6 +699,8 @@ int NetQuantize::fuse_requantize()
+         }
+     }
+ 
++    fprintf(stderr, "============ Finished ============\n");
++
+     return 0;
+ }
+ 
+-- 
+2.47.1
+

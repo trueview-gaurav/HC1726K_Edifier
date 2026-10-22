@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  S00vbus4usbhost - USB VBUS workaround for USB host modes
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script sets VBUS workaround for USB.
+#  * Note that this script must be removed after USB driver is fixed.
+#  *
+#  * Author: ShihChieh Lin <shihchieh.lin@augentix.com>
+#
+
+VBUS_ID=6
+VBUS_IOMUX_ADDR=0x80000006
+VBUS_IOMUX_VALUE=0x02
+
+case "$1" in
+	start)
+		# Claim VBUS pin from GPIO subsystem
+		echo $VBUS_ID > /sys/class/gpio/export
+		# Overwrite VBUS IOMUX
+		devmem $VBUS_IOMUX_ADDR 8 $VBUS_IOMUX_VALUE
+	;;
+	stop|restart|reload)
+	;;
+	*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

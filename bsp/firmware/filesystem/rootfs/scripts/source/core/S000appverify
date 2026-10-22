@@ -1,0 +1,35 @@
+#!/bin/sh
+
+verify_tool=/system/bin/appverify
+pub_key=/usr/share/misc/app_pub_key.pem
+app_dir=/usrdata/secure_app
+ret=0
+
+fix_permission() {
+	chown -R root:root "$app_dir"
+	chmod 700 "$app_dir"
+}
+
+verify_or_die() {
+	"$verify_tool" "$pub_key" "$app_dir/mpi_stream" "$app_dir/mpi_stream.sig"
+	ret=$?
+	if [ ! $ret -eq 0 ]; then
+		echo "Application 'mpi_stream' verification failed."
+		halt
+		exit $ret
+	fi
+}
+
+case "$1" in
+	start)
+		fix_permission
+		verify_or_die
+	;;
+	stop|restart)
+		# Do nothing
+		exit 0
+	;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac

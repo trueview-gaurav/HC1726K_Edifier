@@ -1,0 +1,412 @@
+From fc88b85d5b2ca7d9961a6c644c1aa9208ef842b6 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Mon, 25 Dec 2023 12:19:28 +0800
+Subject: [PATCH 36/54] Add int8 support to binaryop
+
+---
+ src/layer/arm/binaryop_arm.cpp | 265 ++++++++++++++++++++++++++++++++-
+ src/layer/arm/binaryop_arm.h   |   3 +
+ src/layer/binaryop.cpp         |  27 ++++
+ src/layer/binaryop.h           |   9 +-
+ 4 files changed, 301 insertions(+), 3 deletions(-)
+
+diff --git a/src/layer/arm/binaryop_arm.cpp b/src/layer/arm/binaryop_arm.cpp
+index 55fb1659..e1ab7829 100644
+--- a/src/layer/arm/binaryop_arm.cpp
++++ b/src/layer/arm/binaryop_arm.cpp
+@@ -42,7 +42,7 @@ template<typename Op>
+ static void binary_op_vector_no_broadcast(const float* ptr, const float* ptr1, float* outptr, int size)
+ {
+     const Op op;
+-
++    NCNN_LOGE("binary_op_vector_no_broadcast");
+     int i = 0;
+ #if __ARM_NEON
+     for (; i + 3 < size; i += 4)
+@@ -352,6 +352,7 @@ static void binary_op_broadcast(const Mat& a, const Mat& b, Mat& c, int op_type,
+ 
+     if (a.dims == b.dims && a.w == b.w && a.h == b.h && a.d == b.d && a.c == b.c && a.elempack == b.elempack)
+     {
++        NCNN_LOGE("a shape == b shape");
+         return binary_op_no_broadcast(a, b, c, op_type, opt);
+     }
+ 
+@@ -436,7 +437,7 @@ static void binary_op_scalar_inplace(Mat& a, float b, int op_type, const Option&
+ {
+     const int channels = a.c;
+     const int size = a.w * a.h * a.d * a.elempack;
+-
++    NCNN_LOGE("binary_op_scalar_inplace");
+     #pragma omp parallel for num_threads(opt.num_threads)
+     for (int q = 0; q < channels; q++)
+     {
+@@ -463,6 +464,11 @@ int BinaryOp_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>
+ {
+     int elembits = std::max(bottom_blobs[0].elembits(), bottom_blobs[1].elembits());
+ 
++#if NCNN_INT8
++    if (opt.use_int8_inference && elembits == 8)
++        return forward_int8(bottom_blobs, top_blobs, opt);
++#endif
++
+ #if NCNN_ARM82
+     if (support_fp16_storage && opt.use_fp16_storage && elembits == 16)
+         return forward_fp16s(bottom_blobs, top_blobs, opt);
+@@ -473,6 +479,8 @@ int BinaryOp_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>
+         return forward_bf16s(bottom_blobs, top_blobs, opt);
+ #endif
+ 
++
++
+     const Mat& A = bottom_blobs[0];
+     const Mat& B = bottom_blobs[1];
+     const int outdims = std::max(A.dims, B.dims);
+@@ -639,6 +647,259 @@ int BinaryOp_arm::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
+     return 0;
+ }
+ 
++#if NCNN_INT8
++
++// round to nearest
++signed char float32_to_int8_(float value)
++{
++    float tmp;
++    if (value >= 0.f)
++        tmp = value + 0.5f;
++    else
++        tmp = value - 0.5f;
++
++    if (tmp > 127)
++        return 127;
++    if (tmp < -128)
++        return -128;
++
++    return static_cast<signed char>(tmp);
++}
++
++template<typename Op>
++static void binary_op_vector_no_broadcast_int8(const signed char* ptr, const signed char* ptr1, const float in_scale_1, const float in_scale_2, signed char* outptr, const float out_scale, int size)
++{
++    const Op op;
++
++    int i = 0;
++
++//    const float bottom_blob_int8_scale_1 = 1.2;
++//    const float bottom_blob_int8_scale_2 = 3.4;
++//    const float top_blob_int8_scale = 5.6;
++
++    NCNN_LOGE("ADD: inscale = %f %f outscale = %f", in_scale_1, in_scale_2, out_scale);
++
++#if __ARM_NEON
++    for (; i + 7 < size; i += 8)
++    {
++        int8x8_t origin_1 = vld1_s8(ptr);
++        int8x8_t origin_2 = vld1_s8(ptr1);
++        int16x8_t origin_1_s16 = vmovl_s8(origin_1);
++        int16x8_t origin_2_s16 = vmovl_s8(origin_2);
++
++        int32x4_t origin_1_s32_low = vmovl_s16(vget_low_s16(origin_1_s16));
++        int32x4_t origin_1_s32_high = vmovl_s16(vget_high_s16(origin_1_s16));
++        int32x4_t origin_2_s32_low = vmovl_s16(vget_low_s16(origin_2_s16));
++        int32x4_t origin_2_s32_high = vmovl_s16(vget_high_s16(origin_2_s16));
++        float32x4_t scaled_1_f32_low = vcvtq_f32_s32(origin_1_s32_low);
++        float32x4_t scaled_1_f32_high = vcvtq_f32_s32(origin_1_s32_high);
++        float32x4_t scaled_2_f32_low = vcvtq_f32_s32(origin_2_s32_low);
++        float32x4_t scaled_2_f32_high = vcvtq_f32_s32(origin_2_s32_high);
++
++        scaled_1_f32_low = vmulq_n_f32(scaled_1_f32_low, in_scale_1);
++        scaled_1_f32_high = vmulq_n_f32(scaled_1_f32_high, in_scale_1);
++        scaled_2_f32_low = vmulq_n_f32(scaled_2_f32_low, in_scale_2);
++        scaled_2_f32_high = vmulq_n_f32(scaled_2_f32_high, in_scale_2);
++
++        float32x4_t sum_low = op(scaled_1_f32_low, scaled_2_f32_low);
++        float32x4_t sum_high = op(scaled_1_f32_high, scaled_2_f32_high);
++
++        sum_low = vmulq_n_f32(sum_low, out_scale);
++        sum_high = vmulq_n_f32(sum_high, out_scale);
++
++        // vcvtq_s32_f32 is round to zero
++        // simulate round to nearest via +/-0.5
++        // int8x8_t _v = float2int8(_vlow, _vhigh);
++
++        float32x4_t _p5 = vdupq_n_f32(0.5f);
++        int32x4_t _signmask = vdupq_n_s32(1 << 31);
++        int32x4_t _signlow = vandq_s32(vreinterpretq_s32_f32(sum_low), _signmask);
++        int32x4_t _signhigh = vandq_s32(vreinterpretq_s32_f32(sum_high), _signmask);
++        float32x4_t _p5low = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(_p5), _signlow));
++        float32x4_t _p5high = vreinterpretq_f32_s32(vorrq_s32(vreinterpretq_s32_f32(_p5), _signhigh));
++        float32x4_t _vlow5 = vaddq_f32(sum_low, _p5low);
++        float32x4_t _vhigh5 = vaddq_f32(sum_high, _p5high);
++        int32x4_t _vlow32 = vcvtq_s32_f32(_vlow5);
++        int32x4_t _vhigh32 = vcvtq_s32_f32(_vhigh5);
++        int16x8_t _v16 = vcombine_s16(vqmovn_s32(_vlow32), vqmovn_s32(_vhigh32));
++        int8x8_t _v8 = vqmovn_s16(_v16);
++
++        vst1_s8(outptr, vmax_s8(_v8, vdup_n_s8(-127)));
++        ptr += 8;
++        ptr1 += 8;
++        outptr += 8;
++    }
++#endif // __ARM_NEON
++    for (; i < size; i++)
++    {
++        float scaled_1 = (float) *ptr;
++        float scaled_2 = (float) *ptr1;
++        scaled_1 *= in_scale_1;
++        scaled_2 *= in_scale_2;
++        *outptr = float32_to_int8_(op(scaled_1, scaled_2)*out_scale);
++        ptr += 1;
++        ptr1 += 1;
++        outptr += 1;
++    }
++}
++
++template<typename Op>
++static void binary_op_vector_int8(const signed char* ptr, const signed char* ptr1, const float in_scale_1, const float in_scale_2, signed char* outptr, const float out_scale, int aw, int bw, int ap, int bp)
++{
++    const int w = std::max(aw, bw);
++    const int elempack = std::max(ap, bp);
++    const int size = w * elempack;
++
++    if (ap == bp)
++    {
++        if (aw == bw)
++        {
++            // no broadcast
++            return binary_op_vector_no_broadcast_int8<Op>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, size);
++        }
++
++        if (bw == 1)
++        {
++            NCNN_LOGE("NOT SUPPORT YET");
++            return;
++        }
++
++        if (aw == 1)
++        {
++            NCNN_LOGE("NOT SUPPORT YET");
++            return;
++        }
++    }
++
++    if (bp == 1)
++    {
++        NCNN_LOGE("NOT SUPPORT YET");
++        return;
++    }
++
++    // shall never reach here
++}
++
++static void binary_op_vector_int8(const signed char* ptr, const signed char* ptr1, const float in_scale_1, const float in_scale_2, signed char* outptr, const float out_scale, int aw, int bw, int ap, int bp, int op_type)
++{
++    using namespace BinaryOp_arm_functor;
++
++    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector_int8<binary_op_add>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector_int8<binary_op_sub>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector_int8<binary_op_mul>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector_int8<binary_op_div>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector_int8<binary_op_max>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector_int8<binary_op_min>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_POW) return binary_op_vector_int8<binary_op_pow>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector_int8<binary_op_rsub>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector_int8<binary_op_rdiv>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector_int8<binary_op_rpow>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector_int8<binary_op_atan2>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector_int8<binary_op_ratan2>(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, aw, bw, ap, bp);
++
++    // should never reach here
++}
++
++static void binary_op_no_broadcast_int8(const Mat& a, const Mat& b, const float in_scale_1, const float in_scale_2, Mat& c, const float out_scale, int op_type, const Option& opt)
++{
++    const int channels = a.c;
++    const int size = a.w * a.h * a.d * a.elempack;
++
++    #pragma omp parallel for num_threads(opt.num_threads)
++    for (int q = 0; q < channels; q++)
++    {
++        const signed char* ptr = a.channel(q);
++        const signed char* ptr1 = b.channel(q);
++        signed char* outptr = c.channel(q);
++
++        binary_op_vector_int8(ptr, ptr1, in_scale_1, in_scale_2, outptr, out_scale, size, size, 1, 1, op_type);
++    }
++}
++
++
++static void binary_op_broadcast_int8(const Mat& a, const Mat& b, const float in_scale_1, const float in_scale_2, Mat& c, const float out_scale, int op_type, const Option& opt)
++{
++    if (a.dims == b.dims && a.w == b.w && a.h == b.h && a.d == b.d && a.c == b.c && a.elempack == b.elempack)
++    {
++        return binary_op_no_broadcast_int8(a, b, in_scale_1, in_scale_2, c, out_scale, op_type, opt);
++    }
++
++    if (b.w * b.h * b.d * b.c * b.elempack == 1)
++    {
++        NCNN_LOGE("NOT SUPPORT YET");
++    }
++
++    NCNN_LOGE("NOT SUPPORT YET");
++}
++
++int BinaryOp_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
++{
++    const Mat& A = bottom_blobs[0];
++    const Mat& B = bottom_blobs[1];
++    const int outdims = std::max(A.dims, B.dims);
++
++    const float in_scale_1 = bottom_blob_int8_scales[0];
++    const float in_scale_2 = bottom_blob_int8_scales[1];
++    const float out_scale = top_blob_int8_scales[0];
++
++    Mat A2 = A;
++    Mat B2 = B;
++    if (A.dims < outdims)
++    {
++        NCNN_LOGE("NOT SUPPORT YET");
++        return -100;
++    }
++    if (B.dims < outdims)
++    {
++        NCNN_LOGE("NOT SUPPORT YET");
++        return -100;
++    }
++
++    const int outw = std::max(A2.w, B2.w);
++    const int outh = std::max(A2.h, B2.h);
++    const int outd = std::max(A2.d, B2.d);
++    const int outc = std::max(A2.c, B2.c);
++    const size_t out_elemsize = std::max(A2.elemsize, B2.elemsize);
++    const int out_elempack = std::max(A2.elempack, B2.elempack);
++
++    Mat& top_blob = top_blobs[0];
++    if (outdims == 1)
++    {
++        top_blob.create(outw, out_elemsize, out_elempack, opt.blob_allocator);
++    }
++    if (outdims == 2)
++    {
++        top_blob.create(outw, outh, out_elemsize, out_elempack, opt.blob_allocator);
++    }
++    if (outdims == 3)
++    {
++        top_blob.create(outw, outh, outc, out_elemsize, out_elempack, opt.blob_allocator);
++    }
++    if (outdims == 4)
++    {
++        top_blob.create(outw, outh, outd, outc, out_elemsize, out_elempack, opt.blob_allocator);
++    }
++    if (top_blob.empty())
++        return -100;
++
++    const bool a_pack_is_lower = A2.elempack < B2.elempack;
++    const bool a_pack_is_equal = A2.elempack == B2.elempack;
++    const bool a_size_is_lower = A2.w * A2.h * A2.d * A2.c * A2.elempack < B2.w * B2.h * B2.d * B2.c * B2.elempack;
++    if (a_pack_is_lower || (a_pack_is_equal && a_size_is_lower))
++    {
++        NCNN_LOGE("NOT SUPPORT YET");
++        return -100;
++    }
++    else
++    {
++        binary_op_broadcast_int8(A2, B2, in_scale_1, in_scale_2, top_blob, out_scale, op_type, opt);
++    }
++
++    return 0;
++}
++#endif // NCNN_INT8
++
++
+ #if NCNN_BF16
+ template<typename Op>
+ static void binary_op_vector_no_broadcast_bf16s(const unsigned short* ptr, const unsigned short* ptr1, unsigned short* outptr, int size)
+diff --git a/src/layer/arm/binaryop_arm.h b/src/layer/arm/binaryop_arm.h
+index 6bb95049..3d2d357f 100644
+--- a/src/layer/arm/binaryop_arm.h
++++ b/src/layer/arm/binaryop_arm.h
+@@ -33,6 +33,9 @@ protected:
+     int forward_fp16s(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
+     int forward_inplace_fp16s(Mat& bottom_top_blob, const Option& opt) const;
+ #endif
++#if NCNN_INT8
++        int forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
++#endif
+ #if NCNN_BF16
+     int forward_bf16s(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
+     int forward_inplace_bf16s(Mat& bottom_top_blob, const Option& opt) const;
+diff --git a/src/layer/binaryop.cpp b/src/layer/binaryop.cpp
+index 52d3d083..1619f702 100644
+--- a/src/layer/binaryop.cpp
++++ b/src/layer/binaryop.cpp
+@@ -27,6 +27,17 @@ int BinaryOp::load_param(const ParamDict& pd)
+     op_type = pd.get(0, 0);
+     with_scalar = pd.get(1, 0);
+     b = pd.get(2, 0.f);
++#if NCNN_INT8
++    int8_scale_term = pd.get(8, 0);
++    if (int8_scale_term==0)
++    {
++        NCNN_LOGE("int8_scale_term not found in param file");
++    }
++    else
++    {
++        NCNN_LOGE("int8_scale_term found in param file");
++    }
++#endif
+ 
+     if (with_scalar != 0)
+     {
+@@ -37,6 +48,22 @@ int BinaryOp::load_param(const ParamDict& pd)
+     return 0;
+ }
+ 
++#if NCNN_INT8
++int BinaryOp::load_model(const ModelBin& mb)
++{
++    if (int8_scale_term)
++    {
++        bottom_blob_int8_scales = mb.load(2, 1);
++    }
++
++    if (int8_scale_term > 100)
++    {
++        top_blob_int8_scales = mb.load(1, 1);
++    }
++
++    return 0;
++}
++#endif // NCNN_INT8
+ // broadcasting rule
+ // https://github.com/Tencent/ncnn/wiki/binaryop-broadcasting
+ 
+diff --git a/src/layer/binaryop.h b/src/layer/binaryop.h
+index 5fc06918..b96dd0c2 100644
+--- a/src/layer/binaryop.h
++++ b/src/layer/binaryop.h
+@@ -25,7 +25,9 @@ public:
+     BinaryOp();
+ 
+     virtual int load_param(const ParamDict& pd);
+-
++#if NCNN_INT8
++    virtual int load_model(const ModelBin& mb);
++#endif
+     using Layer::forward;
+     using Layer::forward_inplace;
+     virtual int forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const;
+@@ -53,6 +55,11 @@ public:
+     int op_type;
+     int with_scalar;
+     float b;
++#if NCNN_INT8
++    int int8_scale_term;
++    Mat bottom_blob_int8_scales;
++    Mat top_blob_int8_scales;
++#endif
+ };
+ 
+ } // namespace ncnn
+-- 
+2.47.1
+

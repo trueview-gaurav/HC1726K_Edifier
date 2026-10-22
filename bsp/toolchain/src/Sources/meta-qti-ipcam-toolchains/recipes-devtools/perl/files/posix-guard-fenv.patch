@@ -1,0 +1,18 @@
+--- a/ext/POSIX/POSIX.xs
++++ b/ext/POSIX/POSIX.xs
+@@ -35,7 +35,14 @@
+ #include <float.h>
+ #endif
+ #ifdef I_FENV
+-#include <fenv.h>
++/* uClibc-ng on some architectures (e.g. ARM) may not provide <fenv.h>. */
++#if defined(__has_include)
++#  if __has_include(<fenv.h>)
++#    include <fenv.h>
++#  endif
++#else
++/* If the header is unavailable, build without it. */
++#endif
+ #endif
+ #ifdef I_LIMITS
+ #include <limits.h>

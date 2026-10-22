@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Start/stop RTSP server
+#
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+
+case "$1" in
+  start)
+    echo "Starting RTSP server..."
+    agtx-rtsp-server &
+    ;;
+  stop)
+    printf "Stopping RTSP server..."
+    killall -9 agtx-rtsp-server
+    ;;
+  restart|reload)
+    "$0" stop
+    # wait for VB clean
+    sleep 3
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac

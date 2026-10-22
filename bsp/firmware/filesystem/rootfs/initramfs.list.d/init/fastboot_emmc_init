@@ -1,0 +1,27 @@
+#!/bin/sh
+
+mount -n -t proc proc /proc
+mount -n -t sysfs sysfs /sys
+mount -n -t devtmpfs devtmpfs /dev
+# prevent delay cause by crng init
+busybox rm /dev/urandom
+
+export LD_LIBRARY_PATH=/system/lib
+. /etc/fastboot_video start
+
+# Wait for enc done before switch_root
+sleep 0.5
+
+# bind script directory after mpi_stream for saving time
+rm -rf /system/mpp/script/*
+mount --bind /root/system/mpp/script /system/mpp/script
+
+# bind libgcc_s.so.1 for mpi_stream to read
+mount --bind /root/lib/ /lib/
+
+umount /proc
+busybox mknod /dev/urandom c 1 9
+mount -n -t devtmpfs devtmpfs /root/dev
+exec switch_root /root /sbin/init
+
+halt -f

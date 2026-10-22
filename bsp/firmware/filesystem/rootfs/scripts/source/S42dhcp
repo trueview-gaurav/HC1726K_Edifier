@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Start the dhcp ip mode....
+#
+
+
+case "$1" in
+  start)
+	printf "change to dhcp ip mode: "
+	sed -i 's/iface eth0 inet .*/iface eth0 inet dhcp/' /etc/network/interfaces
+	;;
+  stop)
+	printf "change to static ip mode: "
+	sed -i 's/iface eth0 inet .*/iface eth0 inet static/' /etc/network/interfaces
+	/sbin/ifdown -a
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	/sbin/ifup -a
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+

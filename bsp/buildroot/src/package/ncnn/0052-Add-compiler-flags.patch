@@ -1,0 +1,49 @@
+From f0502ebdec9f450f586c8b66a922b8249738c556 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Thu, 22 Aug 2024 17:19:54 +0800
+Subject: [PATCH 52/54] Add compiler flags
+
+---
+ .gitignore                                                  | 6 +++++-
+ .../arm-augentix-linux-uclibcgnueabihf.toolchain.cmake      | 2 +-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index aa8ea4dd..9bd409c3 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,6 +3,7 @@ build*/
+ 
+ # Backup files.
+ *~
++*.zip
+ 
+ # Prerequisites
+ *.d
+@@ -59,4 +60,7 @@ python/setup.py
+ .cache/
+ 
+ # Xmake
+-.xmake/
+\ No newline at end of file
++.xmake/
++
++# Git Patch
++*.patch
+\ No newline at end of file
+diff --git a/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake b/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
+index 2ffe7199..beadac35 100755
+--- a/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
++++ b/toolchains/arm-augentix-linux-uclibcgnueabihf.toolchain.cmake
+@@ -21,7 +21,7 @@ endif()
+ 
+ set(CMAKE_C_FLAGS "-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard" CACHE STRING "c flags")
+ set(CMAKE_CXX_FLAGS "-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard" CACHE STRING "c++ flags")
+-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -nodefaultlibs -fno-builtin -fno-stack-protector -nostdinc++ -lc")
++set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables")
+ 
+ # cache flags
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "c flags")
+-- 
+2.47.1
+

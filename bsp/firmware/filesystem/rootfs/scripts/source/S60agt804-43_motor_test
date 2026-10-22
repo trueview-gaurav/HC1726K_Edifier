@@ -1,0 +1,259 @@
+#!/bin/sh
+#
+# motor test
+#
+
+
+motor_vertical_rotation() {
+	echo "motor_vertical_rotation"
+	
+	for i in $(seq 1 20)
+	do 
+    	vertical_rotate_up
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	vertical_rotate_down
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	vertical_rotate_down
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	vertical_rotate_up
+	done
+}
+
+motor_horizontal_rotation() {
+	echo "motor_horizontal_rotation"
+	
+	for i in $(seq 1 20)
+	do 
+    	horizontal_forward
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	horizontal_inversion
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	horizontal_inversion
+	done
+
+	for i in $(seq 1 20)
+	do 
+    	horizontal_forward
+	done
+
+}
+
+horizontal_forward () {
+	horizontal_step1
+	sleep 0.001
+	horizontal_step2
+	sleep 0.001
+	horizontal_step3
+	sleep 0.001
+	horizontal_step4
+	sleep 0.001
+	horizontal_step5
+	sleep 0.001
+	horizontal_step6
+	sleep 0.001
+	horizontal_step7
+	sleep 0.001
+	horizontal_step8
+	sleep 0.001
+}
+
+horizontal_inversion () {
+	horizontal_step8
+	sleep 0.001
+	horizontal_step7
+	sleep 0.001
+	horizontal_step6
+	sleep 0.001
+	horizontal_step5
+	sleep 0.001
+	horizontal_step4
+	sleep 0.001
+	horizontal_step3
+	sleep 0.001
+	horizontal_step2
+	sleep 0.001
+	horizontal_step1
+	sleep 0.001
+}
+
+horizontal_step1() {
+	echo 0 > /sys/class/gpio/gpio23/value
+	echo 0 > /sys/class/gpio/gpio22/value
+	echo 0 > /sys/class/gpio/gpio66/value
+	echo 1 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step2() {
+	echo 0 > /sys/class/gpio/gpio23/value
+	echo 0 > /sys/class/gpio/gpio22/value
+	echo 1 > /sys/class/gpio/gpio66/value
+	echo 1 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step3() {
+	echo 0 > /sys/class/gpio/gpio23/value
+	echo 0 > /sys/class/gpio/gpio22/value
+	echo 1 > /sys/class/gpio/gpio66/value
+	echo 0 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step4() {
+	echo 0 > /sys/class/gpio/gpio23/value
+	echo 1 > /sys/class/gpio/gpio22/value
+	echo 1 > /sys/class/gpio/gpio66/value
+	echo 0 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step5() {
+	echo 0 > /sys/class/gpio/gpio23/value
+	echo 1 > /sys/class/gpio/gpio22/value
+	echo 0 > /sys/class/gpio/gpio66/value
+	echo 0 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step6() {
+	echo 1 > /sys/class/gpio/gpio23/value
+	echo 1 > /sys/class/gpio/gpio22/value
+	echo 0 > /sys/class/gpio/gpio66/value
+	echo 0 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step7() {
+	echo 1 > /sys/class/gpio/gpio23/value
+	echo 0 > /sys/class/gpio/gpio22/value
+	echo 0 > /sys/class/gpio/gpio66/value
+	echo 0 > /sys/class/gpio/gpio67/value
+}
+
+horizontal_step8() {
+	echo 1 > /sys/class/gpio/gpio23/value
+	echo 0 > /sys/class/gpio/gpio22/value
+	echo 0 > /sys/class/gpio/gpio66/value
+	echo 1 > /sys/class/gpio/gpio67/value
+}
+
+# 
+
+vertical_rotate_up() {
+	vertical_step1
+	sleep 0.001
+	vertical_step2
+	sleep 0.001
+	vertical_step3
+	sleep 0.001
+	vertical_step4
+	sleep 0.001
+	vertical_step5
+	sleep 0.001
+	vertical_step6
+	sleep 0.001
+	vertical_step7
+	sleep 0.001
+	vertical_step8
+	sleep 0.001
+}
+
+vertical_rotate_down() {
+	vertical_step8
+	sleep 0.001
+	vertical_step7
+	sleep 0.001
+	vertical_step6
+	sleep 0.001
+	vertical_step5
+	sleep 0.001
+	vertical_step4
+	sleep 0.001
+	vertical_step3
+	sleep 0.001
+	vertical_step2
+	sleep 0.001
+	vertical_step1
+	sleep 0.001
+}
+
+vertical_step1() {
+	echo 0 > /sys/class/gpio/gpio14/value
+	echo 0 > /sys/class/gpio/gpio15/value
+	echo 0 > /sys/class/gpio/gpio26/value
+	echo 1 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step2() {
+	echo 0 > /sys/class/gpio/gpio14/value
+	echo 0 > /sys/class/gpio/gpio15/value
+	echo 1 > /sys/class/gpio/gpio26/value
+	echo 1 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step3() {
+	echo 0 > /sys/class/gpio/gpio14/value
+	echo 0 > /sys/class/gpio/gpio15/value
+	echo 1 > /sys/class/gpio/gpio26/value
+	echo 0 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step4() {
+	echo 0 > /sys/class/gpio/gpio14/value
+	echo 1 > /sys/class/gpio/gpio15/value
+	echo 1 > /sys/class/gpio/gpio26/value
+	echo 0 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step5() {
+	echo 0 > /sys/class/gpio/gpio14/value
+	echo 1 > /sys/class/gpio/gpio15/value
+	echo 0 > /sys/class/gpio/gpio26/value
+	echo 0 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step6() {
+	echo 1 > /sys/class/gpio/gpio14/value
+	echo 1 > /sys/class/gpio/gpio15/value
+	echo 0 > /sys/class/gpio/gpio26/value
+	echo 0 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step7() {
+	echo 1 > /sys/class/gpio/gpio14/value
+	echo 0 > /sys/class/gpio/gpio15/value
+	echo 0 > /sys/class/gpio/gpio26/value
+	echo 0 > /sys/class/gpio/gpio27/value
+}
+
+vertical_step8() {
+	echo 1 > /sys/class/gpio/gpio14/value
+	echo 0 > /sys/class/gpio/gpio15/value
+	echo 0 > /sys/class/gpio/gpio26/value
+	echo 1 > /sys/class/gpio/gpio27/value
+}
+
+case "$1" in
+	start)
+		motor_horizontal_rotation
+		motor_vertical_rotation
+		echo "AGT804-43 motor test finish"
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?

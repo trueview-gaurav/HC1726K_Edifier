@@ -1,0 +1,68 @@
+From c862cb65f3338a2d3127cdc9628eaefe6fa8235a Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 13 Dec 2023 12:16:47 +0800
+Subject: [PATCH 30/54] Add shufflechannel pack8 int8
+
+---
+ src/layer/arm/shufflechannel_arm.cpp | 45 +++++++++++++++++++++++++++-
+ 1 file changed, 44 insertions(+), 1 deletion(-)
+
+diff --git a/src/layer/arm/shufflechannel_arm.cpp b/src/layer/arm/shufflechannel_arm.cpp
+index db6142b1..8f8061f0 100644
+--- a/src/layer/arm/shufflechannel_arm.cpp
++++ b/src/layer/arm/shufflechannel_arm.cpp
+@@ -64,7 +64,50 @@ int ShuffleChannel_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Opt
+     }
+ 
+ #if __ARM_NEON
+-    if (elempack == 4)
++    if (elempack == 8)
++    {
++        if (_group == 2  && channels % _group == 0)
++        {
++            int w = bottom_blob.w;
++            int h = bottom_blob.h;
++            int size = w * h;
++            size_t elemsize = bottom_blob.elemsize;
++
++            top_blob.create(w, h, channels, elemsize, elempack, opt.blob_allocator);
++            if (top_blob.empty())
++                return -100;
++
++            int channels_per_group = channels / _group;
++
++            for (int q = 0; q < channels_per_group; q++)
++            {
++                const signed char* ptr0 = bottom_blob.channel(q);
++                const signed char* ptr1 = bottom_blob.channel(channels_per_group + q);
++                signed char* outptr0 = top_blob.channel(q * 2);
++                signed char* outptr1 = top_blob.channel(q * 2 + 1);
++
++                for (int i = 0; i < size; i++)
++                {
++                    int8x8_t _p0 = vld1_s8(ptr0);
++                    int8x8_t _p1 = vld1_s8(ptr1);
++
++                    int8x8x2_t _p01 = vzip_s8(_p0, _p1);
++
++                    vst1_s8(outptr0, _p01.val[0]);
++                    vst1_s8(outptr1, _p01.val[1]);
++
++                    ptr0 += 8;
++                    ptr1 += 8;
++                    outptr0 += 8;
++                    outptr1 += 8;
++                }
++            }
++            return 0;
++        }else{
++            NCNN_LOGE("WARNING: NOT SUPPORT YET");
++        }
++    }
++    else if (elempack == 4)
+     {
+         if (_group == 2 && channels % _group != 0)
+         {
+-- 
+2.47.1
+

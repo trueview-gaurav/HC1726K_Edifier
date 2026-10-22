@@ -1,0 +1,51 @@
+#!/bin/sh
+
+autotest_file=/mnt/sdcard/RunAutoTest
+autotest_dir=/mnt/sdcard/autotest/script
+calibtest_dir=/system/calibtest/script
+
+runtest() {
+	if [ -f $autotest_file ]; then
+		printf "Starting Auto Test...\n"
+		# Start all init scripts in $autotest_dir
+		# executing them in numerical order.
+		#
+		for i in $autotest_dir/A??* ;do
+			# Ignore dangling symlinks (if any).
+			[ ! -f "$i" ] && continue
+			case "$i" in
+			*.sh)
+			    # Source shell script for speed.
+			    (
+				trap - INT QUIT TSTP
+				set start
+				. $i
+			    )
+			    ;;
+			*)
+			    # No sh extension, so fork subprocess.
+			    $i start
+			    ;;
+			esac
+		done
+		printf "Auto Test Finished.\n"
+	fi
+}
+
+case "$1" in
+  start)
+	runtest
+	;;
+  stop)
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+

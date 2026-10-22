@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# AUGENTIX INC. - PROPRIETARY
+#
+# S90postsysupd - System update post handler
+# Copyright (C) 2019 Augentix Inc. - All Rights Reserved
+##!/bin/sh
+### BEGIN INIT INFO
+# Provides:          zram
+# Required-Start:    $local_fs
+# Default-Start:     2 3 4 5
+# Short-Description: Enable compressed zram swap
+### END INIT INFO
+
+ZRAM_DEV="/dev/zram0"
+ZRAM_SIZE="4M"      # 壓縮前大小，建議約 50% RAM
+COMP_ALG="lz4"       # 壓縮演算法
+
+case "$1" in
+  start)
+    echo "Initializing ZRAM compressed swap..."
+    modprobe zram || true
+    [ ! -e "$ZRAM_DEV" ] && echo "Error: $ZRAM_DEV not found." && exit 1
+
+    echo $COMP_ALG > /sys/block/zram0/comp_algorithm
+    echo $ZRAM_SIZE > /sys/block/zram0/disksize
+
+    echo 256 > /proc/sys/vm/min_free_kbytes
+    echo 1 > /proc/sys/vm/compact_unevictable_allowed
+    echo 500 > /proc/sys/vm/extfrag_threshold
+
+    mkswap $ZRAM_DEV
+    swapon $ZRAM_DEV
+
+    echo "ZRAM swap enabled ($ZRAM_SIZE, $COMP_ALG)"
+    ;;
+  stop)
+    echo "Stopping zram swap..."
+    swapoff $ZRAM_DEV 2>/dev/null || true
+    echo 1 > /sys/class/zram-control/hot_remove 2>/dev/null || true
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0
+

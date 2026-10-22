@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Load DISP driver with fbdev support.
+#
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/root/bin:/system/bin
+
+# The DISP driver depends on MPP (See: #44045)
+mpp_load() {
+	/system/mpp/script/load_mpp.sh -i
+}
+
+disp_init() {
+	echo "Initializing DISP driver with fbdev support..."
+	mpp_load
+	insmod /system/lib/pid.ko
+	insmod /system/lib/disp.ko param_fbdev_support=1
+}
+
+
+case "$1" in
+	start)
+		disp_init
+	;;
+	stop|restart|reload)
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

@@ -1,0 +1,78 @@
+From c905e0d187058401443a11aa06f7091220add174 Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Wed, 13 Dec 2023 12:16:25 +0800
+Subject: [PATCH 29/54] Add crop pack8 int8
+
+---
+ src/layer/arm/crop_arm.cpp | 34 +++++++++++++++++++++++++++++++---
+ 1 file changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/src/layer/arm/crop_arm.cpp b/src/layer/arm/crop_arm.cpp
+index f55fa545..f4762c11 100644
+--- a/src/layer/arm/crop_arm.cpp
++++ b/src/layer/arm/crop_arm.cpp
+@@ -85,6 +85,29 @@ static void crop_pack8_bf16_fp16s_neon(const Mat& src, Mat& dst, int top, int le
+     }
+ }
+ 
++static void crop_pack8_int8_neon(const Mat& src, Mat& dst, int top, int left)
++{
++    int w = dst.w;
++    int h = dst.h;
++    int right = src.w - dst.w - left;
++
++    const signed char* ptr = (const signed char*)src.row(top) + left * 8;
++    signed char* outptr = dst;
++
++    for (int y = 0; y < h; y++)
++    {
++        for (int x = 0; x < w; x++)
++        {
++            int8x8_t _p = vld1_s8(ptr);
++            vst1_s8(outptr, _p);
++            ptr += 8;
++            outptr += 8;
++        }
++
++        ptr += (left + right) * 8;
++    }
++}
++
+ static void crop_pack4_neon(const Mat& src, Mat& dst, int top, int left)
+ {
+     int w = dst.w;
+@@ -148,7 +171,8 @@ int Crop_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
+         int _woffset, _hoffset, _doffset, _coffset;
+         int _outw, _outh, _outd, _outc;
+         resolve_crop_roi(bottom_blob.shape(), _woffset, _hoffset, _doffset, _coffset, _outw, _outh, _outd, _outc);
+-
++        NCNN_LOGE("_woffset %d _hoffset %d _doffset %d _coffset %d _outw %d _outh %d _outd %d _outc %d ", _woffset, _hoffset, _doffset, _coffset, _outw, _outh, _outd, _outc);
++        NCNN_LOGE("w %d h %d d %d channels %d dims %d elemsize %d", w,h,d,channels,dims,elemsize);
+         if (dims == 1)
+         {
+             int out_elempack = _outw % 8 == 0 ? 8 : _outw % 4 == 0 ? 4 : 1;
+@@ -233,7 +257,9 @@ int Crop_arm::forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt)
+                     const Mat m = bottom_blob_sliced.channel(q);
+                     Mat borderm = top_blob.channel(q);
+ 
+-                    if (elemsize == 16u)
++                    if (elemsize == 8)
++                        crop_pack8_int8_neon(m, borderm, _hoffset, _woffset);
++                    else if (elemsize == 16u)
+                         crop_pack8_bf16_fp16s_neon(m, borderm, _hoffset, _woffset);
+                     else
+                         crop_pack8_neon(m, borderm, _hoffset, _woffset);
+@@ -563,7 +589,9 @@ int Crop_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
+                     const Mat m = bottom_blob_sliced.channel(q);
+                     Mat borderm = top_blob.channel(q);
+ 
+-                    if (elemsize == 16u)
++                    if (elemsize == 8)
++                        crop_pack8_int8_neon(m, borderm, _hoffset, _woffset);
++                    else if (elemsize == 16u)
+                         crop_pack8_bf16_fp16s_neon(m, borderm, _hoffset, _woffset);
+                     else
+                         crop_pack8_neon(m, borderm, _hoffset, _woffset);
+-- 
+2.47.1
+

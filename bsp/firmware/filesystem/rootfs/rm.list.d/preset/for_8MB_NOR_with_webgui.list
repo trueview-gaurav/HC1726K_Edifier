@@ -1,0 +1,31 @@
+/usr/ssl3/lib/libcrypto.a
+/usr/share/misc/magic.mgc
+#/usr/lib/libdw-0.181.so
+#/system/mpp/font/*
+#/usr/lib/libtensorflow-lite-optim.so.2.6.0
+/usr/lib/libssl.a
+
+# mp4v2
+/usr/lib/libmp4v2*
+/usr/lib/libap4.a
+
+# Some libraries
+/usr/lib/libiperf*
+/usr/lib/libmd*
+/usr/lib/libpcsclite*
+/usr/lib/libpcre2-posix*
+/usr/lib/libext2fs*
+/usr/lib/libe2p*
+/usr/lib/libss.*
+/usr/lib/libfcgi++*
+/usr/lib/libcom_err*
+/usr/lib/libbsd*
+/usr/lib/libpcrep*
+/usr/lib/libpcrecpp*
+/usr/libexec/lvresize_fs_helper
+
+# pcre2
+/usr/bin/pcre2*
+
+# wcurl
+/usr/bin/wcurl

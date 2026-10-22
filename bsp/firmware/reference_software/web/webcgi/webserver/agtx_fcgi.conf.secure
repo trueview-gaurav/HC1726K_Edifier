@@ -1,0 +1,35 @@
+location = /cgi-bin/msg.cgi {
+    root /system/www/;
+    if (-f /system/www/.default-passwd) {
+            return 302 /html_en/passwd.html;
+    }
+
+    auth_request /auth;
+    auth_request_set $auth_status $upstream_status;
+    error_page 401 = @error401;
+    expires -1;
+    fastcgi_pass  127.0.0.1:9000;
+}
+
+location = /changePass.cgi {
+    root /system/www/;
+    auth_request /auth;
+    auth_request_set $auth_status $upstream_status;
+    error_page 401 = @error401;
+    expires -1;
+    fastcgi_pass 127.0.0.1:9003;
+}
+
+location ~ \.cgi$ {
+    root /system/www/;
+    if (-f /system/www/.default-passwd) {
+            return 302 /html_en/passwd.html;
+    }
+
+    auth_request /auth;
+    auth_request_set $auth_status $upstream_status;
+    error_page 401 = @error401;
+    expires -1;
+    fastcgi_pass 127.0.0.1:9003;
+    fastcgi_read_timeout 120s;
+}

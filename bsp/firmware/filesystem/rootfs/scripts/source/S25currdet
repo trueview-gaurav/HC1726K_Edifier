@@ -1,0 +1,39 @@
+#! /bin/sh
+
+NAME=currdet
+
+#crond file path
+path="/var/spool/cron/crontabs"
+
+# Read config file if it is present.
+if [ -r /etc/default/$NAME ]
+then
+  . /etc/default/$NAME
+fi
+
+case "$1" in
+	start)
+		printf "Starting $NAME: "
+		mkdir -p $path
+		echo "*/1 * * * * /system/script/currdet.sh " >> "$path/root"
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		echo "Enable $NAME."
+	;;
+	stop)
+		echo "Stopping $NAME: "
+		sed -i '/currdet.sh/d' $path/root
+		echo "OK"
+	;;
+	restart)
+		echo "Restarting $NAME: "
+		$0 stop
+		sleep 1
+		$0 start
+	;;
+	*)
+		echo "Usage: $0 {start|stop|restart}" >&2
+		exit 1
+	;;
+esac
+
+exit 0

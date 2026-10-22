@@ -1,0 +1,88 @@
+#!/bin/sh
+#
+# S23AGT804-43
+#
+
+case "$1" in
+	start)
+		# wifi en gpio5
+		echo 5 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio5/direction
+		echo 0 > /sys/class/gpio/gpio5/value
+
+		# IR LED
+		echo 77 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio77/direction
+		echo 1 > /sys/class/gpio/gpio77/value
+
+		# White LED
+		echo 12 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio12/direction
+		echo 0 > /sys/class/gpio/gpio12/value
+
+		# IR CUT A
+		echo 80 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio80/direction
+		echo 1 > /sys/class/gpio/gpio80/value
+
+		# IR CUT B
+		echo 79 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio79/direction
+		echo 0 > /sys/class/gpio/gpio79/value
+
+		# IR CUT reset
+		usleep 300000
+		echo 0 > /sys/class/gpio/gpio80/value
+		echo 0 > /sys/class/gpio/gpio79/value
+
+		# [motor]
+		# P1
+		echo 23 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio23/direction
+		echo 0 > /sys/class/gpio/gpio23/value
+
+		# P2
+		echo 22 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio22/direction
+		echo 0 > /sys/class/gpio/gpio22/value
+
+		# P3
+		echo 66 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio66/direction
+		echo 0 > /sys/class/gpio/gpio66/value
+
+		# P4
+		echo 67 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio67/direction
+		echo 0 > /sys/class/gpio/gpio67/value
+
+		# T1
+		echo 14 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio14/direction
+		echo 0 > /sys/class/gpio/gpio14/value
+
+		# T2
+		echo 15 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio15/direction
+		echo 0 > /sys/class/gpio/gpio15/value
+
+		# T3
+		echo 26 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio26/direction
+		echo 0 > /sys/class/gpio/gpio26/value
+
+		# T4
+		echo 27 > /sys/class/gpio/export
+		echo "out" > /sys/class/gpio/gpio27/direction
+		echo 0 > /sys/class/gpio/gpio27/value
+
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop}"
+		exit 1
+esac
+
+exit $?
+

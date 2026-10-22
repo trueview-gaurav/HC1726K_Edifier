@@ -1,0 +1,28 @@
+#!/bin/sh
+
+THERMAL_PROTD_PIDFILE=/var/run/thermal_protd.pid
+THERMAL_PROTD_BIN=/system/bin/thermal_protd
+
+
+case "$1" in
+	start)
+		echo "Start thermal protection deaomen: "
+		start-stop-daemon -S -m -b -p $THERMAL_PROTD_PIDFILE -x $THERMAL_PROTD_BIN
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	stop)
+		echo "Stop thermal protection daemon: "
+		start-stop-daemon -K -o -p $THERMAL_PROTD_PIDFILE
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?
+

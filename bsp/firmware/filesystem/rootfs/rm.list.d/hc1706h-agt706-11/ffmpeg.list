@@ -1,0 +1,19 @@
+# ffmpeg, ffmpeg-examples
+/usr/lib/libavresample.so
+/usr/lib/libavresample.so.*
+/usr/lib/libavfilter.so
+/usr/lib/libavfilter.so.*
+/usr/lib/libavcodec.so
+/usr/lib/libavcodec.so.*
+/usr/lib/libavutil.so
+/usr/lib/libavutil.so.*
+/usr/lib/libavformat.so
+/usr/lib/libavformat.so.*
+/usr/lib/libavdevice.so
+/usr/lib/libavdevice.so.*
+/usr/lib/libswresample.so
+/usr/lib/libswresample.so.*
+/usr/lib/libswscale.so
+/usr/lib/libswscale.so.*
+/usr/bin/ffmpeg
+/usr/share/ffmpeg/

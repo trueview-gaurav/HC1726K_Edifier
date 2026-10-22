@@ -1,0 +1,22 @@
+From e439b4d339ba8a41f6a2cedfa3232df4c401c12e Mon Sep 17 00:00:00 2001
+From: "Jerry.Wu im190" <jerry.wu@augentix.com>
+Date: Wed, 6 Nov 2024 19:07:02 +0800
+Subject: [PATCH] disable MKEFICAPSULE in tools-only_defconfig
+
+---
+ configs/tools-only_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/tools-only_defconfig b/configs/tools-only_defconfig
+index b54d2cefa1..1c6e0410a6 100644
+--- a/configs/tools-only_defconfig
++++ b/configs/tools-only_defconfig
+@@ -37,4 +37,4 @@ CONFIG_TIMER=y
+ # CONFIG_VIRTIO_SANDBOX is not set
+ # CONFIG_GENERATE_ACPI_TABLE is not set
+ # CONFIG_EFI_LOADER is not set
+-CONFIG_TOOLS_MKEFICAPSULE=y
++# CONFIG_TOOLS_MKEFICAPSULE is not set
+-- 
+2.21.0
+

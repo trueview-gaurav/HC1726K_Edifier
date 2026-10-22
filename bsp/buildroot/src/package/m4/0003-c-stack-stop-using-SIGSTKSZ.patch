@@ -1,0 +1,16 @@
+c-stack: stop using SIGSTKSZ
+
+This patch is intentionally a no-op for m4 1.4.20: the upstream tarball
+already contains the gnulib change that stopped using SIGSTKSZ. Keep a
+valid empty patch so Buildroot package patch discovery can continue without
+reapplying the old backport.
+
+Signed-off-by: Fabrice Fontaine <fontaine.fabrice@gmail.com>
+
+diff --git a/lib/c-stack.h b/lib/c-stack.h
+--- a/lib/c-stack.h
++++ b/lib/c-stack.h
+@@ -47,2 +47,2 @@
+-   - ACTION together with its callees must not require more than 64 KiB of
++   - ACTION together with its callees must not require more than 64 KiB of
+      stack space.

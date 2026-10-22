@@ -1,0 +1,15 @@
+[ req ]
+
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[ req_distinguished_name ]
+CN = n7-590.com
+
+[ v3_req ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = local.n7-590.com
+IP.1 = 172.16.0.29

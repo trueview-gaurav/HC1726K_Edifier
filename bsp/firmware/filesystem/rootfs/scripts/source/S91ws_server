@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Start/stop ws_server
+#
+
+PIDFILE=/var/run/ws_server.pid
+ONVIF_BIN=/system/bin/ws_server
+
+case "$1" in
+  start)
+	echo "Starting ws_server..."
+	start-stop-daemon -S -m -b -x $ONVIF_BIN -p $PIDFILE
+	;;
+  stop)
+	printf "Stopping ws_server..."
+	start-stop-daemon -K -o -p $PIDFILE
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

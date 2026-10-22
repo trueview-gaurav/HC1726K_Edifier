@@ -1,0 +1,107 @@
+From 348f650ea7b2eaab8453996564e8a7ba146a027d Mon Sep 17 00:00:00 2001
+From: "Jason.Lin im247" <Jason.Lin@augentix.com>
+Date: Fri, 13 Jun 2025 14:13:46 +0800
+Subject: [PATCH 54/54] Support flexible input size for OD models
+
+---
+ src/layer.cpp         | 18 ++++++++++++++++++
+ src/layer.h           |  8 ++++++++
+ src/layer/reshape.cpp | 18 ++++++++++++++++++
+ src/layer/reshape.h   |  4 ++++
+ 4 files changed, 48 insertions(+)
+
+diff --git a/src/layer.cpp b/src/layer.cpp
+index 562576a5..16c2f612 100644
+--- a/src/layer.cpp
++++ b/src/layer.cpp
+@@ -84,6 +84,24 @@ int Layer::destroy_pipeline(const Option& /*opt*/)
+     return 0;
+ }
+ 
++int Layer::get_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c)
++{
++    (void)attr_h;
++    (void)attr_w;
++    (void)attr_d;
++    (void)attr_c;
++    return 0;
++}
++
++int Layer::set_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c)
++{
++    (void)attr_h;
++    (void)attr_w;
++    (void)attr_d;
++    (void)attr_c;
++    return 0;
++}
++
+ int Layer::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
+ {
+     if (!support_inplace)
+diff --git a/src/layer.h b/src/layer.h
+index 573f58cf..cb71a48c 100644
+--- a/src/layer.h
++++ b/src/layer.h
+@@ -52,6 +52,14 @@ public:
+     // return 0 if success
+     virtual int destroy_pipeline(const Option& opt);
+ 
++    // layer implementation specific attribute update
++    // return 0 if success
++    virtual int set_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c);
++
++    // layer implementation specific attribute read
++    // return 0 if success
++    virtual int get_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c);
++
+ public:
+     // one input and one output blob
+     bool one_blob_only;
+diff --git a/src/layer/reshape.cpp b/src/layer/reshape.cpp
+index b35f5971..261c9dd3 100644
+--- a/src/layer/reshape.cpp
++++ b/src/layer/reshape.cpp
+@@ -22,6 +22,24 @@ Reshape::Reshape()
+     support_inplace = false;
+ }
+ 
++int Reshape::get_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c)
++{
++    attr_h = h;
++    attr_w = w;
++    attr_d = d;
++    attr_c = c;
++    return 0;
++}
++
++int Reshape::set_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c)
++{
++    h = attr_h;
++    w = attr_w;
++    d = attr_d;
++    c = attr_c;
++    return 0;
++}
++
+ int Reshape::load_param(const ParamDict& pd)
+ {
+     w = pd.get(0, -233);
+diff --git a/src/layer/reshape.h b/src/layer/reshape.h
+index b1072a48..d13900ba 100644
+--- a/src/layer/reshape.h
++++ b/src/layer/reshape.h
+@@ -24,6 +24,10 @@ class Reshape : public Layer
+ public:
+     Reshape();
+ 
++    virtual int set_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c);
++
++    virtual int get_attr(int& attr_h, int& attr_w, int& attr_d, int& attr_c);
++
+     virtual int load_param(const ParamDict& pd);
+ 
+     virtual int forward(const Mat& bottom_blob, Mat& top_blob, const Option& opt) const;
+-- 
+2.47.1
+

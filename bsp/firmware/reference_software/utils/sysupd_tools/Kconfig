@@ -1,0 +1,15 @@
+choice
+	prompt "Select sysupd tools type"
+	default APP_SYSUPD_NORMAL_TOOL
+
+config APP_SYSUPD_NORMAL_TOOL
+	bool "normal"
+
+config APP_SYSUPD_ANTI_ROLLBACK_SE_TOOL
+	bool "anti_rollback_se"
+
+config APP_SYSUPD_ANTI_ROLLBACK_TEE_TOOL
+	bool "anti_rollback_tee"
+
+endchoice
+

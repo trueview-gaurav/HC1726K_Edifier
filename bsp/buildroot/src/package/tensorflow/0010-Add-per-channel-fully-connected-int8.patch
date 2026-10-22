@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: backport <backport@yamnet>
+Date: Tue, 15 Jul 2026 00:00:00 +0000
+Subject: [PATCH 10/10] Add per-channel quantized int8 FullyConnected support
+
+YAMNet's classifier uses per-channel int8 weights (filter->params.scale == 0.0,
+scales stored in TfLiteAffineQuantization).  The existing FullyConnectedInt8
+path calls GetQuantizedConvolutionMultipler which multiplies
+input_scale * filter->params.scale (== 0.0) => real_multiplier == 0.0
+=> output_multiplier == 0 => all FC outputs saturate to the output zero point.
+
+This patch adds:
+ - OpData::is_per_channel + per-channel multiplier/shift vectors
+ - PrepareImpl: detect per-channel filter and compute per-channel multipliers
+ - FullyConnectedInt8PerChannel<kernel_type>: calls Gemm with
+   kIntegerWithPerRowMultiplier (already supported by cpu_backend_gemm_custom_gemv.h)
+ - EvalQuantized: dispatch to FullyConnectedInt8PerChannel when is_per_channel
+
+Backport of functionality added in TFLite 2.10.0.
+
+Applied against state after patches 0001-0008 (index 144a5e38).
+---
+ tensorflow/lite/kernels/fully_connected.cc | 97 +++++++++++++++++++--
+ 1 file changed, 91 insertions(+), 6 deletions(-)
+
+diff --git a/tensorflow/lite/kernels/fully_connected.cc b/tensorflow/lite/kernels/fully_connected.cc
+index 144a5e38..abcdef02 100644
+--- a/tensorflow/lite/kernels/fully_connected.cc
++++ b/tensorflow/lite/kernels/fully_connected.cc
+@@ -18,6 +18,7 @@ See the License for the specific language governing permissions and
+ #include <algorithm>
+ #include <cstddef>
+ #include <cstdint>
++#include <vector>
+
+ #include "tensorflow/lite/c/builtin_op_data.h"
+ #include "tensorflow/lite/c/common.h"
+@@ -117,6 +118,10 @@ struct OpData {
+   bool compute_row_sums = false;
+   // Only used for sparse hybrid fully connected kernels.
+   bool ledger_initialized;
++  // Per-channel quantization for int8 FC with per-channel weight scales.
++  bool is_per_channel = false;
++  std::vector<int32_t> per_channel_output_multiplier;
++  std::vector<int32_t> per_channel_output_shift;
+ };
+
+ constexpr int kInputTensor = 0;
+@@ -243,6 +248,34 @@ TfLiteStatus PrepareImpl(TfLiteContext* context, TfLiteNode* node) {
+     TF_LITE_ENSURE_STATUS(CalculateActivationRangeQuantized(
+         context, params->activation, output, &data->output_activation_min,
+         &data->output_activation_max));
++
++    // Detect per-channel quantized int8 weights (TfLiteAffineQuantization with
++    // more than one scale value).  In that case filter->params.scale == 0.0
++    // which would give output_multiplier == 0 via the path above; compute
++    // per-channel multipliers instead.
++    if (input->type == kTfLiteInt8 && filter->type == kTfLiteInt8 &&
++        filter->quantization.type == kTfLiteAffineQuantization) {
++      const TfLiteAffineQuantization* affine_quant =
++          reinterpret_cast<const TfLiteAffineQuantization*>(
++              filter->quantization.params);
++      if (affine_quant && affine_quant->scale &&
++          affine_quant->scale->size > 1) {
++        data->is_per_channel = true;
++        const int num_channels = affine_quant->scale->size;
++        data->per_channel_output_multiplier.resize(num_channels);
++        data->per_channel_output_shift.resize(num_channels);
++        for (int i = 0; i < num_channels; ++i) {
++          double real_mult =
++              static_cast<double>(input->params.scale) *
++              static_cast<double>(affine_quant->scale->data[i]) /
++              static_cast<double>(output->params.scale);
++          int shift;
++          QuantizeMultiplier(real_mult,
++                             &data->per_channel_output_multiplier[i], &shift);
++          data->per_channel_output_shift[i] = shift;
++        }
++      }
++    }
+   }
+
+ #ifndef TFLITE_OPTIM
+@@ -739,5 +782,66 @@ void FullyConnectedInt8(const OpData* data, const TfLiteTensor* input,
+   }
+ }
++
++// Per-channel variant: uses kIntegerWithPerRowMultiplier so that each output
++// channel uses its own multiplier/shift pair (already supported by the
++// cpu_backend_gemm custom GEMV path in TF 2.6.0).
++template <KernelType kernel_type>
++void FullyConnectedInt8PerChannel(const OpData* data,
++                                   const TfLiteTensor* input,
++                                   const TfLiteTensor* filter,
++                                   const TfLiteTensor* bias,
++                                   TfLiteTensor* output,
++                                   CpuBackendContext* cpu_backend_context) {
++  const int32_t input_offset = -input->params.zero_point;
++  const int32_t filter_offset = -filter->params.zero_point;
++  const int32_t output_offset = output->params.zero_point;
++
++  const int filter_dim_count = filter->dims->size;
++  const int filter_rows = filter->dims->data[filter_dim_count - 2];
++  const int filter_cols = filter->dims->data[filter_dim_count - 1];
++  const int output_dim_count = output->dims->size;
++  const int batches =
++      FlatSizeSkipDim(GetTensorShape(output), output_dim_count - 1);
++
++  cpu_backend_gemm::MatrixParams<int8_t> lhs_params;
++  lhs_params.rows = filter_rows;
++  lhs_params.cols = filter_cols;
++  lhs_params.order = cpu_backend_gemm::Order::kRowMajor;
++  lhs_params.zero_point = static_cast<int8_t>(-filter_offset);
++  lhs_params.cache_policy =
++      IsConstantTensor(filter)
++          ? cpu_backend_gemm::CachePolicy::kCacheIfLargeSpeedup
++          : cpu_backend_gemm::CachePolicy::kNeverCache;
++
++  cpu_backend_gemm::MatrixParams<int8_t> rhs_params;
++  rhs_params.rows = filter_cols;
++  rhs_params.cols = batches;
++  rhs_params.order = cpu_backend_gemm::Order::kColMajor;
++  rhs_params.zero_point = static_cast<int8_t>(-input_offset);
++
++  cpu_backend_gemm::MatrixParams<int8_t> dst_params;
++  dst_params.rows = filter_rows;
++  dst_params.cols = batches;
++  dst_params.order = cpu_backend_gemm::Order::kColMajor;
++  dst_params.zero_point = output_offset;
++
++  using Flavor = cpu_backend_gemm::QuantizationFlavor;
++  cpu_backend_gemm::GemmParams<int32_t, int8_t,
++                               Flavor::kIntegerWithPerRowMultiplier>
++      gemm_params;
++  gemm_params.bias = GetTensorData<int32_t>(bias);
++  gemm_params.clamp_min = data->output_activation_min;
++  gemm_params.clamp_max = data->output_activation_max;
++  gemm_params.multiplier_fixedpoint_perchannel =
++      data->per_channel_output_multiplier.data();
++  gemm_params.multiplier_exponent_perchannel =
++      data->per_channel_output_shift.data();
++
++  cpu_backend_gemm::Gemm(lhs_params, GetTensorData<int8_t>(filter), rhs_params,
++                         GetTensorData<int8_t>(input), dst_params,
++                         GetTensorData<int8_t>(output), gemm_params,
++                         cpu_backend_context);
++}
+ }  // namespace
+
+
+@@ -785,9 +879,15 @@ TfLiteStatus EvalQuantized(TfLiteContext* context, TfLiteNode* node,
+     op_params.rhs_cacheable = IsConstantTensor(input);
+     switch (output->type) {
+       case kTfLiteInt8:
+-        FullyConnectedInt8<kernel_type>(
+-            data, input, filter, bias, output,
+-            CpuBackendContext::GetFromContext(context));
++        if (data->is_per_channel) {
++          FullyConnectedInt8PerChannel<kernel_type>(
++              data, input, filter, bias, output,
++              CpuBackendContext::GetFromContext(context));
++        } else {
++          FullyConnectedInt8<kernel_type>(
++              data, input, filter, bias, output,
++              CpuBackendContext::GetFromContext(context));
++        }
+         break;
+       case kTfLiteUInt8:
+         if (kernel_type == kReference) {

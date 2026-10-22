@@ -1,0 +1,78 @@
+#!/bin/sh -f
+
+# export_gpio(): export GPIO pin
+export_gpio() {
+	echo $1 > /sys/class/gpio/export
+}
+
+# unexport_gpio(): unexport GPIO pin
+unexport_gpio() {
+	echo $1 > /sys/class/gpio/unexport
+}
+
+# set_gpio(): GPIO setting function
+set_gpio() {
+	GPIO_ID=$1
+	DIRECTION=$2
+	VALUE=$3
+
+	export_gpio $GPIO_ID
+
+	if [ $DIRECTION = "out" ]; then
+		echo "out" > /sys/class/gpio/gpio$GPIO_ID/direction
+		if [ ! $VALUE ]; then # Output level not specified
+			echo "GPIO output level not specified!"
+			exit 1;
+		elif [ $VALUE = "1" ]; then # HIGH
+			echo 1 > /sys/class/gpio/gpio$GPIO_ID/value
+		elif [ $VALUE = "0" ]; then # LOW
+			echo 0 > /sys/class/gpio/gpio$GPIO_ID/value
+		else #INVALID
+			echo "Invalid GPIO value!"
+			exit 1;
+		fi
+	elif [ $DIRECTION = "in" ]; then
+		echo "in" > /sys/class/gpio/gpio$GPIO_ID/direction
+	fi
+
+    unexport_gpio $GPIO_ID
+}
+
+# for XM ext. board SD card detect
+# gpio input, default pull-up, for SD card detect
+# High : No SD card; Low : SD card insert
+
+# for MB013
+/system/bin/csr ioc.ioc.jtag_tdo_iosel 0 # select GPIO 3
+set_gpio 3 "out" 0
+/system/bin/csr ioc.ioc.jtag_trst_n_iosel 0 # select GPIO 4
+set_gpio 4 "out" 0
+
+# light detection
+# /system/bin/csr ioc.ioc.jtag_tdi_iosel 2 # external IRQ
+/system/bin/csr ioc.ioc.jtag_tdi_iosel 0 # select GPIO 2 for light sensor
+set_gpio 2 "in"
+
+# reset button, actually won't be used
+set_gpio 13 "in"
+# set gpio 13 pull-up
+devmem 0x80000084 32 0x00050000
+
+# SD card, actually won't be used
+# set gpio 30 (data0) pull-up
+devmem 0x800000CA 16 0x0005
+
+# set gpio 31 (data1) pull-up
+devmem 0x800000CE 16 0x0005
+
+# set gpio 32 (data3) pull-up
+devmem 0x800000D2 16 0x0005
+
+# set gpio 33 (data2) pull-up
+devmem 0x800000D6 16 0x0005
+
+# set gpio 35 (command) pull-up
+devmem 0x800000DE 16 0x0005
+
+# set gpio 37 (card detection) pull-up
+devmem 0x800000E6 16 0x0005

@@ -1,0 +1,30 @@
+#!/bin/sh
+
+script=/system/script/wifi_on.sh
+
+do_start() {
+	# insert modules
+	modprobe -q acc1340_drv
+	(sleep 1 && /sbin/ifup wlan0 && [ -f $script ] && sh $script /etc/wpa_supplicant.conf) &
+}
+
+do_stop() {
+	/sbin/ifdown wlan0
+	modprobe -r acc1340_drv
+}
+
+case "$1" in
+	start)
+		do_start
+		;;
+	stop)
+		do_stop
+		;;
+	restart|reload)
+		do_stop
+		do_start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+esac
+

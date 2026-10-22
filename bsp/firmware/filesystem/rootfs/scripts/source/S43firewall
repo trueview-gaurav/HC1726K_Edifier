@@ -1,0 +1,139 @@
+#!/bin/sh -f
+
+#
+#  AUGENTIX INC. - PROPRIETARY
+#
+#  iptables script
+#  Copyright (C) 2018 Augentix Inc. - All Rights Reserved
+#
+#  NOTICE: The information contained herein is the property of Augentix Inc.
+#  Copying and distributing of this file, via any medium,
+#  must be licensed by Augentix Inc.
+#
+#  * Brief: This script should be executed after sysupd but
+#           before any other daemon.
+#
+
+HTTP_PORT=80
+HTTPS_PORT=443
+SSH_PORT=22
+FTP_PORT=21
+TFTP_PORT=69
+ONVIF_PORT=8899
+RTSP0_PORT=7554
+RTSP1_PORT=8554
+RTSP2_PORT=9554
+RTSP3_PORT=6554
+TELNET_PORT=23
+DNS_PORT=53
+NTP_PORT=123
+SYSUPD_PORT=9010
+
+start_firewall() {
+	echo "set firewall policy"
+	iptables -P INPUT DROP
+
+	#Localhost
+	iptables -A INPUT -i lo -j ACCEPT
+
+	#ICMP
+	iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+	iptables -A OUTPUT -p icmp --icmp-type echo-reply -j ACCEPT
+
+	#Multicast
+	iptables -A INPUT -m pkttype --pkt-type multicast -j ACCEPT
+
+	#broadcast
+	iptables -A INPUT   -m pkttype --pkt-type broadcast -j ACCEPT
+
+	#NFS
+	iptables -A INPUT -p tcp -m multiport --ports 111,1058,2000,2001,2049 -j ACCEPT
+	iptables -A INPUT -p udp -m multiport --ports 111,1058,2000,2002,2049 -j ACCEPT
+
+	#HTTP
+	iptables -A INPUT -p tcp --dport $HTTP_PORT -j ACCEPT
+
+	#HTTPS
+	iptables -A INPUT -p tcp --dport $HTTPS_PORT -j ACCEPT
+
+	#SSH
+	iptables -A INPUT -p tcp --dport $SSH_PORT -j ACCEPT
+
+	#FTP
+	iptables -A INPUT -p tcp --dport $FTP_PORT -j ACCEPT
+
+	#ONVIF
+	iptables -A INPUT -p tcp --dport $ONVIF_PORT -j ACCEPT
+
+	#RTSP0
+	iptables -A INPUT -p tcp --dport $RTSP0_PORT -j ACCEPT
+
+	#RTSP1
+	iptables -A INPUT -p tcp --dport $RTSP1_PORT -j ACCEPT
+
+	#RTSP2
+	iptables -A INPUT -p tcp --dport $RTSP2_PORT -j ACCEPT
+
+	#RTSP3
+	iptables -A INPUT -p tcp --dport $RTSP3_PORT -j ACCEPT
+
+	#TFTP
+	iptables -A INPUT -p tcp --dport $TFTP_PORT -j ACCEPT
+
+	iptables -A INPUT -p tcp --dport 6666 -j ACCEPT
+
+	iptables -A INPUT -p tcp --dport $TELNET_PORT -j ACCEPT
+
+	iptables -A INPUT -p tcp --dport 9000 -j ACCEPT
+	iptables -A INPUT -p tcp --dport 9001 -j ACCEPT
+	iptables -A INPUT -p tcp --dport 9002 -j ACCEPT
+	iptables -A INPUT -p tcp --dport 9003 -j ACCEPT
+
+	iptables -A INPUT -p tcp --dport $SYSUPD_PORT -j ACCEPT
+
+	#DNS
+	iptables -A INPUT  -p udp --sport $DNS_PORT -j ACCEPT
+	iptables -A OUTPUT -p udp --dport $DNS_PORT -j ACCEPT
+	iptables -A INPUT  -p tcp --sport $DNS_PORT -j ACCEPT
+	iptables -A OUTPUT -p tcp --dport $DNS_PORT -j ACCEPT
+
+	#NTP
+	iptables -A INPUT -p udp --sport $NTP_PORT -j ACCEPT
+
+}
+
+stop_firewall() {
+	echo "stop firewall"
+	iptables -t mangle -F
+	iptables -F
+	iptables -X
+	iptables -P INPUT ACCEPT
+	iptables -P FORWARD ACCEPT
+	iptables -P OUTPUT ACCEPT
+
+}
+
+
+
+
+
+
+case "$1" in
+	start)
+		start_firewall
+	;;
+	stop)
+		stop_firewall
+
+	;;
+	restart|reload)
+		"$0" stop
+		"$0" start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+	;;
+esac
+
+exit $?

@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Load dwc2 if it's configured as module.
+
+do_start() {
+        if [ -z $(grep -rnw /lib/modules/`uname -r`/modules.builtin -e dwc2.ko) ] \
+        && [ -f /lib/modules/`uname -r`/kernel/drivers/usb/dwc2/dwc2.ko ]
+        then
+                /sbin/modprobe dwc2
+        fi
+}
+
+do_stop() {
+	:
+}
+
+case "$1" in
+        start)
+                do_start
+                ;;
+        stop)
+                do_stop
+                ;;
+        restart|reload)
+                do_stop
+                do_start
+                ;;
+	*)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 1
+esac
+
+exit $?
