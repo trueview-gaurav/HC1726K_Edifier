@@ -1,0 +1,564 @@
+#!/bin/sh
+
+hardware=`cat /proc/cpuinfo |grep -e "Hardware" | awk '{print $3}'`
+mtdtype=`cat /proc/cmdline  | sed -e "s/.*mtdparts=//g" -e "s/:.*//g"`
+
+PATH="/usr/bin:/usr/sbin:/bin:/sbin:/root:/root/bin:/root/pppoe:/root/snmp:/root/wifi:/smart/bin"
+LD_LIBRARY_PATH="/usr/local/lib:/usr/lib:/lib:/root:/root/lib:/root/pppoe:/smart/lib"
+export PATH
+export LD_LIBRARY_PATH
+
+OD_MODEL_PARAM="/root/model_file/model.param.bin"
+OD_MODEL_BIN="/root/model_file/model.bin"
+export OD_MODEL_PARAM
+export OD_MODEL_BIN
+
+g_cpu_type=
+g_hw_type=
+g_sensor_type=
+g_lensDrv=
+
+sdcard_format_respawn()
+{
+        local LastSDExist=0;
+        local CurSDExist=0;
+        
+        devmem 0x10011138 32 0xfff
+        devmem 0x10011134 32 0xaaa
+        
+        mount_mmc
+        
+        if [ -b /dev/mmcblk0 ] ; then
+                let LastSDExist=1;
+        fi
+        
+        sleep 20;
+
+        while true; 
+        do
+        {
+                {
+                        if [ -b /dev/mmcblk0 ] ; then
+                                let CurSDExist=1;
+                        else
+                                let CurSDExist=0;
+                        fi
+					
+                        echo "LastSDExist=$LastSDExist,CurSDExist=$CurSDExist";
+					
+                        if [ $LastSDExist -ne $CurSDExist ] ; then
+                                if [ $CurSDExist -eq 1 ] ; then
+                                        echo 3 > /proc/sys/vm/drop_caches
+                                        umount /tmp/mmc/mmc1; rm -rf /tmp/mmc/mmc1;
+                                        mount_mmc
+                                else
+                                        killall ovfs_record
+                                        killall ovfs_eventlog
+                                        uritool put /webserver/devicestatus {\"SDCardStatus\":-1}
+                                fi
+                                LastSDExist=$CurSDExist;
+                        elif [ $CurSDExist -eq 1 ] ; then
+                                proc_name="/root/bin/ovfs_record";
+                                pidof ${proc_name##*/} > /dev/null;ret=$?;
+                                if [ ${ret} -ne 0 ] ; then
+				                        	echo "$(date) Starting up $proc_name ....";
+				                        	chmod +x ${proc_name};
+				                        	${proc_name} &
+                                fi
+                                proc_name="/root/bin/ovfs_eventlog";
+                                pidof ${proc_name##*/} > /dev/null;ret=$?;
+                                if [ ${ret} -ne 0 ] ; then
+				                        	echo "$(date) Starting up $proc_name ....";
+				                        	chmod +x ${proc_name};
+				                        	${proc_name} &
+                                fi
+                        fi
+                }
+                sleep 5;
+        }
+        done
+}
+
+check_mediaserver_listen_port()
+{
+        while true;
+        do
+                need=0;
+                for i in $(netstat -ntple | grep media | awk -F ' ' '{print $2}');
+                do
+#                        echo $i;
+                        if [ $i -gt 3 ];
+                        then
+                                echo "listen queue > 3 , need strace";
+                                need=1;
+                        fi;
+                done;
+                if [ $need == 1 ];
+                then
+                        pkill mediaserver;
+                fi
+                sleep 10;
+        done;
+
+}
+
+guard_process()
+{
+	local proc_name=$1
+	local param1=$2
+	local param2=$3
+	local param3=$4
+
+	local index=0
+	local count=20
+
+	while [ $index -lt $count ] ; do
+		pidof ${proc_name##*/} > /dev/null;ret=$?;
+		if [ ${ret} -ne 0 ] ; then
+			echo "name=$proc_name parm1=$param1 parm2=$param2 param3=$param3"
+			echo "$(date) Starting up $proc_name .... $index/$count";
+			${proc_name} $param1 $param2 $param3 ; ret=$?;
+
+			echo "$(date) $proc_name proc exit=$ret ";
+			let index++;
+			sleep 3;
+			echo 3 > /proc/sys/vm/drop_caches;
+		else
+			sleep 3;
+			echo 3 > /proc/sys/vm/drop_caches;
+		fi
+	done
+	if [ $index -eq $count ] ; then
+		echo "$(date) $proc_name starup fail. need reboot";
+		reboot;
+	fi
+}
+mount_tmpfs()
+{
+	mount -t tmpfs -o size=8m none /tmp;
+	mount -t tmpfs -o size=32m  none /var;
+	mkdir -p /var/run /var/lock /var/snapBuff /var/untar
+	mkdir -p /tmp/var /tmp/nginx/logs /tmp/nginx/proxy_temp /tmp/nginx/fastcgi_temp
+	cp -af /root/nginx/conf /tmp/nginx/conf; mount /tmp/nginx/conf /root/nginx/conf;
+	mount /tmp/nginx/logs /root/nginx/logs;
+	mount /tmp/nginx/proxy_temp /root/nginx/proxy_temp;
+	mount /tmp/nginx/fastcgi_temp /root/nginx/fastcgi_temp;
+#	ln -s /tmp/nginx /root/nginx
+#	ln -s /tmp/nginx/logs /root/nginx/logs
+#	ln -s /tmp/nginx/proxy_temp /root/nginx/proxy_temp
+#	ln -s /tmp/nginx/fastcgi_temp /root/nginx/fastcgi_temp
+	cp /root/font/servicestatus /dev
+	
+	if [ ! -f /usr/etc/logo.png ]; then
+	  cp -af /root/nginx/html/static/images/logo_default.png /usr/etc/logo.png
+	fi
+}
+
+snmp_pre()
+{
+  if [ -f /root/snmp/snmptrap.sh ] ; then                                                                                                                                                                           
+  cd /root/snmp; ./snmptrap.sh &                                                                                                                                                                                    
+  fi
+}
+
+startup_wifi()
+{
+#power on
+	echo 50 > /sys/class/gpio/export 
+	echo out > /sys/class/gpio/gpio50/direction 
+	echo 1 > /sys/class/gpio/gpio50/value 
+
+	lsusb | grep -q "0bda:[0,8]179"; local ret1=$?
+	lsusb | grep -q "0bda:0811"; local ret2=$?
+	lsusb | grep -q "0bda:f179"; local ret3=$?
+if [ -d /var/untar/ko ] ; then
+	if [ $ret1 -eq 0 ] ; then
+	  insmod /var/untar/ko/ourdrv/8188eu.ko;
+	elif [ $ret2 -eq 0 ] ; then
+	  insmod /var/untar/ko/ourdrv/8821au.ko;
+	elif [ $ret3 -eq 0 ] ; then
+	  insmod /var/untar/ko/ourdrv/8188fu.ko;
+	fi
+elif [ -d /root/ko ] ; then
+	if [ $ret1 -eq 0 ] ; then
+	  insmod /root/ko/ourdrv/8188eu.ko;
+	elif [ $ret2 -eq 0 ] ; then
+	  insmod /root/ko/ourdrv/8821au.ko;
+	elif [ $ret3 -eq 0 ] ; then
+	  insmod /root/ko/ourdrv/8188fu.ko;
+	fi
+fi
+
+	if [ $ret1 -eq 0 -o $ret2 -eq 0 -o $ret3 -eq 0 ] ; then 
+	  ifconfig wlan0 up;
+		ifconfig wlan0 192.168.10.1;
+		mkdir -p /var/lib/misc/;
+		touch /var/lib/misc/udhcpd.leases;
+	sed -i -e "s/\"wifi\": {\"visible\": false}/\"wifi\": {\"visible\": true}/g" /root/nginx/html/static/uiconfig.json;
+fi
+}
+
+net_pre()
+{
+	ipaddr=
+	macaddr=
+	fileName=/usr/etc/cfgfiles/NetWork.json;
+	if [ ! -f ${fileName} ] ; then
+	fileName=/update/res/default/NetWork.json;
+	fi
+	if [ -f ${fileName} ] ; then
+#	ipaddr=$(echo $(grep "\"IpAddrV4\"" "${fileName}") | sed -e "s/\"//g" -e "s/IpAddrV4://g" | cut -d ',' -f 1)                 
+#	ipmask=$(echo $(grep "\"IpMaskV4\"" "${fileName}") | sed -e "s/\"//g" -e "s/IpMaskV4://g" | cut -d ',' -f 1)         
+#	gateway=$(echo $(grep "\"GatewayV4\"" "${fileName}") | sed -e "s/\"//g" -e "s/GatewayV4://g" | cut -d ',' -f 1)
+	ipaddr=$(echo $(grep "\"IpAddrV4\"" "${fileName}") | sed -e "s/^.*\"IpAddrV4\":[ \t]*\"//g" -e "s/\",\{0,1\}$//g")                 
+	ipmask=$(echo $(grep "\"IpMaskV4\"" "${fileName}") | sed -e "s/^.*\"IpMaskV4\":[ \t]*\"//g" -e "s/\",\{0,1\}$//g")         
+	gateway=$(echo $(grep "\"GatewayV4\"" "${fileName}") | sed -e "s/^.*\"GatewayV4\":[ \t]*\"//g" -e "s/\",\{0,1\}$//g")	
+	macaddr=$(echo $(grep "\"MacAddr\"" "${fileName}") | sed -e "s/^.*\"MacAddr\":[ \t]*\"//g" -e "s/\",\{0,1\}$//g")	
+	fi 
+
+	if [ -z $ipaddr ] ; then                                                                                                                  
+	ipaddr=192.168.1.188;                                                                                                                     
+	ipmask=255.255.255.0;                                                                                                                       
+	gateway=192.168.1.1;                                                                                                                      
+	fi 
+	
+	if [ -z $macaddr ];then
+	byte0=$(head -c 32 /dev/urandom | md5sum | cut -c-2);
+	byte1=$(head -c 32 /dev/urandom | md5sum | cut -c-2);
+	byte2=$(head -c 32 /dev/urandom | md5sum | cut -c-2);
+	byte3=$(head -c 32 /dev/urandom | md5sum | cut -c-2);
+	byte4=$(head -c 32 /dev/urandom | md5sum | cut -c-2);
+	macaddr=00:${byte0}:${byte1}:${byte2}:${byte3}:${byte4}
+
+	fi
+
+	echo -e "ifconfig eth0 down"
+	ifconfig eth0 down
+	echo -e "ifconfig eth0 hw ether $macaddr mtu 1400 up"
+	ifconfig eth0 hw ether $macaddr mtu 1400 up
+	echo -e "ifconfig eth0 $ipaddr netmask $ipmask"
+	ifconfig eth0 $ipaddr netmask $ipmask
+	route add default gw $gateway
+	ifconfig lo up
+}
+
+standard_pre()
+{
+	standard=
+	fileName=/usr/etc/cfgfiles/BoardSys.json;
+	if [ ! -f ${fileName} ] ; then
+	fileName=/update/res/default/BoardSys.json;
+	fi
+	echo fileName=${fileName}
+	if [ -f ${fileName} ] ; then
+	standard=$(echo $(grep "\"Format\"" "${fileName}") | sed -e "s/^.*\"Format\":[ \t]*//g" -e "s/\",\{0,1\}$//g")
+	echo standard=${standard}
+	touch /tmp/std_${standard}.tmp
+	fi 
+}
+
+insmod_ko()
+{
+if [ ! -f /update/ko.tar.xz ] ; then
+	cp -a /update/ko /var/untar/;
+fi
+
+cd /var/untar/ko;./load_mpp.sh -i;
+
+rm -rf /var/untar/ko;
+
+echo 3 > /proc/sys/vm/drop_caches
+
+}
+
+start_p2p()
+{
+	[ -f /usr/etc/cfgfiles/satellite.conf ] || cp -af /root/res/default/satellite.conf /usr/etc/cfgfiles/satellite.conf;
+	which autoupgrade && autoupgrade /usr/etc/cfgfiles /update &
+	[ $? -ne 0 ] &&	which aliIoT4ovfs && aliIoT4ovfs /usr/etc/cfgfiles &
+}
+
+guard_phy()
+{
+	echo "start phy guard"
+
+	sleep 60;
+
+	local nullcnt=0;
+	local resetcnt=360;
+	while true ; do
+		str=`cat /proc/net/arp | grep eth0 | tr -d '\n'`
+		ip=${str%% *}
+		if [ -z "$ip" ] ; then
+			sleep 10;
+			let nullcnt++;
+			if [ $nullcnt -gt $resetcnt ] ; then
+				echo "$nullcnt gt $resetcnt";
+				ifconfig eth0 down;
+				sleep 1;
+				ifconfig eth0 up;
+				nullcnt=0;
+			fi
+		else
+			nullcnt=0;
+			ret=1;
+			while [ -n "$ip" ] ; do
+				result=`arping -D -f -w 3 -I eth0 $ip | grep Unicast`
+				if [ -n "$result" ] ; then
+					echo "arping $ip ok";
+					ret=0;
+					break;
+				else
+					echo "arping $ip failed";
+				fi
+				str=${str#*eth0};
+				ip=${str%% *};
+			done
+			if [ ${ret} -ne 0 ] ; then
+				ifconfig eth0 down;
+				sleep 1;
+				ifconfig eth0 up;
+				sleep 180;
+			fi
+		fi
+		sleep 3;
+	done;
+}
+start_module()
+{
+	echo 8388608 > /sys/block/zram0/disksize;
+	mkswap /dev/zram0;
+	swapon /dev/zram0;
+	echo 100 > /proc/sys/vm/swappiness ;
+	
+	echo 2 | tee /proc/sys/kernel/randomize_va_space;
+
+	sysctl -w net.ipv4.tcp_tw_recycle=0;
+	sysctl -w vm.drop_caches=3;
+	date;free;
+	syslogd -O /tmp/syslog.log -s 64 -b 8 -l 6;
+	cd /root/
+	echo "sysinit..."
+	sysinit&
+
+	guard_phy&
+
+	echo 0 > /proc/sys/net/ipv4/neigh/default/gc_thresh1;
+
+	echo "Start core..."
+	ovfs_core&
+
+	echo "Start network..."
+	ovfs_network&
+	sleep 2;
+
+	echo "Start boardsystem..."
+	ovfs_boardsystem&
+	sleep 5;
+
+	echo "Start webserver..."
+	ovfs_webserver&
+	sleep 1;
+
+	echo "Start webserver..."
+	ovfs_mediaserver&
+	sleep 1;
+
+	echo "update..."
+	if [ -f /root/bin/update ] ; then
+		pkill update
+		cp /root/bin/update /dev/;
+		cd /dev;./update&
+		cd /;
+	fi
+	sleep 5;
+
+	sdcard_format_respawn &
+}
+
+insmod_ovfsko()
+{
+
+rm -rf /root/modules;
+}
+
+mount_part()
+{
+	fsType=$1;
+	partIndex=$2;
+	mountPath=$3;
+#	hexdump /dev/mtdblock${partIndex} -n 4 -C | grep -q "UBI#"; 
+#	if [ $? -eq 0 ] ; then
+	if [ "${fsType}" == "ubifs" ] ; then
+	partName=$(cat /proc/mtd | grep "mtd${partIndex}" | cut -d ' ' -f 4)
+	avlSize=$((((0x$(cat /proc/mtd | grep "mtd${partIndex}" | cut -d ' ' -f 2)/128/1024)-24)*(128-2*2)*1024))
+	ubiattach /dev/ubi_ctrl -m ${partIndex} -d ${partIndex};
+	[ -e /dev/ubi${partIndex}_0 ] || ubimkvol /dev/ubi${partIndex} -N ${partName} -s ${avlSize};
+	mount -t ubifs -o sync /dev/ubi${partIndex}_0 ${mountPath} || \
+	mount -t yaffs2  /dev/mtdblock${partIndex} ${mountPath};
+	elif [ "${fsType}" == "jffs2" ] ; then
+	mount -t jffs2 -o sync /dev/mtdblock${partIndex} ${mountPath};
+	else
+	mount -t yaffs2 -o sync /dev/mtdblock${partIndex} ${mountPath};
+	fi
+}
+
+mount_mtd()
+{
+if [ ! -d /usr/etc ] ; then 
+	mkdir /usr/etc -p
+fi
+
+if [ $mtdtype == "sfc_nand" ] ; then
+
+	## mount config
+	config_index=`cat /proc/mtd |grep -e "config" | sed -e "s/:.*//g" | cut -c 4-`;
+	[ -d /usr/etc ] || mkdir -p /usr/etc;
+	#mount_part yaffs2 ${config_index} /usr/etc
+	mount_part ubifs ${config_index} /usr/etc
+	
+	### mount smart
+	smart_index=`cat /proc/mtd |grep -e "smart" | sed -e "s/:.*//g" | cut -c 4-`;
+	[ -d /smart ] || mkdir -p /smart;
+	mount_part ubifs ${smart_index} /smart
+	
+else
+	mount -t jffs2 mtd:config /usr/etc
+fi
+}
+
+untar_pack()
+{
+	echo "untar packet..."
+	for tarfile in /update/*.tar.xz ; do
+		filename=$(basename $tarfile | sed -e "s/.tar.xz//");
+		cp $tarfile /var/untar;
+		xz -d /var/untar/$filename.tar.xz;
+		tar -xvf /var/untar/$filename.tar -C /var/untar;
+		rm /var/untar/$filename.tar;
+		ln -s /var/untar/$filename /root/$filename
+	done
+	
+	mkdir -p /tmp/nginx/logs && ln -s /tmp/nginx/logs /root/nginx/logs
+	echo "untar packet...ok"
+}
+
+update_factoryinfo()
+{
+	update_factoryinfo.sh;
+}
+
+mount_mmc()
+{
+	local index=0;
+	
+	chmod a+x /root/mount_mmc
+	while [ true ] ; do
+	if [ -e /dev/mmcblk0 ] ; then
+		/root/mount_mmc
+		if [ -d /tmp/mmc/mmc1 ] ; then
+			ovfs_record&
+			ovfs_eventlog&
+		fi
+		break;
+	else
+		sleep 3;
+			
+		let index++;
+		if [ $index -eq 3 ] ; then
+			if [ -d /tmp/mmc/mmc1 ] ; then 
+				ovfs_record&
+				ovfs_eventlog&
+			fi
+			break;
+		fi
+	fi
+	done
+}
+
+get_sys_hw_info()
+{
+FAC_INFO_PATH=/usr/etc/factoryinfo.json
+if [ ! -f $FAC_INFO_PATH ] ; then
+echo "Can't find $FAC_INFO_PATH"
+exit 0
+fi
+
+g_hw_type=$(echo $(grep "Hardware" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/Hardware://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+g_cpu_type=$(echo $(grep "Platform" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/Platform://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+g_sensor_type=$(echo $(grep "SensorModel" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/SensorModel://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+g_lensDrv=$(echo $(grep "LensDrvType" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/LensDrvType://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+LensSupport=$(echo $(grep "LensSupport" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/LensSupport://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+
+g_serial=$(echo $(grep -nr "SerialNumber" /usr/etc/cfgfiles/Core.json | cut -d '"' -f 4) | tr [A-Z] [a-z])
+g_serial=$(echo ${g_serial:0:4})
+
+sed -i 's/\/usr\/lib:\/root\/lib/\/usr\/lib:\/root:\/root\/lib/g' /etc/profile
+
+echo "========== sys info: hw_type=$g_hw_type  cpu_type=$g_cpu_type sensor_type=$g_sensor_type ============="
+
+}
+
+custom_file_pre()
+{
+	g_sensor_type=$(echo $(grep "SensorModel" $FAC_INFO_PATH) | sed -e "s/\"//g" -e "s/SensorModel://g" | cut -d ',' -f 1 | tr [A-Z] [a-z])
+	def_file=/update/res/default/${g_sensor_type}_BoardSys.json	
+	if [ -f $def_file ] ; then
+		
+		rm /tmp/auto/res/default/BoardSys.json
+		mkdir -p /tmp/auto/res/default
+		ln -s $def_file /tmp/auto/res/default/BoardSys.json
+	fi
+
+	if [ -f /update/res/custom/custom.json ] ; then
+		cp /update/res/custom/custom.json /usr/etc/custom.json
+	fi
+	
+	if [ -f /root/customer_loader_step0.sh ] ; then
+		chmod 777 /root/customer_loader_step0.sh
+		/root/customer_loader_step0.sh
+	fi
+}
+
+do_step_one()
+{
+	mount_mtd;
+
+if [ $mtdtype == "sfc_nand" ] ; then	
+	cp -af /update/* /root/;
+else
+	mount /update /root;
+fi
+	mount_tmpfs;
+	cd /root; ./appinstall &
+}
+
+do_step_two()
+{
+	update_factoryinfo;
+	get_sys_hw_info;
+	untar_pack;
+	insmod_ko;
+
+	net_pre;
+	insmod_ovfsko;
+	custom_file_pre;
+	standard_pre;
+	start_module&
+}
+
+main()
+{
+mount -o remount -o size=256m tmpfs /dev
+mount -t ubifs -o sync -o remount /dev/ubi4_0 /update/
+echo start appinstall ..........$(date)
+free;
+if [ ! -e /root/appinstall ] ; then
+    do_step_one
+else
+    do_step_two
+fi
+cd /root
+}
+
+main

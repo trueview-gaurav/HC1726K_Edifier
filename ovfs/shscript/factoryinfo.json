@@ -1,0 +1,39 @@
+{
+	"FactoryInfo":	{
+		"DeviceName":	"",
+		"ProductName":	"",
+		"DeviceType":	"IPC",
+		"DeviceModel":	"",
+		"Web":	"",
+		"Tel":	"",
+		"Copyright":	"",
+		"ManufacturerName":	"",
+		"Brand":	"",
+		"Country":	"",
+		"City":	"",
+		"Customer":"HDT",
+		"IsFaceSnap":	0,
+		"SensorModel":"SC4336P",
+		"SensorModelSec":"NONE",		
+		"SwVersion":	"1.0.0",
+		"HwVersion":	"1.0.0",
+		"BuildDate":"20260927",
+		"ProductDate":"20260706-m",
+		"SvnNumber":	0,
+		"IsofDome":	"n",
+		"IsofIr":	"y",
+		"AutoLens":	{
+			"LensSupport": 0,
+			"LensDrvType":"NONE",
+			"LensType":"NONE"
+		},
+		"AutoIris":	{
+			"IrisSupport":	0,
+			"IrisType":	"DC-IRIS",
+			"IrisAddtion":	""
+		},
+		"Platform":"JZT33A",
+		"Hardware":"JZT33A_D61_Q38",
+		"Project":"T33A_PERSON"
+	}
+}

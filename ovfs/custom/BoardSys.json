@@ -1,0 +1,10 @@
+{
+"RoiSupport":0,
+"ThirdStreamSupport":0,
+"H264+Support":0,
+"H265Support":1,
+"H265+Support":1,
+"MjpegSupport":0,
+"MaxResolution":"6MP",
+"IrBoardType":  "Ir_Warm"
+}
