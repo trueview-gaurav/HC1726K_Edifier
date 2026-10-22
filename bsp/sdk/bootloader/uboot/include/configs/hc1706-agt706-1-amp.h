@@ -1,0 +1,1 @@
+augentix/templates/nor_amp_32MB.h

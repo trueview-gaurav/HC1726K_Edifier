@@ -1,0 +1,8 @@
+[Channel 0]
+normal: 3mpx_1.5mbps_cpsid92415.ini
+ir: 3mpx_1.5mbps_cpsid92415_ir.ini
+light: 3mpx_1.5mbps_cpsid92415_light.ini
+[Channel 1]
+normal: 307kpx_384kbps_cpsid92415.ini
+ir: 307kpx_384kbps_cpsid92415_ir.ini
+light: 307kpx_384kbps_cpsid92415_light.ini

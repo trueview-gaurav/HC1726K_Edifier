@@ -1,0 +1,3 @@
+config TEE_MONO_CNT
+	bool "Monotonic counter CA"
+	default n

@@ -1,0 +1,351 @@
+/*
+ * Copyright Augentix Inc. Proprietary and confidential.
+ * Unauthorized use or distribution is prohibited.
+ * Please contact customer.support@augentix.com for any inquiries.
+ */
+
+#include "sensor.h"
+
+#include <stdio.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "sensor_settings.h"
+#include "sensor_params.h"
+#include "sensor_lvds.h"
+
+#if SENSOR_I2C_REG_LENGTH == 1 && SENSOR_I2C_DAT_LENGTH == 1
+#define SENSOR_writeSeq(...) SENSOR_writeSeqBaddrBdata(__VA_ARGS__)
+#elif SENSOR_I2C_REG_LENGTH == 1 && SENSOR_I2C_DAT_LENGTH == 2
+#define SENSOR_writeSeq(...) SENSOR_writeSeqBaddrWdata(__VA_ARGS__)
+#elif SENSOR_I2C_REG_LENGTH == 2 && SENSOR_I2C_DAT_LENGTH == 1
+#define SENSOR_writeSeq(...) SENSOR_writeSeqWaddrBdata(__VA_ARGS__)
+#elif SENSOR_I2C_REG_LENGTH == 2 && SENSOR_I2C_DAT_LENGTH == 2
+#define SENSOR_writeSeq(...) SENSOR_writeSeqWaddrWdata(__VA_ARGS__)
+#endif
+
+#ifdef DUAL_SENSOR_SUPPORT
+static int g_i2c_fd[2] = {
+	-1,
+	-1,
+};
+
+static const uint16_t k_i2c_slave_addr[2] = {
+	SENSOR_I2C_SLAVE_ADDR,
+	SENSOR_I2C_SLAVE_ADDR1,
+};
+#else
+static int g_i2c_fd[1] = {
+	-1,
+};
+
+static const uint16_t k_i2c_slave_addr[1] = {
+	SENSOR_I2C_SLAVE_ADDR,
+};
+#endif
+
+/* clang-format off */
+
+// 1280x720 15fps
+static const SensCmd k_cmd_format_1280x720_15fps[] = {
+	{ 0xf0, 0x30 },
+	{ 0x01, 0xff },
+	{ 0x02, 0xe0 },
+	{ 0x30, 0x10 },
+	{ 0x3f, 0x81 },
+	{ 0xf0, 0x00 },
+	{ 0x70, 0x6b },
+	{ 0x72, 0x30 },
+	{ 0x84, 0xb4 },
+	{ 0x8b, 0x00 },
+	{ 0x8c, 0x20 },
+	{ 0x8d, 0x02 },
+	{ 0x8e, 0xec },
+	{ 0x9e, 0x10 },
+	{ 0xb0, 0xc1 },
+	{ 0xc8, 0x10 },
+	{ 0xc9, 0x10 },
+	{ 0xc6, 0x00 },
+	{ 0xe0, 0x0f },
+	{ 0xb5, 0xf0 },
+	{ 0xde, 0x80 },
+	{ 0xb5, 0xf0 },
+	{ 0xde, 0x80 },
+	{ 0xb2, 0x50 },
+	{ 0xb3, 0xfc },
+	{ 0xb4, 0x40 },
+	{ 0xb5, 0xc0 },
+	{ 0xb6, 0x50 },
+	{ 0xb7, 0xfc },
+	{ 0xb8, 0x40 },
+	{ 0xb9, 0xc0 },
+	{ 0xba, 0xff },
+	{ 0xbb, 0xcc },
+	{ 0xbc, 0xa9 },
+	{ 0xbd, 0x7d },
+	{ 0xc1, 0x77 },
+	{ 0xf0, 0x01 },
+	{ 0x70, 0x02 },
+	{ 0x71, 0x02 },
+	{ 0x72, 0x50 },
+	{ 0x73, 0x02 },
+	{ 0x74, 0xd2 },
+	{ 0x75, 0x20 },
+	{ 0x76, 0x81 },
+	{ 0x77, 0x8c },
+	{ 0x78, 0x81 },
+	{ 0xf4, 0x01 },
+	{ 0xf5, 0x00 },
+	{ 0xf6, 0x00 },
+	{ 0xf4, 0x08 },
+	{ 0xf0, 0x36 },
+	{ 0x40, 0x03 },
+	{ 0x41, 0x01 },
+	{ 0xf0, 0x39 },
+	{ 0x02, 0x70 },
+	{ 0xf0, 0x32 },
+	{ 0x41, 0x00 },
+	{ 0x43, 0x01 },
+	{ 0x48, 0x02 },
+	{ 0xf0, 0x45 },
+	{ 0x09, 0x20 },
+	{ 0xf0, 0x33 },
+	{ 0x33, 0x10 },
+	{ 0xf0, 0x30 },
+	{ 0x38, 0x44 },
+	{ 0xf0, 0x39 },
+	{ 0x07, 0x00 },
+	{ 0x08, 0x19 },
+	{ 0x47, 0x00 },
+	{ 0x48, 0x00 },
+	{ 0xf4, 0x08 },
+	{ 0xf0, 0x37 },
+	{ 0x24, 0x31 },
+	{ 0xf0, 0x34 },
+	{ 0x9f, 0x02 },
+	{ 0xa6, 0x51 },
+	{ 0xa7, 0x57 },
+	{ 0xe8, 0x5f },
+	{ 0xa8, 0x50 },
+	{ 0xa9, 0x50 },
+	{ 0xe9, 0x50 },
+	{ 0xf0, 0x33 },
+	{ 0xb3, 0x58 },
+	{ 0xb2, 0x78 },
+	{ 0xf0, 0x34 },
+	{ 0x9f, 0x03 },
+	{ 0xa6, 0x51 },
+	{ 0xa7, 0x57 },
+	{ 0xaa, 0x01 },
+	{ 0xab, 0x28 },
+	{ 0xac, 0x01 },
+	{ 0xad, 0x38 },
+	{ 0xf0, 0x33 },
+	{ 0x0a, 0x01 },
+	{ 0x0b, 0x28 },
+	{ 0x64, 0x0f },
+	{ 0xec, 0x51 },
+	{ 0xed, 0x57 },
+	{ 0x06, 0x58 },
+	{ 0xe9, 0x58 },
+	{ 0xeb, 0x68 },
+	{ 0x64, 0x0f },
+	{ 0xf0, 0x36 },
+	{ 0x70, 0xdf },
+	{ 0xb6, 0x40 },
+	{ 0xb7, 0x51 },
+	{ 0xb8, 0x53 },
+	{ 0xb9, 0x57 },
+	{ 0xba, 0x5f },
+	{ 0xb0, 0x84 },
+	{ 0xb1, 0x82 },
+	{ 0xb2, 0x84 },
+	{ 0xb3, 0x88 },
+	{ 0xb4, 0x90 },
+	{ 0xb5, 0x90 },
+	{ 0x7e, 0x50 },
+	{ 0x7f, 0x51 },
+	{ 0x77, 0x81 },
+	{ 0x78, 0x86 },
+	{ 0x79, 0x89 },
+	{ 0x70, 0xdf },
+	{ 0x9c, 0x51 },
+	{ 0x9d, 0x57 },
+	{ 0x90, 0x54 },
+	{ 0x91, 0x54 },
+	{ 0x92, 0x56 },
+	{ 0xa0, 0x51 },
+	{ 0xa1, 0x57 },
+	{ 0x96, 0x33 },
+	{ 0x97, 0x43 },
+	{ 0x98, 0x43 },
+	{ 0x70, 0xdf },
+	{ 0x7c, 0x40 },
+	{ 0x7d, 0x53 },
+	{ 0x74, 0xd0 },
+	{ 0x75, 0xf0 },
+	{ 0x76, 0xf0 },
+	{ 0xf0, 0x37 },
+	{ 0x0f, 0xd5 },
+	{ 0x7a, 0x40 },
+	{ 0x7b, 0x57 },
+	{ 0x71, 0x09 },
+	{ 0x72, 0x09 },
+	{ 0x73, 0x05 },
+	{ 0xf0, 0x33 },
+	{ 0x01, 0x44 },
+	{ 0xf0, 0x36 },
+	{ 0x37, 0xfb },
+	{ 0x3c, 0x0d },
+	{ 0xf0, 0x33 },
+	{ 0x14, 0x95 },
+	{ 0x8f, 0x80 },
+	{ 0xf0, 0x37 },
+	{ 0x27, 0x14 },
+	{ 0x28, 0x03 },
+	{ 0xf0, 0x36 },
+	{ 0x37, 0xf4 },
+	{ 0xf0, 0x33 },
+	{ 0x01, 0x44 },
+	{ 0xf0, 0x36 },
+	{ 0x79, 0x89 },
+	{ 0xf0, 0x34 },
+	{ 0xac, 0x01 },
+	{ 0xad, 0x40 },
+	{ 0xf0, 0x33 },
+	{ 0xeb, 0x70 },
+	{ 0xf0, 0x34 },
+	{ 0xa8, 0x50 },
+	{ 0xa9, 0x50 },
+	{ 0xf0, 0x33 },
+	{ 0xb3, 0x58 },
+	{ 0xf0, 0x36 },
+	{ 0x11, 0x80 },
+	{ 0x41, 0x51 },
+	{ 0xf4, 0x00 },
+	{ 0xf0, 0x32 },
+	{ 0x0c, 0x06 },
+	{ 0x0d, 0x40 },
+	{ 0xf0, 0x3f },
+	{ 0x03, 0x3c },
+	{ 0xf0, 0x36 },
+	{ 0xea, 0x09 },
+	{ 0xeb, 0xf5 },
+	{ 0xec, 0x11 },
+	{ 0xed, 0x17 },
+	{ 0xe9, 0x20 },
+};
+
+/* clang-format on */
+
+static const SensCmd k_cmd_start[] = {
+	{ 0x0100, 0x01 },
+};
+
+static const SensCmd k_cmd_stop[] = {
+	{ 0x0100, 0x00 },
+};
+
+static void SENSOR_configInitSeq(uint8_t path_idx)
+{
+	int fd = g_i2c_fd[path_idx];
+
+	SENSOR_writeSeq(fd, sizeof(k_cmd_format_1280x720_15fps) / sizeof(SensCmd), k_cmd_format_1280x720_15fps,
+	                k_i2c_slave_addr[path_idx]);
+
+	/* Light up sensor, please comment this line */
+	switch (path_idx) {
+#ifdef SNS0
+	case SNS0_ID:
+		cmos_ctrl(SNS0_ID).update_exp_cmd(fd, path_idx);
+		break;
+#endif
+#ifdef SNS1
+	case SNS1_ID:
+		cmos_ctrl(SNS1_ID).update_exp_cmd(fd, path_idx);
+		break;
+#endif
+	default:
+		break;
+	}
+
+	/* No need to wait according to vendor's comment */
+	//	usleep(380000);
+
+	//SENSOR_writeSeq(fd, sizeof(k_cmd_start) / sizeof(SensCmd), k_cmd_start, k_i2c_slave_addr[path_idx]);
+}
+
+static void SENSOR_configExitSeq(uint8_t path_idx)
+{
+	int fd = g_i2c_fd[path_idx];
+
+	SENSOR_writeSeq(fd, sizeof(k_cmd_stop) / sizeof(SensCmd), k_cmd_stop, k_i2c_slave_addr[path_idx]);
+}
+
+/* Global Interface */
+void SENSOR_configInit(uint8_t path_idx)
+{
+	int ret = 0;
+	int i2c_fd = -1;
+
+	/* Open I2C device node */
+	ret = SENSOR_openI2cDev(&i2c_fd, k_i2c_slave_addr[path_idx]);
+	if (ret != MPI_SUCCESS) {
+		return;
+	}
+
+	g_i2c_fd[path_idx] = i2c_fd;
+
+	/* Start sensor */
+	SENSOR_configInitSeq(path_idx);
+}
+
+void SENSOR_configExit(uint8_t path_idx)
+{
+	int ret = 0;
+	int i2c_fd = g_i2c_fd[path_idx];
+
+	/* Stop sensor */
+	SENSOR_configExitSeq(path_idx);
+
+	/* Close I2C device node */
+	ret = SENSOR_closeI2cDev(i2c_fd);
+	if (ret != MPI_SUCCESS) {
+		return;
+	}
+
+	g_i2c_fd[path_idx] = -1;
+}
+
+int32_t SENSOR_getOpInfo(uint8_t path_idx, uint32_t sns_idx, MPI_SNS_OP_INFO_S *p_op_info)
+{
+	MPI_SNS_OP_INFO_S *p = p_op_info;
+
+	p->sensor_mode = MPI_SNS_MODE_MASTER;
+	p->slv_sync_src = MPI_SLV_SYNC_SRC_NONE;
+	// bit width of a dvp sensor is directly affected by the hardware wire connection
+	// so it should be defined in sensor_params.h
+	p->bit_width = SENSOR_DVP_BIT_WIDTH; // defined in sensor_params.h
+	p->intf_ptcl = MPI_INTF_PTCL_DVP;
+	// p->ptcl_mode = MPI_MIPI_CSI2; // not required in DVP mode
+	p->hsync_plty = MPI_PLTY_HIGH;
+	p->vsync_plty = MPI_PLTY_HIGH;
+	p->bayer = MPI_BAYER_PHASE_B;
+	p->ext_clk_freq = SENSOR_EXT_CLK_FREQ;
+	p->sensor_res.width = SENSOR_WIDTH;
+	p->sensor_res.height = SENSOR_HEIGHT;
+	p->sensor_fps = (float)SENSOR_FPS;
+	p->frame_len_line = INIT_FRAME_LINE;
+	p->i2c_slv_addr = k_i2c_slave_addr[path_idx];
+	p->ob_enable = 0;
+	p->reserved = 0;
+
+	memcpy(&p->parl_lane, &k_parl_lane[path_idx], sizeof(MPI_PARL_LANE_INFO_S));
+	memcpy(&p->serl_lane[0], &k_serl_lane[path_idx], MPI_MAX_LVDSRX_LANE_NUM * sizeof(MPI_SERL_LANE_INFO_S));
+	SENSOR_getLvdsDelay(sns_idx, p->serl_lane);
+
+	p->dvp.io_volt = MPI_VOLT_1P8V;
+
+	return MPI_SUCCESS;
+}

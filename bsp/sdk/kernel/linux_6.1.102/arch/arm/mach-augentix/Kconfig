@@ -1,0 +1,49 @@
+config VB_SIZE_MB
+	int "Video buffer size in MB"
+	range 0 512
+	default 64
+	depends on ARCH_AUGENTIX
+	help
+	  Select the video buffer size.
+
+menuconfig ARCH_AUGENTIX
+	bool "Augentix SoC family" if ARCH_MULTI_V7
+	depends on MMU
+	select ARM_AMBA
+	select ARM_GIC
+	select CLKSRC_MMIO
+	select DMADEVICES
+	select PINCTRL
+	help
+	  Support for Augentix SoCs.
+
+if ARCH_AUGENTIX
+
+config MACH_HC17XX
+	bool "Augentix HC17XX SoC"
+	default y
+
+if MACH_HC17XX
+
+config AUGENTIX_AMP
+   	bool "Augentix AMP architecture"
+	default n
+	depends on ARCH_AUGENTIX
+
+config SAPPORO
+	bool "Augentix sapporo"
+	depends on ARCH_AUGENTIX
+
+config KAMO
+	bool "Augentix kamo"
+	depends on ARCH_AUGENTIX
+
+config OSAKA
+	bool "Augentix osaka"
+	depends on ARCH_AUGENTIX
+
+endif
+
+endif
+
+

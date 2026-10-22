@@ -1,0 +1,25 @@
+if TARGET_AGT706_7
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1706k-mb035"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1706k-agt706-7"
+
+endif
+
+if TARGET_AGT706_15
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1706k-mb035"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1706k-agt706-15"
+
+endif

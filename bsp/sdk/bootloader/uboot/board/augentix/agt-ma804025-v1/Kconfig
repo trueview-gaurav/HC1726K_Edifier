@@ -1,0 +1,12 @@
+if TARGET_AGT804_25
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma804025-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1703-agt804-25"
+
+endif

@@ -1,0 +1,38 @@
+if TARGET_HC1725_MB023_NOR_8MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1725-mb023-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-mb023-nor-8mb"
+
+endif
+
+if TARGET_HC1725_FPU_MB023_NOR_8MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1725-mb023-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-fpu-mb023-nor-8mb"
+
+endif
+
+if TARGET_HC1753_FPU_MB023_NOR_16MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1725-mb023-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1753-fpu-mb023-nor-16mb"
+
+endif

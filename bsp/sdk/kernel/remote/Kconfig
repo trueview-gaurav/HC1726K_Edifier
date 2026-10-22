@@ -1,0 +1,5 @@
+mainmenu "Augentix SDK Remote Configuration"
+
+source "baremetal/Kconfig"
+source "freertos/Kconfig"
+source "library/Kconfig"

@@ -1,0 +1,1 @@
+../../../../../../../firmware/reference_software/apps/eaif_server/3rd_party/stb/stb_image_write.h

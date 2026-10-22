@@ -1,0 +1,94 @@
+#ifndef SENSOR_SETTINGS_H_
+#define SENSOR_SETTINGS_H_
+
+#include "sensor_params.h"
+
+#ifdef SET_1280_720_60FPS_1LANE
+
+#define SENSOR_WIDTH (1280)
+#define SENSOR_HEIGHT (720)
+#define SENSOR_FPS (60)
+#define INIT_FRAME_LINE (750)
+#define INIT_LINE_LEN (1600)
+#define SENSOR_FPS_MAX (60)
+#define SENSOR_FPS_MIN (5)
+#define T_HS_SETTLE_NS (91)
+#define T_D_TERM_EN_NS (14)
+#define T_CLK_SETTLE_NS (135)
+#define T_CLK_TERM_EN_NS (14)
+
+#endif
+
+#ifdef SET_1280_720_30FPS_1LANE
+
+#define SENSOR_WIDTH (1280)
+#define SENSOR_HEIGHT (720)
+#define SENSOR_FPS (30)
+#define INIT_FRAME_LINE (1500)
+#define INIT_LINE_LEN (1600)
+#define SENSOR_FPS_MAX (30)
+#define SENSOR_FPS_MIN (5)
+#define T_HS_SETTLE_NS (91)
+#define T_D_TERM_EN_NS (14)
+#define T_CLK_SETTLE_NS (135)
+#define T_CLK_TERM_EN_NS (14)
+
+#endif
+
+#ifdef SET_1280_720_30FPS_1LANE_SLAVE
+
+#define SENSOR_WIDTH (1280)
+#define SENSOR_HEIGHT (720)
+#define SENSOR_FPS (30)
+#define INIT_FRAME_LINE (1500)
+#define INIT_LINE_LEN (1600)
+#define SENSOR_FPS_MAX (30)
+#define SENSOR_FPS_MIN (5)
+#define T_HS_SETTLE_NS (91)
+#define T_D_TERM_EN_NS (14)
+#define T_CLK_SETTLE_NS (135)
+#define T_CLK_TERM_EN_NS (14)
+#define SNS_SLAVE_MODE
+
+#endif
+
+#ifdef SET_1280_720_15FPS_1LANE
+
+#define SENSOR_WIDTH (1280)
+#define SENSOR_HEIGHT (720)
+#define SENSOR_FPS (15)
+#define INIT_FRAME_LINE (750)
+#define INIT_LINE_LEN (2000)
+#define SENSOR_FPS_MAX (15)
+#define SENSOR_FPS_MIN (5)
+#define T_HS_SETTLE_NS (91)
+#define T_D_TERM_EN_NS (14)
+#define T_CLK_SETTLE_NS (135)
+#define T_CLK_TERM_EN_NS (14)
+
+#endif
+
+#ifdef SET_1280_720_10FPS_1LANE
+
+#define SENSOR_WIDTH (1280)
+#define SENSOR_HEIGHT (720)
+#define SENSOR_FPS (10)
+#define INIT_FRAME_LINE (750)
+#define INIT_LINE_LEN (2000)
+#define SENSOR_FPS_MAX (10)
+#define SENSOR_FPS_MIN (5)
+#define T_HS_SETTLE_NS (91)
+#define T_D_TERM_EN_NS (14)
+#define T_CLK_SETTLE_NS (135)
+#define T_CLK_TERM_EN_NS (14)
+
+#endif
+
+#define PCLK (SENSOR_FPS * INIT_FRAME_LINE * INIT_LINE_LEN)
+#define SENSOR_FRAME_LINES_MAX (INIT_FRAME_LINE * SENSOR_FPS / SENSOR_FPS_MIN)
+#define SENSOR_FRAME_LINES_MIN (INIT_FRAME_LINE * SENSOR_FPS / SENSOR_FPS_MAX)
+
+#define SENSOR_GAIN_MAX (4032)
+#define SENSOR_GAIN_MIN (32)
+
+#endif /* SENSOR_SETTINGS_H_ */

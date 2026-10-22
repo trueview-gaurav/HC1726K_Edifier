@@ -1,0 +1,51 @@
+if TARGET_HC1715_TB007
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1715-tb007"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1715-tb007"
+
+endif
+
+if TARGET_AGT100_23
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1715-tb007"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1715-agt100-23"
+
+endif
+
+if TARGET_AGT100_24
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1715-tb007"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1715-agt100-24"
+
+endif
+
+if TARGET_AGT301_21
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1715-tb007"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1715-agt301-21"
+
+endif

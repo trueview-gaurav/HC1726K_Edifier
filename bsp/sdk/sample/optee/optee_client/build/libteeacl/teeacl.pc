@@ -1,0 +1,12 @@
+prefix="/home/yxy/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/optee_client/out"
+exec_prefix="${prefix}"
+libdir="${prefix}/lib"
+includedir="${prefix}/include"
+
+Name: teeacl
+Description: Access Control List utilities for teec library
+URL: 
+Version: 0.1.0
+Requires: uuid >= 2.34
+Cflags: -I"${includedir}"
+Libs: -L"${libdir}" -lteeacl

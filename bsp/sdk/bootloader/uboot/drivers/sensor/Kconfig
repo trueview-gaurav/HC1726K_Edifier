@@ -1,0 +1,23 @@
+#
+# Image Sensor configuration
+#
+
+menuconfig IMAGE_SENSOR
+	bool "Image sensor support"
+	help
+		Enable image sensor support
+
+		Paragraph 2
+
+if IMAGE_SENSOR
+
+config LIGHT_METER
+	bool "Use a light meter to set the initial exposure"
+
+config VERBOSE
+	bool "Print debug informations"
+	default n
+	help
+		Shows details
+
+endif # IMAGE_SENSOR

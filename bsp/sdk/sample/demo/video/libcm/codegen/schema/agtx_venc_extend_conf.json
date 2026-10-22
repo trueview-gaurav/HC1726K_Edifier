@@ -1,0 +1,26 @@
+{
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"type": "object",
+	"title": "AGTX_VENC_EXTEND_CONF_S",
+	"ini_name": "VENC_EXTEND",
+	"comments": [
+		"===================================",
+		"== VENC EXTEND DATA ===",
+		"===================================",
+		"ALSO SEE: MPI_ENC_getVencExtendFile / MPI_ENC_setVencExtendFile"
+	],
+	"properties": {
+		"video_dev_idx": {
+			"ui_type": "number",
+			"type": "integer",
+			"default": 0,
+			"minimum": 0,
+			"maximum": 0
+		},
+		"Content": {
+			"ui_type": "text_file",
+			"type": "string",
+			"defaultItems": ""
+		}
+	}
+}

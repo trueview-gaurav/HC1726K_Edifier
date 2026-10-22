@@ -1,0 +1,7 @@
+menu "baremetal"
+
+config BAREMETAL_CM0_CM4
+    bool "Cortex-M0/M4 baremetal support"
+    default n
+
+endmenu

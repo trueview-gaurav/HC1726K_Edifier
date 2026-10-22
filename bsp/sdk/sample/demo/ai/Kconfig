@@ -1,0 +1,275 @@
+menu "ai"
+
+config LIBEAIF
+	bool "libeaif"
+	select LIBINF
+	default y
+
+if LIBEAIF
+source ai/libeaif/Kconfig
+endif
+
+config LIBINF
+	bool "libinf"
+	default y
+
+if LIBINF
+source ai/libinf/Kconfig
+endif
+
+config SAMPLE_DEMO_VFTR_DUMP
+	bool "vftr_dump"
+	default y
+	select LIBEAIF
+	select LIBINF
+	help
+		A debugging utility for IVA applications.
+
+config SAMPLE_DEMO_VFTR_DUMP_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_VFTR_DUMP
+
+menuconfig SAMPLE_DEMO_AROI_DEMO
+	bool "aroi_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Automatic Region-of-Interest.
+
+config SAMPLE_DEMO_AROI_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_AROI_DEMO
+
+config SAMPLE_DEMO_PTZ_SUPPORT
+	bool "support ptz"
+	default n
+	depends on SAMPLE_DEMO_AROI_DEMO
+
+config SAMPLE_DEMO_AUTO_TRACKING
+	bool "auto_tracking"
+	select LIBMOTOR
+	select LIBSAMPLE
+	default n
+
+menuconfig SAMPLE_DEMO_BM_DEMO
+	bool "bm_demo"
+	default y
+	help
+		Sample program to demonstrate how to implement baby monitor.
+
+config SAMPLE_DEMO_BM_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_BM_DEMO
+
+menuconfig SAMPLE_DEMO_DK_DEMO
+	bool "dk_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Door Keeper.
+
+config SAMPLE_DEMO_DK_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_DK_DEMO
+
+menuconfig SAMPLE_DEMO_EF_DEMO
+	bool "ef_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Electronic Fence.
+
+config SAMPLE_DEMO_EF_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_EF_DEMO
+
+config SAMPLE_DEMO_EF_SHD_SUPPORT
+	bool "Support shaking object detection"
+	default y
+	depends on SAMPLE_DEMO_EF_DEMO
+
+menuconfig SAMPLE_DEMO_FACEDET_DEMO
+	bool "facedet_demo"
+	select LIBEAIF
+	default y
+	help
+		Sample program to demonstrate how to use Face Detection.
+
+config SAMPLE_DEMO_FACEDET_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_FACEDET_DEMO
+
+menuconfig SAMPLE_DEMO_FACERECO_DEMO
+	bool "facereco_demo"
+	select LIBEAIF
+	default y
+	help
+		Sample program to demonstrate how to use Face Recognition.
+
+config SAMPLE_DEMO_FACERECO_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_FACERECO_DEMO
+
+menuconfig SAMPLE_DEMO_FLD_DEMO
+	bool "fld_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Fall Down Detection.
+
+config SAMPLE_DEMO_FLD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_FLD_DEMO
+
+menuconfig SAMPLE_DEMO_LOD_DEMO
+	bool "lod_demo"
+	default n
+	help
+		Sample program to demonstrate how to implement Left-Object Detection.
+
+config SAMPLE_DEMO_LOD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_LOD_DEMO
+
+menuconfig SAMPLE_DEMO_EAI_DEMO
+	bool "install eai demo"
+	default n
+	help
+		Sample program to demonstrate how to use multi-sensor iva demo.
+
+if SAMPLE_DEMO_EAI_DEMO
+
+config SAMPLE_DEMO_EAI_HD_DEMO
+	bool "eai_hd_demo"
+	default y
+	help
+		Sample program to demonstrate how to use multi-sensor Human Detection.
+
+config SAMPLE_DEMO_EAI_HD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_EAI_HD_DEMO
+
+endif
+
+menuconfig SAMPLE_DEMO_HD_DEMO
+	bool "hd_demo"
+	select LIBEAIF
+	default y
+	help
+		Sample program to demonstrate how to use Human Detection.
+
+config SAMPLE_DEMO_HD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_HD_DEMO
+
+config SAMPLE_DEMO_LSD_DEMO
+	bool "lsd_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Loud Sound Detection.
+
+config SAMPLE_DEMO_SD_DEMO
+	bool "sd_demo"
+	default n
+	help
+		Sample program to demonstrate how to use Sound Detection.
+
+config SAMPLE_DEMO_SD_DEMO_REMOTE_CORE
+	bool "sd_demo use remote core"
+	depends on SAMPLE_DEMO_SD_DEMO
+	default n
+
+config SAMPLE_DEMO_SD_DEMO_TFLITE_OPTIM
+	bool "sd_demo: use optimized (slim) TFLite engine"
+	depends on SAMPLE_DEMO_SD_DEMO && !SAMPLE_DEMO_SD_DEMO_REMOTE_CORE
+	default y
+	help
+		Link libaftr_cd (the CD v2.0 / YAM Net backend) against the
+		optimized libtensorflow-lite-optim engine (~853KB deployed).
+		Unset to fall back to the full libtensorflow-lite (~2.8MB) if a
+		future model needs an op the slim engine strips out.
+		The RTOS remote-core variant uses SVM and ignores this option.
+
+menuconfig SAMPLE_DEMO_MD_DEMO
+	bool "md_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Motion Detection.
+
+config SAMPLE_DEMO_MD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_MD_DEMO
+
+config SAMPLE_DEMO_MD_SHD_SUPPORT
+	bool "Support shaking object detection"
+	default y
+	depends on SAMPLE_DEMO_MD_DEMO
+
+menuconfig SAMPLE_DEMO_OD_DEMO
+	bool "od_demo"
+	default y
+	help
+		OD demo program.
+
+config SAMPLE_DEMO_OD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_OD_DEMO
+	help
+		Enable when od_demo needs to generate SEI.
+
+config SAMPLE_DEMO_OD_UTILS
+	bool "Build utils"
+	default n
+	depends on SAMPLE_DEMO_OD_DEMO
+	help
+		A utility to demonstrate object detection.
+
+menuconfig SAMPLE_DEMO_PFM_DEMO
+	bool "pfm_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Pet Feeding Monitor.
+
+config SAMPLE_DEMO_PFM_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_PFM_DEMO
+
+menuconfig SAMPLE_DEMO_PKG_DEMO
+	bool "pkg_demo"
+	default n
+	help
+		Sample program to demonstrate how to use Package Detection.
+
+config SAMPLE_DEMO_PKG_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_PKG_DEMO
+
+menuconfig SAMPLE_DEMO_TD_DEMO
+	bool "td_demo"
+	default y
+	help
+		Sample program to demonstrate how to use Tamper Detection.
+
+config SAMPLE_DEMO_TD_SUPPORT_SEI
+	bool "Send inference result through RTSP"
+	default y
+	depends on SAMPLE_DEMO_TD_DEMO
+
+config AOV_BLOCK_BY_OBJECT
+    bool "AOV block by object"
+    default n
+    depends on SAMPLE_DEMO_OD_SUPPORT_SEI
+
+
+endmenu

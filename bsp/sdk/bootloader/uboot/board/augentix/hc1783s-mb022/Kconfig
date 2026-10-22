@@ -1,0 +1,38 @@
+if TARGET_AGT800_40
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1783s-mb022"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-agt800-40"
+
+endif
+
+if TARGET_AGT800_41
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1783s-mb022"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-agt800-41"
+
+endif
+
+if TARGET_AGT783_4
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1783s-mb022"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-agt783-4"
+
+endif

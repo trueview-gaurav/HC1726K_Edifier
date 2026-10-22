@@ -1,0 +1,12 @@
+if TARGET_SAPPORO
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "sapporo"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "sapporo"
+
+endif

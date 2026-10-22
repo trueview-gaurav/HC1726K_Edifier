@@ -1,0 +1,1 @@
+../../armv7/hc1703_1723_1753_1783s/board_pinmux.h

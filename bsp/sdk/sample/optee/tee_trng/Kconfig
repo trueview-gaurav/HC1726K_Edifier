@@ -1,0 +1,3 @@
+config TEE_TRNG
+	bool "tee TRNG provider"
+	default n

@@ -1,0 +1,12 @@
+[Channel 0]
+normal: 4mpx_2mbps_cpsid65049.ini
+ir: 4mpx_2mbps_ir_cpsid65049.ini
+[Channel 1]
+normal: 230kpx_512kbps_cpsid65049.ini
+ir: 230kpx_512kbps_ir_cpsid65049.ini
+[Channel 2]
+normal: 4mpx_2mbps_cpsid65049.ini
+ir: 4mpx_2mbps_ir_cpsid65049.ini
+[Channel 3]
+normal: 230kpx_512kbps_cpsid65049.ini
+ir: 230kpx_512kbps_ir_cpsid65049.ini

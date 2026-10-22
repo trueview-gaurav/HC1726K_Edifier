@@ -1,0 +1,12 @@
+if TARGET_HC1753S_TB006_SLT
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1753s-tb006-slt"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1753s-tb006-slt"
+
+endif

@@ -1,0 +1,136 @@
+if ARCH_SAPPORO
+
+config CPU_V7_HAS_NONSEC
+	default y
+
+config ARMV7_BOOT_SEC_DEFAULT
+	default n
+
+config SYS_SOC
+	default "sapporo"
+
+config SYS_CPU
+	default "armv7"
+
+choice # Product select
+	prompt "Augentix product select"
+	optional
+
+config TARGET_AGT706_1
+	bool "AGT706-1"
+
+config TARGET_AGT706_1_AMP
+	bool "AGT706-1-amp"
+
+config TARGET_AGT706_1_NAND
+	bool "AGT706-1-nand"
+
+config TARGET_AGT706_2
+	bool "AGT706-2"
+
+config TARGET_AGT706_2_NAND
+	bool "AGT706-2-nand"
+
+config TARGET_AGT706_3
+	bool "AGT706-3"
+
+config TARGET_AGT706_4
+	bool "AGT706-4"
+
+config TARGET_AGT706_5
+	bool "AGT706-5"
+
+config TARGET_AGT706_6
+	bool "AGT706-6"
+
+config TARGET_AGT706_7
+	bool "AGT706-7"
+
+config TARGET_AGT706_8
+	bool "AGT706-8"
+
+config TARGET_HC1706_TB010_SLT
+	bool "HC1706-TB010-SLT"
+
+config TARGET_HC1706H_TB010_SLT
+	bool "HC1706H-TB010-SLT"
+
+config TARGET_HC1706K_TB010_SLT
+	bool "HC1706K-TB010-SLT"
+
+config TARGET_HC1726_TB012_SLT
+	bool "HC1726-TB012-SLT"
+
+config TARGET_AGT706_9
+	bool "AGT706-9"
+
+config TARGET_AGT706_10
+	bool "AGT706-10"
+
+config TARGET_AGT706_13
+	bool "AGT706-13"
+
+config TARGET_AGT706_14
+	bool "AGT706-14"
+
+config TARGET_AGT706_15
+	bool "AGT706-15"
+
+config TARGET_AGT726_2
+	bool "AGT726-2"
+
+config TARGET_AGT726_1
+	bool "AGT726-1"
+
+config TARGET_AGT706_11
+	bool "AGT706-11"
+
+config TARGET_AGT706_12
+	bool "AGT706-12"
+
+config TARGET_AGT726_4
+	bool "AGT726-4"
+
+config TARGET_AGT726_3
+	bool "AGT726-3"
+
+config TARGET_AGT726_5
+	bool "AGT726-5"
+
+config TARGET_AGT726_7
+	bool "AGT726-7"
+
+config TARGET_AGT726_10
+	bool "AGT726-10"
+
+config TARGET_AGT726_12
+	bool "AGT726-12"
+
+config TARGET_AGT726_7
+	bool "AGT726-7"
+
+config TARGET_DFN202_113002
+	bool "DFN202-113002"
+
+config TARGET_AGT726_11
+	bool "AGT726-11"
+
+config TARGET_STR726_13
+	bool "STR726-13"
+
+config TARGET_SAPPORO
+	bool "Generic design"
+
+endchoice # Product select
+
+# Augentix product level Kconfig
+source "board/augentix/sapporo/Kconfig"
+source "board/augentix/hc1706-tb010/Kconfig"
+source "board/augentix/hc1706k-tb010/Kconfig"
+source "board/augentix/hc1706k-mb033/Kconfig"
+source "board/augentix/hc1706k-mb035/Kconfig"
+source "board/augentix/hc1706h-mb033/Kconfig"
+source "board/augentix/hc1726-tb012/Kconfig"
+source "board/augentix/hc1726-tb013/Kconfig"
+
+endif #ARCH_SAPPORO

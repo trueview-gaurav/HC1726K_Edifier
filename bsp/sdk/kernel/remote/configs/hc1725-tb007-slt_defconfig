@@ -1,0 +1,23 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# Augentix SDK Remote Configuration
+#
+
+#
+# baremetal
+#
+
+#
+# freertos
+#
+# CONFIG_FREERTOS is not set
+
+#
+# library
+#
+# CONFIG_LIBNCNN is not set
+CONFIG_LIBTFLITE_MICRO=y
+CONFIG_LIBCPVS=y
+CONFIG_LIBMETAL=y
+CONFIG_LIBOPEN_AMP=y
+CONFIG_LIBAMPC=y

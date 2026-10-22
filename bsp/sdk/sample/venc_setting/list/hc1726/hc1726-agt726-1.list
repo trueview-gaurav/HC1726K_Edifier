@@ -1,0 +1,12 @@
+[Channel 0]
+normal: 5mpx_4mbps_cpsid105739.ini
+ir: 5mpx_4mbps_cpsid105739_ir.ini
+[Channel 1]
+normal: 1mpx_512kbps_cpsid105739.ini
+ir: 1mpx_512kbps_cpsid105739_ir.ini
+[Channel 2]
+normal: 5mpx_4mbps_cpsid105741.ini
+ir: 5mpx_4mbps_cpsid105741_ir.ini
+[Channel 3]
+normal: 1mpx_512kbps_cpsid105741.ini
+ir: 1mpx_512kbps_cpsid105741_ir.ini

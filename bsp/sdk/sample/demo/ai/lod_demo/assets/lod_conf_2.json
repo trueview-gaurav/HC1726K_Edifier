@@ -1,0 +1,20 @@
+{
+	"roi": [
+		{
+			"start":[200, 720],
+			"end":[799, 1079],
+		},
+		{
+			"start":[1120, 720],
+			"end":[1719, 1079],
+		}
+	],
+	"duration": 0,
+	"background_merge_delay": 50000,
+	"noise_level": 5,
+	"od_qual": 58,
+	"od_track_refine": 63,
+	"od_size_th": 40,
+	"od_sen": 253,
+	"en_stop_det": false
+}

@@ -1,0 +1,7 @@
+menu "freertos"
+
+config FREERTOS
+        bool "FreeRTOS"
+        default n
+
+endmenu

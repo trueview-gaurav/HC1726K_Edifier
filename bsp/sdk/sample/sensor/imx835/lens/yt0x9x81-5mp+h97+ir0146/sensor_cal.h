@@ -1,0 +1,262 @@
+#ifndef SENSOR_CAL_H__
+#define SENSOR_CAL_H__
+
+#include "mpi_dip_sns.h"
+
+static int k_sensor_gain_bin[MPI_SENSOR_GAIN_LUT_ENTRY_NUM] = {
+	32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768,
+};
+
+static MPI_CAL_SNS_DEFAULT_S cal_tbl_dft = {
+	.dbc = {
+		.dbc_level = 3838,
+	},
+	.dcc = {
+		.gain = {1087, 1960, 2171, 1082},
+		.offset_2s = {0, 14, 15, -9},
+	},
+	.lsc = {
+		.origin = 4,
+		.x_trend_2s = 3872,
+		.y_trend_2s = 1910,
+		.x_curvature = 2867,
+		.y_curvature = 1092,
+		.tilt_2s = 0,
+	},
+};
+
+static MPI_BLACK_LEVEL_TABLE_S black_level_table = { .black_level = {
+	                                                     3838,
+	                                                     3816,
+	                                                     3777,
+	                                                     3745,
+	                                                     3746,
+	                                                     3771,
+	                                                     3753,
+	                                                     3753,
+	                                                     3753,
+	                                                     3753,
+	                                                     3753,
+	                                             } };
+
+static MPI_AWB_COLOR_TEMP_S ct_tbl_dft[MPI_K_TABLE_ENTRY_NUM] = {
+	{ .k = 2700,
+	  .gain = { 256, 170, 431, 256 },
+	  .matrix = { 3861, -2010, 197, -1057, 2765, 340, 1144, -5378, 6281 } },
+	{ .k = 4000, .gain = { 256, 202, 332, 256 }, .matrix = { 4036, -2086, 98, -1899, 4045, -98, 528, -4372, 5892 } },
+	{ .k = 5000,
+	  .gain = { 256, 231, 246, 256 },
+	  .matrix = { 4203, -2372, 217, -1816, 4660, -797, 68, -3455, 5434 } },
+	{ .k = 6500,
+	  .gain = { 256, 257, 214, 256 },
+	  .matrix = { 4021, -2254, 281, -1922, 4911, -941, -129, -3008, 5185 } },
+	{ .k = 7500,
+	  .gain = { 256, 313, 203, 256 },
+	  .matrix = { 4575, -2821, 294, -1298, 4084, -738, 31, -3215, 5232 } },
+	{ .k = 0, .gain = { 256, 256, 256, 256 }, .matrix = { 2048, 0, 0, 0, 2048, 0, 0, 0, 2048 } },
+	{ .k = 0, .gain = { 256, 256, 256, 256 }, .matrix = { 2048, 0, 0, 0, 2048, 0, 0, 0, 2048 } },
+	{ .k = 0, .gain = { 256, 256, 256, 256 }, .matrix = { 2048, 0, 0, 0, 2048, 0, 0, 0, 2048 } },
+};
+
+static MPI_AWB_COLOR_DELTA_S delta_tbl_dft[MPI_K_TABLE_ENTRY_NUM] = {
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+	{
+	        .gain = { 0, 0, 0, 0 },
+	},
+};
+
+static MPI_DIP_SNS_DEFAULT_S dip_dft = {
+
+	.iso = {
+		.effective_iso[0] =     100,
+		.effective_iso[1] =     200,
+		.effective_iso[2] =     300,
+		.effective_iso[3] =     800,
+		.effective_iso[4] =    1600,
+		.effective_iso[5] =    3200,
+		.effective_iso[6] =    6400,
+		.effective_iso[7] =   12800,
+		.effective_iso[8] =   25600,
+		.effective_iso[9] =   51200,
+		.effective_iso[10] = 102400,
+	},
+
+	.csm = {
+		.sat_table[0] =    136,
+		.sat_table[1] =    128,
+		.sat_table[2] =    128,
+		.sat_table[3] =    118,
+		.sat_table[4] =    100,
+		.sat_table[5] =     90,
+		.sat_table[6] =     90,
+		.sat_table[7] =     90,
+		.sat_table[8] =     90,
+		.sat_table[9] =     90,
+		.sat_table[10] =    90,
+	},
+
+	.shp = {
+		.shp_table[0] =   210,
+		.shp_table[1] =   190,
+		.shp_table[2] =   140,
+		.shp_table[3] =    80,
+		.shp_table[4] =    60,
+		.shp_table[5] =    30,
+		.shp_table[6] =     0,
+		.shp_table[7] =     0,
+		.shp_table[8] =     0,
+		.shp_table[9] =     0,
+		.shp_table[10] =    0,
+	},
+
+	.nr = {
+		.y_level_3d[0] =  156,
+		.y_level_3d[1] =  163,
+		.y_level_3d[2] =  168,
+		.y_level_3d[3] =  188,
+		.y_level_3d[4] =  218,
+		.y_level_3d[5] =  230,
+		.y_level_3d[6] =  240,
+		.y_level_3d[7] =  240,
+		.y_level_3d[8] =  255,
+		.y_level_3d[9] =  255,
+		.y_level_3d[10] = 255,
+
+		.c_level_3d[0] =    150,
+		.c_level_3d[1] =    150,
+		.c_level_3d[2] =    160,
+		.c_level_3d[3] =    160,
+		.c_level_3d[4] =    160,
+		.c_level_3d[5] =    160,
+		.c_level_3d[6] =    160,
+		.c_level_3d[7] =    160,
+		.c_level_3d[8] =    160,
+		.c_level_3d[9] =    160,
+		.c_level_3d[10] =   160,
+
+		.y_level_2d[0] =    100,
+		.y_level_2d[1] =    100,
+		.y_level_2d[2] =    100,
+		.y_level_2d[3] =    100,
+		.y_level_2d[4] =    100,
+		.y_level_2d[5] =    100,
+		.y_level_2d[6] =    100,
+		.y_level_2d[7] =    100,
+		.y_level_2d[8] =    100,
+		.y_level_2d[9] =    100,
+		.y_level_2d[10] =   100,
+
+		.c_level_2d[0] =    150,
+		.c_level_2d[1] =    150,
+		.c_level_2d[2] =    150,
+		.c_level_2d[3] =    150,
+		.c_level_2d[4] =    150,
+		.c_level_2d[5] =    150,
+		.c_level_2d[6] =    150,
+		.c_level_2d[7] =    150,
+		.c_level_2d[8] =    150,
+		.c_level_2d[9] =    150,
+		.c_level_2d[10] =   150,
+	},
+
+	.gamma = {
+		.mode =     0,
+	},
+
+	.te = {
+		.noise_cstr[0] =     32,
+		.noise_cstr[1] =    544,
+		.noise_cstr[2] =    800,
+		.noise_cstr[3] =    928,
+		.noise_cstr[4] =    992,
+		.noise_cstr[5] =   1024,
+		.noise_cstr[6] =   1024,
+		.noise_cstr[7] =   1024,
+		.noise_cstr[8] =   1024,
+		.noise_cstr[9] =   1024,
+		.noise_cstr[10] =  1024,
+
+		.curve[0] =      0,
+		.curve[1] =     20,
+		.curve[2] =     40,
+		.curve[3] =     80,
+		.curve[4] =    130,
+		.curve[5] =    180,
+		.curve[6] =    230,
+		.curve[7] =    280,
+		.curve[8] =    340,
+		.curve[9] =    460,
+		.curve[10] =   580,
+		.curve[11] =   600,
+		.curve[12] =   740,
+		.curve[13] =   880,
+		.curve[14] =  1030,
+		.curve[15] =  1200,
+		.curve[16] =  1370,
+		.curve[17] =  1540,
+		.curve[18] =  1700,
+		.curve[19] =  1860,
+		.curve[20] =  2048,
+		.curve[21] =  2176,
+		.curve[22] =  2304,
+		.curve[23] =  2432,
+		.curve[24] =  2560,
+		.curve[25] =  2816,
+		.curve[26] =  3072,
+		.curve[27] =  3328,
+		.curve[28] =  3584,
+		.curve[29] =  3840,
+		.curve[30] =  4096,
+		.curve[31] =  4352,
+		.curve[32] =  4608,
+		.curve[33] =  4864,
+		.curve[34] =  5120,
+		.curve[35] =  5376,
+		.curve[36] =  5632,
+		.curve[37] =  5888,
+		.curve[38] =  6144,
+		.curve[39] =  6400,
+		.curve[40] =  6656,
+		.curve[41] =  7168,
+		.curve[42] =  7680,
+		.curve[43] =  8192,
+		.curve[44] =  8704,
+		.curve[45] =  9216,
+		.curve[46] =  9728,
+		.curve[47] = 10240,
+		.curve[48] = 10752,
+		.curve[49] = 11264,
+		.curve[50] = 11776,
+		.curve[51] = 12288,
+		.curve[52] = 12800,
+		.curve[53] = 13312,
+		.curve[54] = 13824,
+		.curve[55] = 14336,
+		.curve[56] = 14848,
+		.curve[57] = 15360,
+		.curve[58] = 15872,
+		.curve[59] = 16384,
+	},
+};
+
+#endif

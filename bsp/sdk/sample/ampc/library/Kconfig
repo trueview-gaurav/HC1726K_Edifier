@@ -1,0 +1,18 @@
+menu "library"
+
+config LIBAMPC
+	bool "libampc"
+	select LIBMETAL
+	select LIBOPEN_AMP
+	default n
+
+config LIBOPEN_AMP
+	bool "libopen_amp"
+	select LIBMETAL
+	default n
+
+config LIBMETAL
+	bool "libmetal"
+	default n
+
+endmenu

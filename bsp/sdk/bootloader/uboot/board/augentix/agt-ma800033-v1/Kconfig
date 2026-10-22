@@ -1,0 +1,13 @@
+# Products using AGT_MA800033_V1 machine
+if TARGET_AGT800_33
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma800033-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-agt800-33"
+
+endif

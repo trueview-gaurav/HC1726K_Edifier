@@ -1,0 +1,210 @@
+/******************************************************************************
+ * *
+ * * Copyright (c) Augentix Inc. - All Rights Reserved
+ * *
+ * * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * *
+ * * Proprietary and confidential.
+ * *
+ * *****************************************************************************/
+
+#include "sensor.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <string.h>
+#include "sensor_params.h"
+#include "sensor_settings.h"
+#include "sensor_lvds.h"
+
+static int g_i2c_fd[1] = {
+	-1,
+};
+
+static const uint16_t k_i2c_slave_addr[1] = {
+	SENSOR_I2C_SLAVE_ADDR,
+};
+
+#if SET_2592_1944_12fps_DOL_HDR_nonVC_2lane
+// IMX675-AAQR / AATN All-pixel scan CSI-2_2lane 24MHz AD:10bit Output:10bit 1188Mbps Master Mode LCG Mode DOL HDR 2frame LI 12.5fps Integration Time LEF:0.504ms SEF:0.059ms
+static const SensCmd k_cmd_format_2lane_25fps[] = {
+	{ 0x3000, 0x01 }, { 0x3001, 0x00 }, { 0x3002, 0x00 }, { 0x3014, 0x04 }, { 0x3015, 0x04 }, { 0x3018, 0x00 },
+	{ 0x3019, 0x00 }, { 0x301A, 0x01 }, { 0x301B, 0x00 }, { 0x301C, 0x01 }, { 0x301E, 0x00 }, { 0x3020, 0x00 },
+	{ 0x3021, 0x00 }, { 0x3022, 0x00 }, { 0x3023, 0x00 }, { 0x3028, 0xFC }, { 0x3029, 0x0A }, { 0x302A, 0x00 },
+	{ 0x302C, 0x4C }, { 0x302D, 0x04 }, { 0x3030, 0x00 }, { 0x3031, 0x00 }, { 0x3032, 0x00 }, { 0x303C, 0x00 },
+	{ 0x303D, 0x00 }, { 0x303E, 0x30 }, { 0x303F, 0x0A }, { 0x3040, 0x01 }, { 0x3044, 0x00 }, { 0x3045, 0x00 },
+	{ 0x3046, 0xAC }, { 0x3047, 0x07 }, { 0x304C, 0x00 }, { 0x304D, 0x00 }, { 0x3050, 0xD6 }, { 0x3051, 0x15 },
+	{ 0x3052, 0x00 }, { 0x3054, 0x05 }, { 0x3055, 0x00 }, { 0x3056, 0x00 }, { 0x3058, 0x53 }, { 0x3059, 0x00 },
+	{ 0x305A, 0x00 }, { 0x3060, 0x2D }, { 0x3061, 0x00 }, { 0x3062, 0x00 }, { 0x3064, 0x56 }, { 0x3065, 0x00 },
+	{ 0x3066, 0x00 }, { 0x3070, 0x43 }, { 0x3071, 0x00 }, { 0x3072, 0x90 }, { 0x3073, 0x00 }, { 0x3074, 0x00 },
+	{ 0x3075, 0x00 }, { 0x30A4, 0xAA }, { 0x30A6, 0x00 }, { 0x30CC, 0x00 }, { 0x30CD, 0x00 }, { 0x30CE, 0x02 },
+	{ 0x30DC, 0x32 }, { 0x30DD, 0x40 }, { 0x310C, 0x01 }, { 0x3130, 0x01 }, { 0x3148, 0x00 }, { 0x315E, 0x10 },
+	{ 0x3400, 0x00 }, { 0x3460, 0x22 }, { 0x347B, 0x02 }, { 0x3492, 0x08 }, { 0x3890, 0x08 }, { 0x3891, 0x00 },
+	{ 0x3893, 0x00 }, { 0x3B1D, 0x17 }, { 0x3B44, 0x3F }, { 0x3B60, 0x03 }, { 0x3C03, 0x04 }, { 0x3C04, 0x04 },
+	{ 0x3C0A, 0x03 }, { 0x3C0B, 0x03 }, { 0x3C0C, 0x03 }, { 0x3C0D, 0x03 }, { 0x3C0E, 0x03 }, { 0x3C0F, 0x03 },
+	{ 0x3C30, 0x73 }, { 0x3C3C, 0x20 }, { 0x3C44, 0x06 }, { 0x3C7C, 0xB9 }, { 0x3C7D, 0x01 }, { 0x3C7E, 0xB7 },
+	{ 0x3C7F, 0x01 }, { 0x3CB0, 0x00 }, { 0x3CB2, 0xFF }, { 0x3CB3, 0x03 }, { 0x3CB4, 0xFF }, { 0x3CB5, 0x03 },
+	{ 0x3CBA, 0xFF }, { 0x3CBB, 0x03 }, { 0x3CC0, 0xFF }, { 0x3CC1, 0x03 }, { 0x3CC2, 0x00 }, { 0x3CC6, 0xFF },
+	{ 0x3CC7, 0x03 }, { 0x3CC8, 0xFF }, { 0x3CC9, 0x03 }, { 0x3E00, 0x1E }, { 0x3E02, 0x04 }, { 0x3E03, 0x00 },
+	{ 0x3E20, 0x04 }, { 0x3E21, 0x00 }, { 0x3E22, 0x1E }, { 0x3E24, 0xBA }, { 0x3E72, 0x85 }, { 0x3E76, 0x0C },
+	{ 0x3E77, 0x01 }, { 0x3E7A, 0x85 }, { 0x3E7E, 0x1F }, { 0x3E82, 0xA6 }, { 0x3E86, 0x2D }, { 0x3EE2, 0x33 },
+	{ 0x3EE3, 0x03 }, { 0x4490, 0x07 }, { 0x4494, 0x19 }, { 0x4495, 0x00 }, { 0x4496, 0xBB }, { 0x4497, 0x00 },
+	{ 0x4498, 0x55 }, { 0x449A, 0x50 }, { 0x449C, 0x50 }, { 0x449E, 0x50 }, { 0x44A0, 0x3C }, { 0x44A2, 0x19 },
+	{ 0x44A4, 0x19 }, { 0x44A6, 0x19 }, { 0x44A8, 0x4B }, { 0x44AA, 0x4B }, { 0x44AC, 0x4B }, { 0x44AE, 0x4B },
+	{ 0x44B0, 0x3C }, { 0x44B2, 0x19 }, { 0x44B4, 0x19 }, { 0x44B6, 0x19 }, { 0x44B8, 0x4B }, { 0x44BA, 0x4B },
+	{ 0x44BC, 0x4B }, { 0x44BE, 0x4B }, { 0x44C0, 0x3C }, { 0x44C2, 0x19 }, { 0x44C4, 0x19 }, { 0x44C6, 0x19 },
+	{ 0x44C8, 0xF0 }, { 0x44CA, 0xEB }, { 0x44CC, 0xEB }, { 0x44CE, 0xE6 }, { 0x44D0, 0xE6 }, { 0x44D2, 0xBB },
+	{ 0x44D4, 0xBB }, { 0x44D6, 0xBB }, { 0x44D8, 0xE6 }, { 0x44DA, 0xE6 }, { 0x44DC, 0xE6 }, { 0x44DE, 0xE6 },
+	{ 0x44E0, 0xE6 }, { 0x44E2, 0xBB }, { 0x44E4, 0xBB }, { 0x44E6, 0xBB }, { 0x44E8, 0xE6 }, { 0x44EA, 0xE6 },
+	{ 0x44EC, 0xE6 }, { 0x44EE, 0xE6 }, { 0x44F0, 0xE6 }, { 0x44F2, 0xBB }, { 0x44F4, 0xBB }, { 0x44F6, 0xBB },
+	{ 0x4538, 0x15 }, { 0x4539, 0x15 }, { 0x453A, 0x15 }, { 0x4544, 0x15 }, { 0x4545, 0x15 }, { 0x4546, 0x15 },
+	{ 0x4550, 0x10 }, { 0x4551, 0x10 }, { 0x4552, 0x10 }, { 0x4553, 0x10 }, { 0x4554, 0x10 }, { 0x4555, 0x10 },
+	{ 0x4556, 0x10 }, { 0x4557, 0x10 }, { 0x4558, 0x10 }, { 0x455C, 0x10 }, { 0x455D, 0x10 }, { 0x455E, 0x10 },
+	{ 0x455F, 0x10 }, { 0x4560, 0x10 }, { 0x4561, 0x10 }, { 0x4562, 0x10 }, { 0x4563, 0x10 }, { 0x4564, 0x10 },
+	{ 0x4569, 0x01 }, { 0x456A, 0x01 }, { 0x456B, 0x06 }, { 0x456C, 0x06 }, { 0x456D, 0x06 }, { 0x456E, 0x06 },
+	{ 0x456F, 0x06 }, { 0x4570, 0x06 }, { 0x4E00, 0x11 },
+};
+
+#endif
+
+static const SensCmd k_cmd_start[] = {
+	{ 0x3000, 0x00 }, // operating mode
+};
+
+static const SensCmd k_cmd_stop[] = {
+	{ 0x3000, 0x01 } //standby mode
+};
+
+static void SENSOR_configInitSeq(uint8_t path_idx)
+{
+	int fd = g_i2c_fd[path_idx];
+
+	SENSOR_writeSeqWaddrBdata(fd, sizeof(k_cmd_format_2lane_25fps) / sizeof(SensCmd), k_cmd_format_2lane_25fps,
+	                          k_i2c_slave_addr[path_idx]);
+
+	/* Light up sensor, please comment this line */
+	switch (path_idx) {
+#ifdef SNS0
+	case SNS0_ID:
+		cmos_ctrl(SNS0_ID).update_exp_cmd(fd, path_idx);
+		break;
+#endif
+#ifdef SNS1
+	case SNS1_ID:
+		cmos_ctrl(SNS1_ID).update_exp_cmd(fd, path_idx);
+		break;
+#endif
+	default:
+		break;
+	}
+
+	SENSOR_writeSeqWaddrBdata(fd, sizeof(k_cmd_start) / sizeof(SensCmd), k_cmd_start, k_i2c_slave_addr[path_idx]);
+
+	/* Sensor needs 8 frames to output stable image */
+	/* Not really have to skip those but should notice that there is a concern. */
+	//	usleep(320000);
+}
+
+static void SENSOR_configExitSeq(uint8_t path_idx)
+{
+	int fd = g_i2c_fd[path_idx];
+
+	SENSOR_writeSeqWaddrBdata(fd, sizeof(k_cmd_stop) / sizeof(SensCmd), k_cmd_stop, k_i2c_slave_addr[path_idx]);
+}
+
+/* Global Interface */
+void SENSOR_configInit(uint8_t path_idx)
+{
+	int ret = 0;
+	int i2c_fd = -1;
+
+	/* Open I2C device node */
+	ret = SENSOR_openI2cDev(&i2c_fd, k_i2c_slave_addr[path_idx]);
+	if (ret != MPI_SUCCESS) {
+		return;
+	}
+
+	g_i2c_fd[path_idx] = i2c_fd;
+
+	/* Start sensor */
+	SENSOR_configInitSeq(path_idx);
+}
+
+void SENSOR_configExit(uint8_t path_idx)
+{
+	int ret = 0;
+	int i2c_fd = g_i2c_fd[path_idx];
+
+	/* Stop sensor */
+	SENSOR_configExitSeq(path_idx);
+
+	/* Close I2C device node */
+	ret = SENSOR_closeI2cDev(i2c_fd);
+	if (ret != MPI_SUCCESS) {
+		return;
+	}
+
+	g_i2c_fd[path_idx] = -1;
+}
+
+int32_t SENSOR_getOpInfo(uint8_t path_idx, uint32_t sns_idx, MPI_SNS_OP_INFO_S *p_op_info)
+{
+	MPI_SNS_OP_INFO_S *p = p_op_info;
+
+	p->sensor_mode = MPI_SNS_MODE_MASTER;
+	p->slv_sync_src = MPI_SLV_SYNC_SRC_NONE;
+	p->bit_width = MPI_BITS_10;
+	p->intf_ptcl = MPI_INTF_PTCL_MIPI;
+	p->ptcl_mode = MPI_MIPI_CSI2;
+	p->hsync_plty = MPI_PLTY_HIGH;
+	p->vsync_plty = MPI_PLTY_HIGH;
+	p->bayer = MPI_BAYER_PHASE_R;
+	p->ext_clk_freq = SENSOR_EXT_CLK_FREQ;
+
+// (Datasheet IMX675-AAQR1-C_E_Datasheet_E23202C54.pdf Page 36 (All-pixel mode))
+#if SET_2592_1944_12fps_DOL_HDR_nonVC_2lane
+	p->sensor_res.width = SENSOR_WIDTH + MIPI_HBP + MIPI_HFP; // 24 + 2592 + 8
+	p->sensor_res.height = (SENSOR_HEIGHT + HDR_BLANK_LINE) * 2 + MIPI_VBP + MIPI_VFP;
+#endif
+	p->sensor_fps = (float)SENSOR_FPS;
+	p->frame_len_line = INIT_FRAME_LINE;
+	p->i2c_slv_addr = k_i2c_slave_addr[path_idx];
+	p->ob_enable = 0;
+	p->reserved = 0;
+
+	memcpy(&p->parl_lane, &k_parl_lane[path_idx], sizeof(MPI_PARL_LANE_INFO_S));
+	memcpy(&p->serl_lane[0], &k_serl_lane[path_idx], MPI_MAX_LVDSRX_LANE_NUM * sizeof(MPI_SERL_LANE_INFO_S));
+	SENSOR_getLvdsDelay(sns_idx, p->serl_lane);
+
+// (Datasheet IMX675-AAQR1-C_E_Datasheet_E23202C54.pdf Page 36 (All-pixel mode))
+#if SET_2592_1944_12fps_DOL_HDR_nonVC_2lane
+	p->mipi.bp_img.hor = MIPI_HBP;
+	p->mipi.bp_img.ver = MIPI_VBP;
+	p->mipi.fp_img.hor = MIPI_HFP;
+	p->mipi.fp_img.ver = MIPI_VFP;
+#endif
+
+	p->mipi.bp_eff_pix.hor = 0;
+	p->mipi.bp_eff_pix.ver = 0;
+
+	p->mipi.ob_conf.skipped_line_num = 0;
+	p->mipi.ob_conf.pos = MPI_POS_NONE;
+	p->mipi.ob_conf.region.x = 0;
+	p->mipi.ob_conf.region.y = 0;
+	p->mipi.ob_conf.region.width = 0;
+	p->mipi.ob_conf.region.height = 0;
+
+	p->mipi.dt_bmp = 0x0;
+	p->mipi.vc_bmp = 0x1;
+	p->mipi.t_hs_settle = 0xA;
+	p->mipi.t_hs_settle_ns = T_HS_SETTLE_NS;
+	p->mipi.t_d_term_en_ns = T_D_TERM_EN_NS;
+	p->mipi.t_clk_settle_ns = T_CLK_SETTLE_NS;
+	p->mipi.t_clk_term_en_ns = T_CLK_TERM_EN_NS;
+
+	p->hdr.vc_enable = 0;
+	p->hdr.hdr_mode = HDR_MODE;
+	p->hdr.image_num = HDR_IMAGE_NUM;
+	p->hdr.blank_line_num[0] = HDR_BLANK_LINE;
+	return MPI_SUCCESS;
+}

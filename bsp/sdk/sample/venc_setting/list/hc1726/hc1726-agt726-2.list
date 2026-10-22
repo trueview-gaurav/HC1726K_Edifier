@@ -1,0 +1,12 @@
+[Channel 0]
+normal: 2mpx_4mbps_cpsid99155.ini
+ir: 2mpx_4mbps_cpsid99155_ir.ini
+normal: 34mpx_40mbps_cpsid105919.ini
+ir: 34mpx_40mbps_cpsid105919_ir.ini
+[Channel 1]
+normal: 522kpx_512kbps_cpsid99155.ini
+ir: 522kpx_512kbps_cpsid99155_ir.ini
+[Channel 2]
+normal: 3.1mpx_4mbps_cpsid99157.ini
+[Channel 3]
+normal: 522kpx_512kbps_cpsid99157.ini

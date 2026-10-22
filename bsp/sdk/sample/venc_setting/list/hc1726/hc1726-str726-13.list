@@ -1,0 +1,8 @@
+[Channel 0]
+normal: 3mpx_4mbps_cpsid112927.ini
+ir: 3mpx_4mbps_cpsid112927_ir.ini
+light: 3mpx_4mbps_cpsid112927_light.ini
+[Channel 1]
+normal: 1.5mpx_4mbps_cpsid112927.ini
+ir: 1.5mpx_4mbps_cpsid112927_ir.ini
+light: 1.5mpx_4mbps_cpsid112927_light.ini

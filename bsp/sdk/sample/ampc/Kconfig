@@ -1,0 +1,3 @@
+mainmenu "Augentix SDK AMPC Configuration"
+
+source "library/Kconfig"

@@ -1,0 +1,10 @@
+[Channel 0]
+normal: 2mpx_1.5mbps_cpsid70743.ini
+normal: 3.6mpx_2.5mbps_cpsid95713.ini
+normal: 3mpx_1mbps_cpsid107598.ini
+ir: 3mpx_1mbps_cpsid107598_ir.ini
+light: 3mpx_1mbps_cpsid107598_light.ini
+
+[Channel 1]
+normal: 786kpx_768kbps_cpsid95713.ini
+

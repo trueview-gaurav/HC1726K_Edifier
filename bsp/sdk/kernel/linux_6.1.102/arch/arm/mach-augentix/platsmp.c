@@ -1,0 +1,1 @@
+../../../../extdrv/mach/platsmp.c

@@ -1,0 +1,825 @@
+#include "osaka.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "../../../../../../../top/include/generated/autoconf.h"
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "augentix,osaka";
+	interrupt-parent = <&gic>;
+
+	aliases {
+		serial0 = &uart1;
+		serial1 = &uart0;
+		serial2 = &uart2;
+		ethernet0 = &ethernet;
+	};
+
+	clock_cpu: clock-cpu {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+#ifdef CONFIG_FPGA
+		clock-frequency = <CONFIG_CPU_FREQUENCY>;
+#else
+		clock-frequency = <TODO>;
+#endif
+		clock-output-names = "cpu_clk";
+	};
+
+	cpu_opp_table: opp-table {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-1 {
+#ifdef CONFIG_FPGA
+			opp-hz = /bits/ 64 <CONFIG_CPU_FREQUENCY>;
+			opp-microvolt = <900000>;        /* not effective on FPGA */
+#else
+			opp-hz = /bits/ 64 <TODO>;
+			opp-microvolt = <TODO>;
+#endif
+
+		};
+	};
+
+	cpus {
+	    #address-cells = <1>;
+	    #size-cells = <0>;
+
+	    cpu0: cpu@0 {
+	        device_type = "cpu";
+	        compatible = "arm,cortex-a55";
+	        reg = <0x0>;
+
+	        enable-method = "spin-table";
+
+		clocks = <&clock_cpu>;
+		operating-points-v2 = <&cpu_opp_table>;
+	    };
+	};
+
+	/* TODO: later replaced by actual DRAM size */
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>;
+	};
+
+	/* Ethernet AXI configuration for FPGA optimization */
+	stmmac_axi_setup: stmmac-axi-config {
+		snps,wr_osr_lmt = <4>;        /* Write Outstanding Request Limit: 4 for FPGA */
+		snps,rd_osr_lmt = <4>;        /* Read Outstanding Request Limit: 4 for FPGA */
+		snps,blen = <16 8 4 0 0 0 0>; /* Supported burst lengths: 16, 8, 4 (short bursts for FPGA) */
+		snps,fb;                      /* Fixed Burst mode for predictable behavior */
+		snps,kbbe;                    /* Do not cross 1KB boundary for compatibility */
+	};
+
+	soc@80000000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+
+		gic: interrupt-controller@0 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			reg = <GIC_BASE 0x40000>,
+			      <GICD_BASE 0x100000>;
+			interrupt-controller;
+			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_HIGH)>;
+		};
+
+		timer {
+			compatible = "arm,armv8-timer";
+			/* Hypervisor Virtual Timer interrupt is not wired to GIC */
+			interrupts =
+			     <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <CONFIG_CPU_FREQUENCY>;
+#else
+			clock-frequency = <TODO>;
+#endif
+		};
+
+		syscfg@0 {
+			compatible = "augentix,syscfg";
+			reg = <SYSCFG_BASE 0x020>;
+		};
+
+		mpp {
+			compatible = "augentix,mpp";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "okay";
+
+			vbs {
+				augentix,align = <32768>;
+				augentix,prvsize = <32768>; /* size of private pool space */
+			};
+
+			senif@0 {
+				reg = <RXPHY0_RX_PHYCFG_BASE 0x90000>;
+				interrupt-parent = <&gic>;
+				/*		slb0		    slb1		dec0 */
+				interrupts = <0 IRQ_NUM_SLB0 4>, <0 IRQ_NUM_SLB1 4>, <0 IRQ_NUM_MIPI_DEC0 4>,
+				/*		dec1			 ps		   spi */
+					     <0 IRQ_NUM_MIPI_DEC1 4>, <0 IRQ_NUM_PS 4>, <0 IRQ_NUM_SPI_RX 4>;
+				clocks = <&clkc CLK_SENSOR>, <&clkc CLK_SENIF>;
+				snsop-override = <0>; /* override snsop with path width & height */
+			};
+
+			is@0 {
+				reg = <IS_SET0_IS_BASE 0x300000>;
+				interrupt-parent = <&gic>;
+				interrupts = <0 IRQ_NUM_IS0_LPMD 4>, <0 IRQ_NUM_IS0_ISK0_BLS 4>, <0 IRQ_NUM_IS0_ISK0_BSP 4>,
+				             <0 IRQ_NUM_IS0_ISK1_BLS 4>, <0 IRQ_NUM_IS0_ISK1_BSP 4>,
+				             <0 IRQ_NUM_IS0_ISW0 4>, <0 IRQ_NUM_IS0_ISW1 4>, <0 IRQ_NUM_IS0_ISW2 4>,
+				             <0 IRQ_NUM_IS0_ISW3 4>, <0 IRQ_NUM_IS0_ISW4 4>, <0 IRQ_NUM_IS0_ISW5 4>,
+				             <0 IRQ_NUM_IS1_ISK0_BLS 4>, <0 IRQ_NUM_IS1_ISK0_BSP 4>,
+				             <0 IRQ_NUM_IS1_ISK1_BLS 4>, <0 IRQ_NUM_IS1_ISK1_BSP 4>,
+				             <0 IRQ_NUM_IS1_ISW0 4>, <0 IRQ_NUM_IS1_ISW1 4>, <0 IRQ_NUM_IS1_ISW2 4>,
+				             <0 IRQ_NUM_IS1_ISW3 4>, <0 IRQ_NUM_IS1_ISW4 4>, <0 IRQ_NUM_IS1_ISW5 4>;
+			};
+
+			isp@0 {
+				reg = <ISP_ISP_BASE 0xA00000>;
+				interrupt-parent = <&gic>;
+				interrupts = <GIC_SPI IRQ_NUM_ISP_NRW IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI IRQ_NUM_ISP_NRW1 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI IRQ_NUM_ISP_VPW0 IRQ_TYPE_LEVEL_HIGH>,
+					      <GIC_SPI IRQ_NUM_ISP_VPW1 IRQ_TYPE_LEVEL_HIGH>,
+					      <GIC_SPI IRQ_NUM_ISP_VPW2 IRQ_TYPE_LEVEL_HIGH>,
+					      <GIC_SPI IRQ_NUM_ISP_VPW3 IRQ_TYPE_LEVEL_HIGH>,
+					      <GIC_SPI IRQ_NUM_ISP_CCQ IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "nrw", "nrw1", "vpw0", "vpw1", "vpw2", "vpw3", "ccq";
+			};
+
+			enc@0 {
+				reg = <ENC_ENC_BASE 0x1F500>;
+				interrupt-parent = <&gic>;
+				interrupts = <0 IRQ_NUM_ENC_JPEG 4>, <0 IRQ_NUM_ENC_SRCR 4>, <0 IRQ_NUM_ENC_BSW 4>,
+					     <0 IRQ_NUM_ENC_VENC 4>, <0 IRQ_NUM_ENC_OSDR0 4>, <0 IRQ_NUM_ENC_OSDR1 4>;
+				bsb-size = <0x300000 0x100000 0x100000 0x100000>;
+				snapshot-size = <0x80000>;
+			};
+		};
+
+		agtx_timer: agtx_timer@0 {
+			compatible = "augentix,augentix-timer";
+			reg = <TIMER_MAIN_BASE 0x80>;
+			//status = "okay";
+			status = "disable";
+		};
+
+		i2c0: i2c@0 {
+			compatible = "snps,designware-i2c";
+			reg = <I2CM0_BASE 0x100>;
+			interrupts = <0 IRQ_NUM_I2C0 4>;
+			clocks = <&clkc CLK_I2CM0>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		i2c1: i2c@1 {
+			compatible = "snps,designware-i2c";
+			reg = <I2CM1_BASE 0x100>;
+			interrupts = <0 IRQ_NUM_I2C1 4>;
+			clocks = <&clkc CLK_I2CM1>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		i2c2: i2c@2 {
+			compatible = "snps,designware-i2c";
+			reg = <I2CM2_BASE 0x100>;
+			interrupts = <0 IRQ_NUM_I2C2 4>;
+			clocks = <&clkc CLK_I2CM2>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		uart0: uart@0 {
+			compatible = "augentix,uart";
+			reg = <UART0_BASE 0x10000 PERI_UART_MD_0_BASE 0x4>;
+			interrupts = <0 IRQ_NUM_UART0 4>;
+			clocks = <&clkc CLK_UART0>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		uart1: uart@1 {
+			compatible = "augentix,uart";
+			reg = <UART1_BASE 0x10000 PERI_UART_MD_0_BASE 0x4>;
+			interrupts = <0 IRQ_NUM_UART1 4>;
+			clocks = <&sys_clk>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		uart2: uart@2 {
+			compatible = "augentix,uart";
+			reg = <UART2_BASE 0x10000 PERI_UART_MD_0_BASE 0x4>;
+			interrupts = <0 IRQ_NUM_UART2 4>;
+			clocks = <&clkc CLK_UART2>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		sdc0: sdhci0@0 {
+			compatible = "augentix,sdc-sdhci";
+			reg = <SDC0_BASE 0x200>,
+			      <SDC_CFG0_BASE 0x3C>,
+			      <GPIOC_SDC_GPI_SEL0_LW 0x2>;
+			interrupts = <0 IRQ_NUM_SDC_0 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clocks = <&clkc CLK_SDC0>;
+			clock-names = "ciu";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <24900000>;
+#endif
+			disable-wp;
+			status = "disable";
+#ifndef CONFIG_FPGA
+			sdcswitch-gpios = <&gpio 8 GPIO_ACTIVE_HIGH>, <&gpio 10 GPIO_ACTIVE_HIGH>, <&gpio 11 GPIO_ACTIVE_HIGH>, <&gpio 6 GPIO_ACTIVE_HIGH>, <&gpio 7 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "4b_pwr_on", "4b_pwr_off", "1b_pwr_on", "1b_pwr_off";
+			pinctrl-0 = <&pad_sdc0_4b_pwr_on>;
+			pinctrl-1 = <&pad_sdc0_4b_pwr_off>;
+			pinctrl-2 = <&pad_sdc0_1b_pwr_on>;
+			pinctrl-3 = <&pad_sdc0_1b_pwr_off>;
+#endif
+		};
+
+		sdc1: sdhci1@0 {
+			compatible = "augentix,sdc-sdhci";
+			reg = <SDC1_BASE 0x200>,
+			      <SDC_CFG1_BASE 0x3C>,
+			      <GPIOC_SDC_GPI_SEL0_HW 0x2>;
+			interrupts = <0 IRQ_NUM_SDC_1 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clocks = <&clkc CLK_SDC1>;
+			clock-names = "core";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <24900000>;
+#endif
+			// no-1-8-v;
+			status = "disable";
+		};
+
+		sdc2: sdhci2@0 {
+			compatible = "augentix,sdc-sdhci";
+			reg = <SDC2_BASE 0x200>,
+			      <SDC_CFG2_BASE 0x3C>,
+			      <GPIOC_SDC_GPI_SEL1_LW 0x2>;
+			interrupts = <0 IRQ_NUM_SDC_2 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			// TODO : change clock to CLK_SDC2
+			clocks = <&clkc CLK_SDC1>;
+			clock-names = "core";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <24900000>;
+#endif
+			// no-1-8-v;
+			status = "disable";
+		};
+
+		/* USB 2.0 UTMI */
+		usb2_phy0: utmi_phy0@0 {
+		    compatible = "usb-nop-xceiv";
+		    #phy-cells = <1>;
+		    // clocks = <&usb2_phy0_clk>;
+		    // clock-names = "usb2_phy0_clk";
+		    // resets = <&usb2_phy0_reset>;
+		    // reset-names = "usb2_phy0_reset";
+		    status = "disable";
+		};
+		
+		usbc2: agtx-usb2@0 {
+		    compatible = "agtx,usb-dwc3";
+		    reg = <0x82190000 0x1000>;
+		    #address-cells = <1>;
+		    #size-cells = <1>;
+		    ranges;
+		    usb2-only;
+
+		    // clocks = <&usb2_clk>;
+		    // clock-names = "usb2_clk";
+		    // resets = <&usb2_reset>;
+		    // reset-names = "usb2_reset";
+		
+		    status = "disabled";
+		
+		    /* DWC3 Core Layer */
+		    usb2_core: usb2@0 {
+		        compatible = "snps,dwc3";
+		        reg = <0x82e00000 0x100000>;
+		        interrupts = <0 IRQ_NUM_USB2 4>;
+		        
+		        dr_mode = "host";
+		        
+		        // phys = <&usb2_phy0>; 
+		        // phy-names = "usb2-phy0";
+		
+		        snps,hsphy_interface = "utmi";
+		        snps,quirk-frame-length-adjustment = <0x20>;
+		        snps,dis_u2_susphy_quirk;
+		        snps,dis_enblslpm_quirk;
+		
+		        dma-coherent;
+		        maximum-speed = "high-speed";
+		    };
+		};
+
+		/* USB 2.0 UTMI */
+		usb2_phy1: utmi_phy1@0 {
+		    compatible = "usb-nop-xceiv";
+		    #phy-cells = <1>;
+		    // clocks = <&usb2_phy1_clk>;
+		    // clock-names = "usb2_phy1_clk";
+		    // resets = <&usb2_phy1_reset>;
+		    // reset-names = "usb2_phy1_reset";
+		    status = "disable";
+		};
+		
+		/* USB 3.0 PIPE3 PHY */
+		usb3_phy: pipe3_phy@0 {
+		    compatible = "usb-nop-xceiv";
+		    #phy-cells = <1>;
+		    // clocks = <&usb3_phy_clk>;
+		    // clock-names = "usb3_phy_clk";
+		    // resets = <&usb3_phy_reset>;
+		    // reset-names = "usb3_phy_reset";
+		    status = "disable";
+		};
+
+		usbc3: agtx-usb3@0 {
+		    compatible = "agtx,usb-dwc3";
+		    reg = <0x82191000 0x1000>;
+		    #address-cells = <1>;
+		    #size-cells = <1>;
+		    ranges;
+		
+		    // clocks = <&usb3_clk>;
+		    // clock-names = "usb3_clk";
+		    // resets = <&usb3_reset>;
+		    // reset-names = "usb3_reset";
+		
+		    status = "disabled";
+		
+		    /* DWC3 Core Layer */
+		    usb3_core: usb3@0 {
+		        compatible = "snps,dwc3";
+		        reg = <0x82f00000 0x100000>;
+		        interrupts = <0 IRQ_NUM_USB2 4>;
+		        
+		        dr_mode = "host";
+		        
+		        // phys = <&usb2_phy1>, <&usb3_phy>; 
+		        // phy-names = "usb2-phy1", "usb3-phy";
+		
+		        snps,hsphy_interface = "utmi";
+		        snps,quirk-frame-length-adjustment = <0x20>;
+		        snps,dis_u2_susphy_quirk;
+		        snps,dis_enblslpm_quirk;
+		
+		        dma-coherent;
+		        maximum-speed = "super-speed";
+		    };
+		};
+
+		aon_wdt: aon_wdt@0 {
+			compatible = "augentix,aon-wdt";
+			reg = <AON_WDT_BASE 0x24>,
+			      <AON_WDT_STABLE_BASE 0x10>;
+			interrupts = <0 IRQ_NUM_AON_WDT 4>;
+			count_init = <30>;
+			count_normal = <0 30>;
+			count_timeout = <2 1>;
+			clocks = <&sys_clk>;
+			status = "okay";
+		};
+
+		pwm: pwm@0 {
+			compatible = "augentix,pwm";
+			reg = <PWM_BASE 0x50>;
+			interrupts = <0 IRQ_NUM_PWM0 4>, <0 IRQ_NUM_PWM1 4>, <0 IRQ_NUM_PWM2 4>, <0 IRQ_NUM_PWM3 4>,
+				     <0 IRQ_NUM_PWM4 4>, <0 IRQ_NUM_PWM5 4>, <0 IRQ_NUM_PWM6 4>, <0 IRQ_NUM_PWM7 4>,
+				     <0 IRQ_NUM_PWM8 4>, <0 IRQ_NUM_PWM9 4>, <0 IRQ_NUM_PWM10 4>, <0 IRQ_NUM_PWM11 4>;
+			clocks = <&clkc CLK_PWM0>, <&clkc CLK_PWM1>, <&clkc CLK_PWM2>, <&clkc CLK_PWM3>, 
+				 <&clkc CLK_PWM4>, <&clkc CLK_PWM5>, <&clkc CLK_PWM6>, <&sys_clk>,
+				 <&sys_clk>, <&sys_clk>, <&sys_clk>, <&sys_clk>;
+			status = "disable";
+		};
+
+		pdoff_on_button_hold: pdoff_on_button_hold {
+			compatible = "augentix,pdoff-on-button-hold";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pad_pd_button_detect>;
+			pinctrl-1 = <&pad_pd_button_wake>;
+			status = "disable";
+		};
+
+		pinctrl: pinctrl@0 {
+			compatible = "augentix,pinctrl";
+			reg = <PIOC_BASE 0x200>, <PMU_CTRL_BASE 0x30>;
+			interrupts = <0 IRQ_NUM_AON_WDT 4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+			pad_pd_button_detect: pad_pd_button_detect@0 {
+				PAD_PD_BUTTON_DETECT {
+					augentix,pins = <51>;
+					augentix,pmx = <0>;
+					pins = "PAD_PD_BUTTON_DETECT";
+					function = "pad_pd_button_detect";
+				};
+			};
+			pad_pd_button_wake: pad_pd_button_wake@0 {
+				PAD_PD_BUTTON_WAKE {
+					augentix,pins = <51>;
+					augentix,pmx = <1>;
+					pins = "PAD_PD_BUTTON_WAKE";
+					function = "pad_pd_button_wake";
+				};
+			};
+			pad_sdc0_4b_pwr_on:pad_sdc0_4b_pwr_on@0 {
+				PAD_SDC0_4B_ON_CONFIG {
+					augentix,pins = <6 7 8 10 11>;
+					pins = "PAD_SD_D2", "PAD_SD_D3", "PAD_SD_CMD", "PAD_SD_D0", "PAD_SD_D1";
+					bias-pull-up;
+				};
+				PAD_SDC0_4B_ON_GROUP {
+					augentix,pins = <6 7 8 10 11>;
+					augentix,pmx = <1 1 1 1 1>;
+					pins = "PAD_SDC0_4B_ON_GROUP";
+					function = "pad_sdc0_4b_pwr_on";
+				};
+			};
+			pad_sdc0_4b_pwr_off:pad_sdc0_4b_pwr_off@0 {
+				PAD_SDC0_4B_OFF_CONFIG {
+					augentix,pins = <6 7 8 10 11>;
+					pins = "PAD_SD_D2", "PAD_SD_D3", "PAD_SD_CMD", "PAD_SD_D0", "PAD_SD_D1";
+					bias-pull-pin-default;
+				};
+				PAD_SDC0_4B_OFF_GROUP {
+					augentix,pins = <6 7 8 10 11>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC0_4B_OFF_GROUP";
+					function = "pad_sdc0_4b_pwr_off";
+				};
+			};
+			pad_sdc0_1b_pwr_on:pad_sdc0_1b_pwr_on@0 {
+				PAD_SDC0_1B_ON_CONFIG {
+					augentix,pins = <8 10>;
+					pins = "PAD_SD_CMD", "PAD_SD_D0";
+					bias-pull-up;
+				};
+				PAD_SDC0_1B_ON_GROUP {
+					augentix,pins = <8 10>;
+					augentix,pmx = <1 1>;
+					pins = "PAD_SDC0_1B_ON_GROUP";
+					function = "pad_sdc0_1b_pwr_on";
+				};
+			};
+			pad_sdc0_1b_pwr_off:pad_sdc0_1b_pwr_off@0 {
+				PAD_SDC0_1B_OFF_CONFIG {
+					augentix,pins = <8 10>;
+					pins = "PAD_SD_CMD", "PAD_SD_D0";
+					bias-pull-pin-default;
+				};
+				PAD_SDC0_1B_OFF_GROUP {
+					augentix,pins = <8 10>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC0_1B_OFF_GROUP";
+					function = "pad_sdc0_1b_pwr_off";
+				};
+			};
+
+			pad_sdc1p0_4b_pwr_on:pad_sdc1p0_4b_pwr_on@0 {
+				PAD_SDC1P0_4B_ON_CONFIG {
+					augentix,pins = <19 20 21 23 24>;
+					pins = "PAD_EMAC_TX_CK", "PAD_EMAC_TX_CTL", "PAD_EMAC_TX_D1", "PAD_EMAC_RX_CK", "PAD_EMAC_RX_D0";
+					bias-pull-up;
+				};
+				PAD_SDC1P0_4B_ON_GROUP {
+					augentix,pins = <19 20 21 23 24>;
+					augentix,pmx = <2 2 2 2 2>;
+					pins = "PAD_SDC1P0_4B_ON_GROUP";
+					function = "pad_sdc1p0_4b_pwr_on";
+				};
+			};
+			pad_sdc1p0_4b_pwr_off:pad_sdc1p0_4b_pwr_off@0 {
+				PAD_SDC1P0_4B_OFF_CONFIG {
+					augentix,pins = <19 20 21 23 24>;
+					pins = "PAD_EMAC_TX_CK", "PAD_EMAC_TX_CTL", "PAD_EMAC_TX_D1", "PAD_EMAC_RX_CK", "PAD_EMAC_RX_D0";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P0_4B_OFF_GROUP {
+					augentix,pins = <19 20 21 23 24>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC1P0_4B_OFF_GROUP";
+					function = "pad_sdc1p0_4b_pwr_off";
+				};
+			};
+			pad_sdc1p0_1b_pwr_on:pad_sdc1p0_1b_pwr_on@0 {
+				PAD_SDC1P0_1B_ON_CONFIG {
+					augentix,pins = <21 23>;
+					pins = "PAD_EMAC_TX_D1", "PAD_EMAC_RX_CK";
+					bias-pull-up;
+				};
+				PAD_SDC1P0_1B_ON_GROUP {
+					augentix,pins = <21 23>;
+					augentix,pmx = <2 2>;
+					pins = "PAD_SDC1P0_1B_ON_GROUP";
+					function = "pad_sdc1p0_1b_pwr_on";
+				};
+			};
+			pad_sdc1p0_1b_pwr_off:pad_sdc1p0_1b_pwr_off@0 {
+				PAD_SDC1P0_1B_OFF_CONFIG {
+					augentix,pins = <21 23>;
+					pins = "PAD_EMAC_TX_D1", "PAD_EMAC_RX_CK";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P0_1B_OFF_GROUP {
+					augentix,pins = <21 23>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC1P0_1B_OFF_GROUP";
+					function = "pad_sdc1p0_1b_pwr_off";
+				};
+			};
+
+			pad_sdc1p1_4b_pwr_on:pad_sdc1p1_4b_pwr_on@0 {
+				PAD_SDC1P1_4B_ON_CONFIG {
+					augentix,pins = <31 32 33 34 36>;
+					pins = "PAD_GPIO31", "PAD_DVP_HSYNC", "PAD_DVP_VSYNC", "PAD_DVP_D7", "PAD_MIPI_SEL0";
+					bias-pull-up;
+				};
+				PAD_SDC1P1_4B_ON_GROUP {
+					augentix,pins = <31 32 33 34 36>;
+					augentix,pmx = <5 5 5 5 5>;
+					pins = "PAD_SDC1P1_4B_ON_GROUP";
+					function = "pad_sdc1p1_4b_pwr_on";
+				};
+			};
+			pad_sdc1p1_4b_pwr_off:pad_sdc1p1_4b_pwr_off@0 {
+				PAD_SDC1P1_4B_OFF_CONFIG {
+					augentix,pins = <31 32 33 34 36>;
+					pins = "PAD_GPIO31", "PAD_DVP_HSYNC", "PAD_DVP_VSYNC", "PAD_DVP_D7", "PAD_MIPI_SEL0";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P1_4B_OFF_GROUP {
+					augentix,pins = <31 32 33 34 36>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC1P1_4B_OFF_GROUP";
+					function = "pad_sdc1p1_4b_pwr_off";
+				};
+			};
+			pad_sdc1p1_1b_pwr_on:pad_sdc1p1_1b_pwr_on@0 {
+				PAD_SDC1P1_1B_ON_CONFIG {
+					augentix,pins = <31 36>;
+					pins = "PAD_GPIO31", "PAD_MIPI_SEL0";
+					bias-pull-up;
+				};
+				PAD_SDC1P1_1B_ON_GROUP {
+					augentix,pins = <31 36>;
+					augentix,pmx = <5 5>;
+					pins = "PAD_SDC1P1_1B_ON_GROUP";
+					function = "pad_sdc1p1_1b_pwr_on";
+				};
+			};
+			pad_sdc1p1_1b_pwr_off:pad_sdc1p1_1b_pwr_off@0 {
+				PAD_SDC1P1_1B_OFF_CONFIG {
+					augentix,pins = <31 36>;
+					pins = "PAD_GPIO31", "PAD_MIPI_SEL0";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P1_1B_OFF_GROUP {
+					augentix,pins = <31 36>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC1P1_1B_OFF_GROUP";
+					function = "pad_sdc1p1_1b_pwr_off";
+				};
+			};
+		};
+
+		dma: dma@0 {
+			compatible = "augentix,dma";
+			reg = <DMA_BASE 0x1000>;
+			interrupts = <0 IRQ_NUM_DMA 4>;
+			clocks = <&clkc CLK_AXI_DRAMC>;
+			status = "disable";
+		};
+
+		qspi: spi@100 {
+			compatible = "augentix,qspi";
+			reg = <QSPI_BASE 0x1000 QSPIR_BASE 0x1000 QSPIW_BASE 0x1000>;
+			interrupts = <0 IRQ_NUM_QSPI 4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+			nor@0{
+			};
+		};
+
+		dw_spi0: spi@0 {
+			compatible = "snps,dwc-ssi-1.01a";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <SPI0_BASE 0x1000>;
+			interrupts = <0 IRQ_NUM_SPI0 4>;
+			clocks = <&clkc CLK_SPI0>;
+			status = "disable";
+
+			spidev0: spidev@0 {
+				compatible = "spidev_test";
+				reg = <0>;
+				spi-max-frequency = <24000000>;
+			};
+		};
+
+		dw_spi1: spi@1 {
+			compatible = "snps,dwc-ssi-1.01a";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <SPI1_BASE 0x1000>;
+			interrupts = <0 IRQ_NUM_SPI1 4>;
+			clocks = <&clkc CLK_SPI1>;
+			status = "disable";
+
+			spidev1: spidev@0 {
+				compatible = "spidev_test";
+				reg = <0>;
+				spi-max-frequency = <24000000>;
+			};
+		};
+
+		gpio: gpio@0 {
+			compatible = "augentix,gpio";
+			reg = <GPIOC_BASE 0x100>;
+			interrupts = <0 IRQ_NUM_AON_WDT 4>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "okay";
+		};
+
+		eirq_extension: eirq_extension@81240000 {
+			compatible = "augentix,eirq-ext";
+			status = "disable";
+			eirq0: eirq0 {
+				trigger-mode = <IRQ_TYPE_EDGE_RISING>; /* trigger-mode can be 1, 2, 3, 4, 8 */
+				eirq-settings = <1 300000 300000>; /* debounce_enable sensitive_num hold_num */
+			};
+		};
+
+		ethernet: ethernet2@0 {
+			compatible = "augentix,osaka-dwmac", "snps,dwmac-5.10a", "snps,dwmac";
+			reg = <EMAC_QOS_CONTROLLER_BASE 0x4000>, <EMAC_QOS_CFG_BASE 0x50>;
+			interrupt-parent = <&gic>;
+			interrupts = <0x0 IRQ_NUM_EMAC0_QOS 0x4>, <0x0 IRQ_NUM_EMAC0_CFG 0x4>;
+			interrupt-names = "macirq";
+
+			clocks = <&clkc APB_PCLK>;
+			clock-names = "pclk";
+
+			phy-handle = <&phy_88e1510>;
+			phy-mode = "rgmii-rxid";
+			mac-address = [A0 BD 71 88 15 10];
+
+			/* DMA Programmable Burst Length - balanced for FPGA */
+			snps,pbl = <8>;
+			snps,txpbl = <8>;
+			snps,rxpbl = <8>;
+
+			rx-fifo-depth = <2048>;
+			tx-fifo-depth = <4096>;
+
+			/* DMA mode: Store-and-Forward for FPGA stability */
+			snps,force_sf_dma_mode;
+
+			snps,axi-config = <&stmmac_axi_setup>;
+
+			status = "disable";
+
+			mdio {
+				compatible = "snps,dwmac-mdio";
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+
+				/* Marvell 88E1510 - RGMII mode at address 0 */
+				phy_88e1510: ethernet-phy@0 {
+					compatible = "marvell,88E1510", "ethernet-phy-ieee802.3-c22";
+					reg = <0>;
+					max-speed = <100>;
+				};
+
+				/* ICPlus IP101A/G - RMII mode at address 1 (auto-detected by PHY ID) */
+				phy_ip101g: ethernet-phy@1 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <1>;
+				};
+			};
+		};
+
+		adc: adc@0 {
+			compatible = "augentix,agtx-adc";
+			status  = "disable";
+			reg = <SAADCCTRL_BASE 0x90>;
+			interrupts = <0 IRQ_NUM_SAADC 4>;
+			#io-channel-cells = <1>;
+		};
+
+		audio_pcm: audio_pcm@0 {
+			compatible = "augentix,agtx-pcm-audio";
+			status = "disable";
+			reg = <ADOIN_BASE 0xF0000>;
+			/*		audiow		      adc_l		   adc_r
+			 * 		i2s_rx		      audior		   adac
+			 *		i2s_tx
+			 */
+			interrupts = <0 IRQ_NUM_AUDIOW 4>, <0 IRQ_NUM_ADC_L 4>, <0 IRQ_NUM_ADC_R 4>,
+				     <0 IRQ_NUM_I2S_RX 4>, <0 IRQ_NUM_AUDIOR 4>, <0 IRQ_NUM_ADAC 4>,
+				     <0 IRQ_NUM_I2S_TX 4>;
+			clocks = <&clkc CLK_ADO_IN>, <&clkc CLK_ADO_OUT>;
+			i2s-rx = <0>;
+			i2s-rx_ck = <0>;
+			i2s-rx_ws = <0>;
+			i2s-tx = <0>;
+			i2s-tx_ck = <0>;
+			i2s-tx_ws = <0>;
+			/* audio-output-amp-en-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>; */
+			/* line-in-detect-gpios = <&gpio 2 GPIO_ACTIVE_HIGH>; */
+		};
+
+		audio_machine: audio_machine {
+			compatible = "augentix,audio_machine";
+			status = "disable";
+		};
+
+		otp: otp {
+			compatible = "augentix,otp-agtx";
+			status = "okay";
+		};
+
+		earlyvideo: earlyvideo {
+			compatible = "augentix,earlyvideo";
+			reg = <IS_SET0_IS_BASE 0x590000>;
+			interrupt-parent = <&gic>;
+			interrupts = <0 IRQ_NUM_MIPI_DEC0 4>, <0 IRQ_NUM_MIPI_DEC1 4>, <0 IRQ_NUM_IS0_ISW0 4>,
+				     <0 IRQ_NUM_IS0_ISW1 4>;
+			status = "disable";
+		};
+		
+		rtc: rtc@80020000 {
+			compatible = "augentix,rtc";
+			/* RTC.rtc, PC.CG_RTC */
+			reg = <0x80020000 0x24 0x820000E8 0x4>;
+			interrupts = <0 IRQ_NUM_PMU_RTC IRQ_TYPE_EDGE_RISING>;
+			clocks = <&sys_clk>;
+			clock-names = "sys_clk";
+			status = "disable";
+		};
+	};
+};

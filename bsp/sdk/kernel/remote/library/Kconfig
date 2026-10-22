@@ -1,0 +1,48 @@
+menu "library"
+
+choice
+	prompt "neural network inference backend"
+	depends on FREERTOS
+
+	config LIBNCNN
+		bool "use ncnn"
+
+	config LIBTFLITE_MICRO
+		bool "use microlite"
+endchoice
+
+config LIBROSA
+	bool "librosa"
+	default n
+	depends on LIBNCNN
+
+config EARLY_DETECT
+	bool "support early ai detect in fastboot"
+	default n
+	depends on LIBNCNN
+
+config EARLY_OD
+	bool "support ODv5 in fastboot"
+	default n
+	depends on EARLY_DETECT
+
+config LIBCPVS
+	bool "libcpvs"
+	default y
+
+config LIBMETAL
+	bool "libmetal"
+	depends on FREERTOS
+
+config LIBOPEN_AMP
+	bool "libopen_amp"
+	depends on FREERTOS
+	select LIBMETAL
+
+config LIBAMPC
+	bool "libampc"
+	depends on FREERTOS
+	select LIBMETAL
+	select LIBOPEN_AMP
+
+endmenu

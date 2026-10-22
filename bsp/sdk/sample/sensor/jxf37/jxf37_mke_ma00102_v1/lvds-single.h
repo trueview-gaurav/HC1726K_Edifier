@@ -1,0 +1,14 @@
+#ifndef __DT_BINDINGS_LVDS_SINGLE_H__
+#define __DT_BINDINGS_LVDS_SINGLE_H__
+
+#include "augentix-lvds.h"
+
+#define SENSOR_INTF_TYPE INTF_TYPE_SERIAL
+
+#define SENSOR_CTRL_PIN0 11
+#define SENSOR_CTRL_PIN1 67
+#define SENSOR_CTRL_PIN_NUM 2
+
+#define FRAME_SYNC_TYPE FRAME_SYNC_MASTER
+
+#endif /* __DT_BINDINGS_LVDS_SINGLE_H__ */

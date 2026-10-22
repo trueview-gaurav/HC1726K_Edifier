@@ -1,0 +1,25 @@
+if TARGET_AGT300_27
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma300027-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-fpu-agt300-27"
+
+endif
+
+if TARGET_AGT300_30
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma300027-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-fpu-agt300-30"
+
+endif

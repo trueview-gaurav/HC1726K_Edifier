@@ -1,0 +1,176 @@
+/dts-v1/;
+#include "hc1785.dtsi"
+
+/ {
+	model = "Augentix AGT785-1";
+
+	soc@80000000 {
+		i2c0: i2c@0 {
+			status = "okay";
+		};
+
+		i2c1: i2c@1 {
+			status = "disable";
+			wm8731: wm8731@1a {
+				compatible = "wm8731";
+				reg = <0x1a>;
+			status = "disable";
+			};
+		};
+
+		i2c2: i2c@2 {
+			status = "disable";
+		};
+
+		uart1: uart@1 {
+			status = "okay";
+		};
+
+		uart2: uart@2 {
+			status = "disable";
+		};
+
+		sdc0: sdhci0@0 {
+			sdc-cd-gpio-num = <5>;
+			sdpwren-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+			status = "disable";
+		};
+
+		sdc1: sdhci1@0 {
+			// status = "okay";
+		};
+
+		sdc2: sdhci2@0 {
+			// status = "okay";
+		};
+
+		pwm: pwm@0 {
+			// status = "okay";
+		};
+
+		usb2_phy0: utmi_phy0@0 {
+			//status = "okay";
+			status = "disable";
+		};
+
+		usbc2: agtx-usb2@0 {
+			dr_mode = "host";
+			//status = "okay";
+			status = "disable";
+		};
+
+		usb2_phy1: utmi_phy1@0 {
+			//status = "okay";
+			status = "disable";
+		};
+
+		usb3_phy: pipe3_phy@0 {
+			//status = "okay";
+			status = "disable";
+		};
+
+		usbc3: agtx-usb3@0 {
+			dr_mode = "peripheral";
+			//status = "okay";
+			status = "disable";
+		};
+
+		mpp {
+			vbs {
+				size = <286>;
+			};
+
+			senif@0 {
+				snsop-override = <1>;
+				sensor0 {
+					port = <1>;
+				};
+			};
+
+			is@0 {
+				isw-buf-num = <3>;
+			};
+
+			isp@0 {
+				nrw-buf-num = <1>;
+			};
+
+			enc@0 {
+				bsb-size = <0x200000 0x100000>;
+				rd-buf-size = <0x60000>;
+				snapshot-size = <0x60000>;
+				rd-buf-num = <6>;
+			};
+		};
+
+		qspi: spi@100 {
+			status = "okay";
+			nor@0{
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "augentix,m25p80", "augentix,spi-nor";
+				reg = <0>;
+				spi-max-frequency = <6000000>;
+				spi-tx-bus-width = <1>;
+				spi-rx-bus-width = <2>;
+				m25p,fast-read;
+				status = "okay";
+			};
+		};
+
+		gpio: gpio@0 {
+			pioc0_gpio = <0x0 0x0>;
+			pioc1_gpio = <0x0 0x0>;
+			pioc2_gpio = <0x0 0x0>;
+			pioc3_gpio = <0x0 0x0>;
+			status = "okay";
+		};
+
+		gpio_test: gpio_test {
+			compatible = "augentix,gpio-test";
+			pmuioc-gpios = <&gpio 49 GPIO_ACTIVE_HIGH>, <&gpio 50 GPIO_ACTIVE_HIGH>, <&gpio 51 GPIO_ACTIVE_HIGH>;
+			pioc0-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>, <&gpio 15 GPIO_ACTIVE_HIGH>, <&gpio 20 GPIO_ACTIVE_HIGH>, <&gpio 25 GPIO_ACTIVE_HIGH>, <&gpio 31 GPIO_ACTIVE_HIGH>;
+			pioc1-gpios = <&gpio 32 GPIO_ACTIVE_HIGH>, <&gpio 40 GPIO_ACTIVE_HIGH>, <&gpio 42 GPIO_ACTIVE_HIGH>, <&gpio 45 GPIO_ACTIVE_HIGH>, <&gpio 48 GPIO_ACTIVE_HIGH>;
+			status = "disable";
+		};
+
+		clk_test: clk_test {
+			compatible = "augentix,clk-test";
+			clocks = <&clkc 0>, <&clkc 1>, <&clkc 2>, <&clkc 3>, <&clkc 4>, <&clkc 5>, <&clkc 6>, <&clkc 7>, <&clkc 8>, <&clkc 9>, <&clkc 10>, <&clkc 11>, <&clkc 12>, <&clkc 13>, <&clkc 14>, <&clkc 15>, <&clkc 16>, <&clkc 17>, <&clkc 18>, <&clkc 19>, <&clkc 20>, <&clkc 21>, <&clkc 22>, <&clkc 23>, <&clkc 24>, <&clkc 25>, <&clkc 26>, <&clkc 27>, <&clkc 28>, <&clkc 29>, <&clkc 30>, <&clkc 31>, <&clkc 32>, <&clkc 33>, <&clkc 34>, <&clkc 35>, <&clkc 36>, <&clkc 37>, <&clkc 38>, <&clkc 39>, <&clkc 40>, <&clkc 41>, <&clkc 42>, <&clkc 43>, <&clkc 44>, <&clkc 45>, <&clkc 46>, <&clkc 47>, <&clkc 48>, <&clkc 49>, <&clkc 50>, <&clkc 51>, <&clkc 52>, <&clkc 53>;
+			status = "disable";
+		};
+
+		eirq_test3: eirq_test3 {
+ 			compatible = "augentix,eirq-test";
+ 			interrupt-parent = <&gic>;
+ 			interrupts = <0 92 4>, <0 93 4>, <0 94 4>, <0 95 4>, <0 96 4>;
+			eirq-gpios = <&gpio 7 GPIO_ACTIVE_HIGH>;
+ 			//status = "okay";
+ 		};
+ 
+		ethernet2@0 {
+			status = "okay";
+			phy-reset-gpios = <&gpio 110 GPIO_ACTIVE_HIGH>;
+		};
+
+		adc@0 {
+			status = "disable";
+		};
+
+		audio_pcm@0 {
+			status = "okay";
+			audio-output-amp-en-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+			i2s-rx = <1>;
+			i2s-rx_ck = <1>;
+			i2s-rx_ws = <1>;
+			i2s-tx = <1>;
+			i2s-tx_ck = <0>;
+			i2s-tx_ws = <1>;
+		};
+
+		audio_machine {
+			status = "okay";
+			audio-codec = <&wm8731>;
+		};
+	};
+};

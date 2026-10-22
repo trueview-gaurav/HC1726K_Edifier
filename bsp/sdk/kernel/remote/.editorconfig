@@ -1,0 +1,17 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{c,c++,cc,cpp,cxx,h,h++,hh,hpp,hxx,inl,ipp,tlh,tli}]
+indent_style = tab
+
+[{Makefile,**.mk}]
+indent_style = tab
+
+[Kconfig]
+indent_style = tab

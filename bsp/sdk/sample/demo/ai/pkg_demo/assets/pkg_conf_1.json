@@ -1,0 +1,19 @@
+{
+	"roi": [
+		{
+			"start":[720, 720],
+			"end":[1349, 1079],
+		}
+	],
+	"snapshot_w": 1280,
+	"snapshot_h": 720,
+	"idle2in_th": 21,
+	"in2idle_th": 21,
+	"duration": 0,
+	"background_merge_delay": 2592000,
+	"od_qual": 61,
+	"od_track_refine": 63,
+	"od_size_th": 42,
+	"od_sen": 254,
+	"en_stop_det": false
+}

@@ -1,0 +1,132 @@
+/*
+ * Copyright Augentix Inc. Proprietary and confidential.
+ * Unauthorized use or distribution is prohibited.
+ * Please contact customer.support@augentix.com for any inquiries.
+ */
+
+#ifndef KYOTO_IS_UTILS_H_
+#define KYOTO_IS_UTILS_H_
+
+#include "common.h"
+
+#define AGMA_CURVE_ENTRY_NUM (60)
+
+#if 0 /* Sapporo */
+#define DCC_GAIN_CURVE_CTRL_POINT_NUM (9)
+#endif
+#define DCC_GAIN_CURVE_CTRL_POINT_NUM (17)
+
+#define LSC_TABLE_SRAM_NUM (1024)
+#define LSC_TABLE_MERGE_SRAM_NUM (64)
+#define LSC_TABLE_EE_WORD_NUM (1024)
+#define LSC_TABLE_EO_WORD_NUM (1024)
+#define LSC_TABLE_OE_WORD_NUM (1024)
+#define LSC_TABLE_OO_WORD_NUM (1024)
+#define BSP_CHN_WGT_ENTRY_NUM (6)
+#define TM_CURVE_ENTRY_NUM (60)
+#define BSP_Y_HIST_ENTRY_NUM (60)
+#define BSP_Y_AVG_MAX_ROI_NUM (4)
+#define BSP_Y_AVG_MAX_RGL_NUM (64)
+#define BSP_GWD_RATIO_GAIN_CURVE_CTRL_POINT_NUM (5)
+#define BSP_RTX_MAX_ROI_WHITE_POINT_NUM (15)
+#define BSP_RTX_MAX_RGL_NUM (64)
+#define BSP_GWD_MAX_ROI_NUM (4)
+#define BSP_GWD_MAX_RGL_NUM (64)
+#define BSP_GWD_MAX_CHN_NUM (3)
+#define BSP_CONTRAST_RGL_HOR_NUM (8)
+#define BSP_CONTRAST_RGL_VER_NUM (8)
+#define BSP_CONTRAST_MAX_RGL_NUM (BSP_CONTRAST_RGL_HOR_NUM * BSP_CONTRAST_RGL_VER_NUM)
+#define BSP_CONTRAST_RGL_WIDTH_LBND (256)
+#define BSP_CONTRAST_RGL_WIDTH_UBND (1024)
+#define BSP_CONTRAST_RGL_HEIGHT_LBND (135)
+#define BSP_CONTRAST_RGL_HEIGHT_UBND (512)
+#define BSP_CONTRAST_MAX_ROI_NUM (4)
+#define BSP_CONTRAST_H_WGT_ENTRY_NUM (3)
+#define BSP_CONTRAST_V_WGT_ENTRY_NUM (3)
+#define BSP_RTX_ROI_STAT_MAX_NUM (120)
+#define BSP_RTX_ROI_STAT_MAX_PIX_BIT_SHIFT (3)
+#define BSP_RTX_ROI_STAT_MAX_PIX_BIT_MASK (0b11111111111111000)
+#define BSP_RTX_ROI_STAT_WGT_BIT_MASK (0b00000000000000111)
+#define BSP_RTX_ROI_STAT_REGION_Y_BIT_SHIFT (7)
+#define BSP_RTX_ROI_STAT_REGION_X_BIT_MASK (0b00000000001111111)
+#define BSP_RTX_ROI_STAT_REGION_Y_BIT_MASK (0b00011111110000000)
+#define BSP_RTX_RGL_STAT_MAX_PIX_BIT_SHIFT (3)
+#define BSP_RTX_RGL_STAT_MAX_PIX_BIT_MASK (0b111111111111000)
+#define BSP_RTX_RGL_STAT_WGT_BIT_SHIT (6)
+
+#if defined(CONFIG_SAPPORO) || defined(CONFIG_OSAKA)
+#define BSP_RTX_RGL_STAT_WGT_BIT_MASK (0b00000000000111111)
+#define BSP_RTX_RGL_STAT_AVG_DATA_BIT_MASK (0b00000000011111111)
+#define BSP_RTX_RGL_STAT_AVG_DATA_BIT_SHIFT (8)
+#else
+#define BSP_RTX_RGL_STAT_WGT_BIT_MASK (0b00000001111111111111111)
+#define BSP_RTX_RGL_STAT_AVG_DATA_BIT_MASK (0b00000001111111111)
+#define BSP_RTX_RGL_STAT_AVG_DATA_BIT_SHIFT (10)
+#endif
+
+#define BSP_RGB_HIST_ENTRY_NUM (60)
+#define BSP_WB_GAIN_ENTRY_NUM (16)
+#define IS_PG_CB_ENTRY_NUM (9)
+#define DFK_MAX_ROI_NUM (3)
+#define DFK_ROI_PART_NUM (3)
+#define DFK_ROI_PART_NUM_MF (3)
+#define DFK_G_LINE_AVG_BUF_NUM (120)
+#define DFK_G_LINE_AVG_ROI_STAT_MAX_NUM (1080)
+#define DFK_G_LINE_AVG_ROI_STAT_BIT_MASK (0b00000001111111111)
+#define DFK_G_LINE_AVG_ROI_STAT_BIT_SHIFT (10)
+#define DFK_SIN_WAVE_ENTRY_NUM (129)
+#define DFK_AMP_ENTRY_NUM (3)
+#define DFK_AMP_CANDI_NUM (13)
+#define DFK_AMP_BUF_NUM (30)
+#define DFK_PHASE_ROLLING_BUF_NUM (5)
+#define DFK_PHASE_INFO_BUF_NUM_MAX (30)
+#define DFK_FW_DS_MODE (1)
+#define DFK_ROI_AVG_LINE_NUM_MAX (972) //ROI_LINE_AVG_NUM_MAX
+#define DFK_ROI_LINE_NUM_MAX (2 * DFK_ROI_AVG_LINE_NUM_MAX) //ROI_LINE_AVG_NUM_MAX_FW
+#define DFK_FW_DS_MODE (1)
+#define DFK_ROI_LINE_AVG_NUM_MAX_DS \
+	(DFK_FW_DS_MODE ? DFK_ROI_AVG_LINE_NUM_MAX : DFK_ROI_LINE_NUM_MAX) //ROI_LINE_AVG_NUM_MAX_FW_DS
+#define DFK_MF_PHASE_DIFF_NUMBER (10)
+
+#define LPMD_RGL_WEiGHT_ENTRY_NUM (256)
+#define LPMD_REGION_WEIGHT_ENTRY_NUM (256)
+#define LPMD_STATUS_FRAME_ALARM_PREC (1)
+
+typedef enum is_kel_no {
+	IS_KEL_NO_0 = 0,
+	IS_KEL_NO_1 = 1,
+	IS_KEL_NO_NUM = 2,
+} IsKelNo;
+
+typedef enum is_pixel_format_i {
+	IS_PIXEL_FORMAT_I_BAYER = 0,
+	IS_PIXEL_FORMAT_I_CFA22 = 1,
+	IS_PIXEL_FORMAT_I_CFA44 = 2,
+	IS_PIXEL_FORMAT_I_NUM = 3,
+} IsPixelFormatI;
+
+typedef enum is_pixel_format_o {
+	IS_PIXEL_FORMAT_O_BAYER = 0,
+	IS_PIXEL_FORMAT_O_MONO = 1,
+	IS_PIXEL_FORMAT_O_NUM = 2,
+} IsPixelFormatO;
+
+typedef struct is_input_format {
+	enum is_pixel_format_i mode;
+	enum ini_bayer_phase bayer;
+	enum cfa_phase cfa[CFA_PHASE_ENTRY_NUM];
+} IsInputFormat;
+
+typedef struct is_output_format {
+	enum is_pixel_format_o mode;
+	enum ini_bayer_phase bayer;
+} IsOutputFormat;
+
+typedef enum is_luma_input_mode {
+	IS_LUMA_INPUT_MODE_AVG = 0,
+	IS_LUMA_INPUT_MODE_SUM = 1,
+	IS_LUMA_INPUT_MODE_MONO = 2,
+	IS_LUMA_INPUT_MODE_NUM = 3,
+} IsLumaInputMode;
+
+#endif /* KYOTO_IS_UTILS_H_ */

@@ -1,0 +1,704 @@
+#include "sapporo.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "../../../../../../top/include/generated/autoconf.h"
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "augentix,sapporo";
+	interrupt-parent = <&gic>;
+
+	aliases {
+		serial0 = &uart1;
+		serial1 = &uart0;
+		serial2 = &uart2;
+		ethernet0 = &ethernet;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			compatible = "arm,cortex-a7";
+			device_type = "cpu";
+#if defined(CONFIG_FPGA)
+			clock-frequency = <CONFIG_CPU_FREQUENCY>;
+#elif defined(CONFIG_CPU_LOW_SPEED)
+			clock-frequency = <450000000>;
+#else
+			clock-frequency = <891000000>;
+#endif
+			reg = <0>;
+		};
+/*
+		cpu@1 {
+			compatible = "arm,cortex-a7";
+			device_type = "cpu";
+			clock-frequency = <24000000>;
+			reg = <1>;
+		};
+*/
+	};
+
+	/* TODO: later replaced by actual DRAM size */
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>;
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 13 0xf08>,
+			     <1 14 0xf08>;
+#if defined(CONFIG_FPGA)
+		clock-frequency = <CONFIG_CPU_FREQUENCY>;
+#elif defined(CONFIG_CPU_LOW_SPEED)
+		clock-frequency = <450000000>;
+#else
+		clock-frequency = <891000000>;
+#endif
+	};
+
+	soc@80000000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+
+		gic: interrupt-controller@84001000 {
+			compatible = "arm,cortex-a7-gic";
+			reg = <0x84001000 0x1000>,
+			      <0x84002000 0x1000>,
+			      <0x84004000 0x2000>,
+			      <0x84006000 0x2000>;
+			interrupt-controller;
+			#interrupt-cells = <3>;
+			interrupts = <1 9 0xf04>;
+		};
+
+		syscfg@80000800 {
+			compatible = "augentix,syscfg";
+			reg = <0x80000800 0x020>;
+		};
+
+		mpp {
+			compatible = "augentix,mpp";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "okay";
+
+			vbs {
+				augentix,align = <16384>;
+				augentix,prvsize = <32768>; /* size of private pool space */
+			};
+
+			senif@83500000 {
+				reg = <0x83500000 0x90000>;
+				interrupt-parent = <&gic>;
+				/*             slb0     slb1      dec0      dec1       ps        spi   */
+				interrupts = <0 9 4>, <0 10 4>, <0 13 4>, <0 14 4>, <0 15 4>, <0 16 4>;
+				clocks = <&clkc CLK_SENSOR>, <&clkc CLK_SENIF>;
+				snsop-override = <0>; /* override snsop with path width & height */
+			};
+
+			is@83000000 {
+				reg = <0x83000000 0x300000>;
+				interrupt-parent = <&gic>;
+				            /* lpmd      auto0     auto1     tg0       tg1       edp0      edp1      bls0      dbc0      dcc0 */
+				interrupts = <0 20 4>, <0 21 4>, <0 22 4>, <0 23 4>, <0 24 4>, <0 25 4>, <0 26 4>, <0 27 4>, <0 28 4>, <0 29 4>,
+				            /* lsc0      dfk0      bsp0      cvs0      cs0       fsc0      bls1      dbc1      dcc1      lsc1 */
+					     <0 30 4>, <0 31 4>, <0 32 4>, <0 33 4>, <0 34 4>, <0 35 4>, <0 36 4>, <0 37 4>, <0 38 4>, <0 39 4>,
+				            /* dfk1      bsp1      cvs1      cs1       fsc1      isr0      isr1      lup0      lup1      isw0 */
+					     <0 40 4>, <0 41 4>, <0 42 4>, <0 43 4>, <0 44 4>, <0 45 4>, <0 46 4>, <0 47 4>, <0 48 4>, <0 49 4>,
+				            /* isw1      isw2      isw3 */
+					     <0 50 4>, <0 51 4>, <0 52 4>;
+				clocks = <&clkc CLK_IS>;
+			};
+
+			isp@82000000 {
+				reg = <0x82000000 0xA00000>;
+				interrupt-parent = <&gic>;
+	                                /* NRW       VPW0      VPW1      VPW2 */
+				// interrupts = <0 74 4>, <0 80 4>, <0 81 4>, <0 82 4>;
+				interrupts = <0 53 4>; /* ccq */
+				clocks = <&clkc CLK_ISP>, <&clkc CLK_VP>;
+			};
+
+			enc@81001000 {
+				reg = <0x81001000 0x1F500>;
+				interrupt-parent = <&gic>;
+				interrupts = <0 83 4>, <0 84 4>, <0 85 4>, <0 86 4>, <0 87 4>, <0 88 4>;
+				clocks = <&clkc CLK_ENC>;
+				bsb-size = <0x300000 0x100000 0x100000 0x100000>;
+				snapshot-size = <0x80000>;
+			};
+		};
+
+		agtx_timer: agtx_timer@80050000 {
+			compatible = "augentix,augentix-timer";
+			reg = <0x80050000 0x80>;
+			status = "okay";
+		};
+
+		i2c0: i2c@80070000 {
+			compatible = "augentix,i2c";
+			reg = <0x80070000 0x100>;
+			interrupts = <0 109 4>;
+			clocks = <&clkc CLK_I2CM0>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		i2c1: i2c@80080000 {
+			compatible = "augentix,i2c";
+			reg = <0x80080000 0x100>;
+			interrupts = <0 110 4>;
+			clocks = <&clkc CLK_I2CM1>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		i2c2: i2c@80090000 {
+			compatible = "augentix,i2c";
+			reg = <0x80090000 0x100>;
+			interrupts = <0 111 4>;
+			clocks = <&clkc CLK_I2CM2>;
+			clock-delay = <15>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+		};
+
+		uart0: uart@80820000 {
+			compatible = "augentix,uart";
+			reg = <0x80820000 0x10000 0x80020000 0x4>;
+			interrupts = <0 112 4>;
+			clocks = <&clkc CLK_UART0>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		uart1: uart@80830000 {
+			compatible = "augentix,uart";
+			reg = <0x80830000 0x10000 0x80020000 0x4>;
+			interrupts = <0 113 4>;
+			clocks = <&clkc CLK_UART1>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		uart2: uart@80840000 {
+			compatible = "augentix,uart";
+			reg = <0x80840000 0x10000 0x80020000 0x4>;
+			interrupts = <0 114 4>;
+			clocks = <&clkc CLK_UART2>;
+#ifdef CONFIG_FPGA
+			clock-frequency = <12000000>;
+#else
+			clock-frequency = <199200000>;
+#endif
+			mode_sel = <0>;
+			status = "disable";
+		};
+
+		sdc0: sdc@818A0000 {
+			compatible = "augentix,sdc";
+			reg = <0x818A0000 0x200>,
+				  <0x81340000 0x3C>,
+				  <0x80001434 0x4>;
+			interrupts = <0 104 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clocks = <&clkc CLK_SDC0>;
+			clock-names = "ciu";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <49800000>;
+#endif
+			disable-wp;
+			cap-sd-highspeed;
+			status = "disable";
+#ifndef CONFIG_FPGA
+			sdcswitch-gpios = <&gpio 8 GPIO_ACTIVE_HIGH>, <&gpio 10 GPIO_ACTIVE_HIGH>, <&gpio 11 GPIO_ACTIVE_HIGH>, <&gpio 6 GPIO_ACTIVE_HIGH>, <&gpio 7 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "4b_pwr_on", "4b_pwr_off", "1b_pwr_on", "1b_pwr_off";
+			pinctrl-0 = <&pad_sdc0_4b_pwr_on>;
+			pinctrl-1 = <&pad_sdc0_4b_pwr_off>;
+			pinctrl-2 = <&pad_sdc0_1b_pwr_on>;
+			pinctrl-3 = <&pad_sdc0_1b_pwr_off>;
+#endif
+		};
+
+		sdc1_p0: sdc1_p0@818C0000 {
+			compatible = "augentix,sdc";
+			reg = <0x818C0000 0x200>,
+				  <0x81350000 0x3C>,
+				  <0x80001434 0x4>;
+			interrupts = <0 105 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clocks = <&clkc CLK_SDC1>;
+			clock-names = "ciu";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <49800000>;
+#endif
+			no-1-8-v;
+			cap-sd-highspeed;
+			status = "disable";
+#ifndef CONFIG_FPGA
+			sdcswitch-gpios = <&gpio 21 GPIO_ACTIVE_HIGH>, <&gpio 23 GPIO_ACTIVE_HIGH>, <&gpio 24 GPIO_ACTIVE_HIGH>, <&gpio 19 GPIO_ACTIVE_HIGH>, <&gpio 20 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "4b_pwr_on", "4b_pwr_off", "1b_pwr_on", "1b_pwr_off";
+			pinctrl-0 = <&pad_sdc1p0_4b_pwr_on>;
+			pinctrl-1 = <&pad_sdc1p0_4b_pwr_off>;
+			pinctrl-2 = <&pad_sdc1p0_1b_pwr_on>;
+			pinctrl-3 = <&pad_sdc1p0_1b_pwr_off>;
+#endif
+		};
+
+		sdc1_p1: sdc1_p1@818C0000 {
+			compatible = "augentix,sdc";
+			reg = <0x818C0000 0x200>,
+				  <0x81350000 0x3C>,
+				  <0x80001434 0x4>;
+			interrupts = <0 105 4>;
+			// fifo-depth = <0x100>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clocks = <&clkc CLK_SDC1>;
+			clock-names = "ciu";
+#ifdef CONFIG_FPGA
+			clock-frequency = <12500000>;
+			max-frequency = <6250000>;
+#else
+			clock-frequency = <49800000>;
+			max-frequency = <49800000>;
+#endif
+			no-1-8-v;
+			cap-sd-highspeed;
+			status = "disable";
+#ifndef CONFIG_FPGA
+			sdcswitch-gpios = <&gpio 36 GPIO_ACTIVE_HIGH>, <&gpio 31 GPIO_ACTIVE_HIGH>, <&gpio 32 GPIO_ACTIVE_HIGH>, <&gpio 33 GPIO_ACTIVE_HIGH>, <&gpio 34 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "4b_pwr_on", "4b_pwr_off", "1b_pwr_on", "1b_pwr_off";
+			pinctrl-0 = <&pad_sdc1p1_4b_pwr_on>;
+			pinctrl-1 = <&pad_sdc1p1_4b_pwr_off>;
+			pinctrl-2 = <&pad_sdc1p1_1b_pwr_on>;
+			pinctrl-3 = <&pad_sdc1p1_1b_pwr_off>;
+#endif
+		};
+
+		usbc: usbc@A0000000 {
+			compatible = "augentix,hsotg";
+			reg = <0xA0000000 0x1000>,
+				  <0x81370000 0x100>;
+			interrupts = <0 106 4>;
+			g-tx-fifo-size = <128 8>;
+			g-rx-fifo-size = <170>;
+			g-np-tx-fifo-size = <16>;
+			g-use-dma;
+			phys = <&usb2_phy>;
+			phy-names = "usb2-phy";
+			clocks = <&clkc CLK_USB_UTMI>, <&clkc CLK_AHB_USB>;
+			clock-names = "otg";
+			status = "disable";
+		};
+
+		usb2_phy: usbphy@0 {
+			compatible = "usb-nop-xceiv";
+			#phy-cells = <1>;
+			clocks = <&usbphy_clk>;
+			status = "disable";
+		};
+
+		aon_wdt: aon_wdt@80300800 {
+			compatible = "augentix,aon-wdt";
+			reg = <0x80300800 0x24>,
+				  <0x80300C00 0x10>;
+			interrupts = <0 131 4>;
+			count_init = <30>;
+			count_normal = <0 30>;
+			count_timeout = <2 1>;
+			clocks = <&sys_clk>;
+			status = "okay";
+		};
+
+		pwm: pwm@80060000 {
+			compatible = "augentix,pwm";
+			reg = <0x80060000 0x40>;
+			interrupts = <0 133 4>, <0 134 4>, <0 135 4>, <0 136 4>, <0 137 4>, <0 138 4>, <0 139 4>;
+			clocks = <&clkc CLK_PWM0>, <&clkc CLK_PWM1>, <&clkc CLK_PWM2>, <&clkc CLK_PWM3>, <&clkc CLK_PWM4>, <&clkc CLK_PWM5>, <&clkc CLK_PWM6>;
+			status = "disable";
+		};
+
+		pdoff_on_button_hold: pdoff_on_button_hold {
+			compatible = "augentix,pdoff-on-button-hold";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pad_pd_button_detect>;
+			pinctrl-1 = <&pad_pd_button_wake>;
+			status = "disable";
+		};
+
+		pmu_button: pmu_button {
+			compatible = "augentix,pmu-button";
+			reg = <0x80290400 0x50>, <0x80000070 0x4>, <0x8000082C 0x4>;
+			interrupts = <0 129 1>;
+			status = "disable";
+		};
+
+		pinctrl: pinctrl@80001000 {
+			compatible = "augentix,pinctrl";
+			reg = <0x80001000 0x200>, <0x80290C00 0x30>;
+			interrupts = <0 131 4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			pad_pd_button_detect: pad_pd_button_detect@0 {
+				PAD_PD_BUTTON_DETECT {
+					augentix,pins = <51>;
+					augentix,pmx = <0>;
+					pins = "PAD_PD_BUTTON_DETECT";
+					function = "pad_pd_button_detect";
+				};
+			};
+			pad_pd_button_wake: pad_pd_button_wake@0 {
+				PAD_PD_BUTTON_WAKE {
+					augentix,pins = <51>;
+					augentix,pmx = <1>;
+					pins = "PAD_PD_BUTTON_WAKE";
+					function = "pad_pd_button_wake";
+				};
+			};
+			pad_sdc0_4b_pwr_on:pad_sdc0_4b_pwr_on@0 {
+				PAD_SDC0_4B_ON_CONFIG {
+					augentix,pins = <6 7 8 10 11>;
+					pins = "PAD_GPIO_6", "PAD_GPIO_7", "PAD_GPIO_8", "PAD_GPIO_10", "PAD_GPIO_11";
+					bias-pull-up;
+				};
+				PAD_SDC0_4B_ON_GROUP {
+					augentix,pins = <6 7 8 10 11>;
+					augentix,pmx = <1 1 1 1 1>;
+					pins = "PAD_SDC0_4B_ON_GROUP";
+					function = "pad_sdc0_4b_pwr_on";
+				};
+			};
+			pad_sdc0_4b_pwr_off:pad_sdc0_4b_pwr_off@0 {
+				PAD_SDC0_4B_OFF_CONFIG {
+					augentix,pins = <6 7 8 10 11>;
+					pins = "PAD_GPIO_6", "PAD_GPIO_7", "PAD_GPIO_8", "PAD_GPIO_10", "PAD_GPIO_11";
+					bias-pull-pin-default;
+				};
+				PAD_SDC0_4B_OFF_GROUP {
+					augentix,pins = <6 7 8 10 11>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC0_4B_OFF_GROUP";
+					function = "pad_sdc0_4b_pwr_off";
+				};
+			};
+			pad_sdc0_1b_pwr_on:pad_sdc0_1b_pwr_on@0 {
+				PAD_SDC0_1B_ON_CONFIG {
+					augentix,pins = <8 10>;
+					pins = "PAD_GPIO_8", "PAD_GPIO_10";
+					bias-pull-up;
+				};
+				PAD_SDC0_1B_ON_GROUP {
+					augentix,pins = <8 10>;
+					augentix,pmx = <1 1>;
+					pins = "PAD_SDC0_1B_ON_GROUP";
+					function = "pad_sdc0_1b_pwr_on";
+				};
+			};
+			pad_sdc0_1b_pwr_off:pad_sdc0_1b_pwr_off@0 {
+				PAD_SDC0_1B_OFF_CONFIG {
+					augentix,pins = <8 10>;
+					pins = "PAD_GPIO_8", "PAD_GPIO_10";
+					bias-pull-pin-default;
+				};
+				PAD_SDC0_1B_OFF_GROUP {
+					augentix,pins = <8 10>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC0_1B_OFF_GROUP";
+					function = "pad_sdc0_1b_pwr_off";
+				};
+			};
+
+			pad_sdc1p0_4b_pwr_on:pad_sdc1p0_4b_pwr_on@0 {
+				PAD_SDC1P0_4B_ON_CONFIG {
+					augentix,pins = <19 20 21 23 24>;
+					pins = "PAD_GPIO_19", "PAD_GPIO_20", "PAD_GPIO_21", "PAD_GPIO_23", "PAD_GPIO_24";
+					bias-pull-up;
+				};
+				PAD_SDC1P0_4B_ON_GROUP {
+					augentix,pins = <19 20 21 23 24>;
+					augentix,pmx = <2 2 2 2 2>;
+					pins = "PAD_SDC1P0_4B_ON_GROUP";
+					function = "pad_sdc1p0_4b_pwr_on";
+				};
+			};
+			pad_sdc1p0_4b_pwr_off:pad_sdc1p0_4b_pwr_off@0 {
+				PAD_SDC1P0_4B_OFF_CONFIG {
+					augentix,pins = <19 20 21 23 24>;
+					pins = "PAD_GPIO_19", "PAD_GPIO_20", "PAD_GPIO_21", "PAD_GPIO_23", "PAD_GPIO_24";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P0_4B_OFF_GROUP {
+					augentix,pins = <19 20 21 23 24>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC1P0_4B_OFF_GROUP";
+					function = "pad_sdc1p0_4b_pwr_off";
+				};
+			};
+			pad_sdc1p0_1b_pwr_on:pad_sdc1p0_1b_pwr_on@0 {
+				PAD_SDC1P0_1B_ON_CONFIG {
+					augentix,pins = <21 23>;
+					pins = "PAD_GPIO_21", "PAD_GPIO_23";
+					bias-pull-up;
+				};
+				PAD_SDC1P0_1B_ON_GROUP {
+					augentix,pins = <21 23>;
+					augentix,pmx = <2 2>;
+					pins = "PAD_SDC1P0_1B_ON_GROUP";
+					function = "pad_sdc1p0_1b_pwr_on";
+				};
+			};
+			pad_sdc1p0_1b_pwr_off:pad_sdc1p0_1b_pwr_off@0 {
+				PAD_SDC1P0_1B_OFF_CONFIG {
+					augentix,pins = <21 23>;
+					pins = "PAD_GPIO_21", "PAD_GPIO_23";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P0_1B_OFF_GROUP {
+					augentix,pins = <21 23>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC1P0_1B_OFF_GROUP";
+					function = "pad_sdc1p0_1b_pwr_off";
+				};
+			};
+
+			pad_sdc1p1_4b_pwr_on:pad_sdc1p1_4b_pwr_on@0 {
+				PAD_SDC1P1_4B_ON_CONFIG {
+					augentix,pins = <31 32 33 34 36>;
+					pins = "PAD_GPIO_31", "PAD_GPIO_32", "PAD_GPIO_33", "PAD_GPIO_34", "PAD_GPIO_36";
+					bias-pull-up;
+				};
+				PAD_SDC1P1_4B_ON_GROUP {
+					augentix,pins = <31 32 33 34 36>;
+					augentix,pmx = <5 5 5 5 5>;
+					pins = "PAD_SDC1P1_4B_ON_GROUP";
+					function = "pad_sdc1p1_4b_pwr_on";
+				};
+			};
+			pad_sdc1p1_4b_pwr_off:pad_sdc1p1_4b_pwr_off@0 {
+				PAD_SDC1P1_4B_OFF_CONFIG {
+					augentix,pins = <31 32 33 34 36>;
+					pins = "PAD_GPIO_31", "PAD_GPIO_32", "PAD_GPIO_33", "PAD_GPIO_34", "PAD_GPIO_36";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P1_4B_OFF_GROUP {
+					augentix,pins = <31 32 33 34 36>;
+					augentix,pmx = <0 0 0 0 0>;
+					pins = "PAD_SDC1P1_4B_OFF_GROUP";
+					function = "pad_sdc1p1_4b_pwr_off";
+				};
+			};
+			pad_sdc1p1_1b_pwr_on:pad_sdc1p1_1b_pwr_on@0 {
+				PAD_SDC1P1_1B_ON_CONFIG {
+					augentix,pins = <31 36>;
+					pins = "PAD_GPIO_31", "PAD_GPIO_36";
+					bias-pull-up;
+				};
+				PAD_SDC1P1_1B_ON_GROUP {
+					augentix,pins = <31 36>;
+					augentix,pmx = <5 5>;
+					pins = "PAD_SDC1P1_1B_ON_GROUP";
+					function = "pad_sdc1p1_1b_pwr_on";
+				};
+			};
+			pad_sdc1p1_1b_pwr_off:pad_sdc1p1_1b_pwr_off@0 {
+				PAD_SDC1P1_1B_OFF_CONFIG {
+					augentix,pins = <31 36>;
+					pins = "PAD_GPIO_31", "PAD_GPIO_36";
+					bias-pull-pin-default;
+				};
+				PAD_SDC1P1_1B_OFF_GROUP {
+					augentix,pins = <31 36>;
+					augentix,pmx = <0 0>;
+					pins = "PAD_SDC1P1_1B_OFF_GROUP";
+					function = "pad_sdc1p1_1b_pwr_off";
+				};
+			};
+		};
+
+		dma: dma@83600000 {
+			compatible = "augentix,dma";
+			reg = <0x83600000 0x1000>;
+			interrupts = <0 134 4>;
+			clocks = <&clkc CLK_AXI_DRAMC>;
+			status = "disable";
+		};
+
+		qspi: spi@83610000{
+			compatible = "augentix,qspi";
+			reg = <0x83610000 0x1000 0x83620000 0x1000 0x83630000 0x1000 0x81300058 0x4 0x8000081C 0x10>;
+			interrupts = <0 89 1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disable";
+			nor@0{
+			};
+		};
+
+		dw_spi0: spi@80800000 {
+			compatible = "snps,dw-apb-ssi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x80800000 0x1000>;
+			interrupts = <0 101 4>;
+			clocks = <&clkc CLK_SPI0>;
+			status = "disable";
+
+			spidev0: spidev@0 {
+				compatible = "spidev_test";
+				reg = <0>;
+				spi-max-frequency = <24000000>;
+			};
+		};
+
+		dw_spi1: spi@80810000 {
+			compatible = "snps,dw-apb-ssi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x80810000 0x1000>;
+			interrupts = <0 102 4>;
+			clocks = <&clkc CLK_SPI1>;
+			status = "disable";
+
+			spidev1: spidev@0 {
+				compatible = "spidev_test";
+				reg = <0>;
+				spi-max-frequency = <24000000>;
+			};
+		};
+
+		gpio: gpio@80001400 {
+			compatible = "augentix,gpio";
+			reg = <0x80001400 0x34>;
+			interrupts = <0 131 4>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "okay";
+		};
+
+		eirq_extension: eirq_extension@80002000 {
+			compatible = "augentix,eirq-ext";
+			status = "disable";
+			eirq0: eirq0 {
+				trigger-mode = <IRQ_TYPE_EDGE_RISING>; /* trigger-mode can be 1, 2, 3, 4, 8 */
+				eirq-settings = <1 300000 300000>; /* debounce_enable sensitive_num hold_num */
+			};
+		};
+
+		ethernet:ethernet2@81880000 {
+			clocks = <&clkc CLK_ETH>, <&clkc APB_PCLK>, <&clkc EMAC_RX_CLK>;
+			clock-names = "eth_clk", "apb_pclk", "emac_rx_clk";
+			compatible = "snps,dwc-qos-ethernet-4.10";
+			interrupt-parent = <&gic>;
+			interrupts = <0x0 107 0x4>, <0x0 108 0x4>;
+			reg = <0x81880000 0x4000>;
+			phy-handle = <&phy2>;
+			phy-mode = "rmii";
+			mac-address = [000000000000];
+			/*phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;*/
+
+			snps,en-tx-lpi-clockgating;
+			snps,en-lpi;
+			snps,write-requests = <1>;
+			snps,read-requests = <1>;
+			snps,burst-map = <0x7>;
+			snps,txpbl = <8>;
+			snps,rxpbl = <2>;
+
+			//dma-coherent;
+
+			status = "disable";
+			mdio {
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+				phy2: phy@1 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					device_type = "ethernet-phy";
+					reg = <0x1>;
+				};
+			};
+		};
+
+		adc: adc@80110000 {
+			compatible = "augentix,agtx-adc";
+			status  = "disable";
+			reg = <0x80110000 0x90>, <0x80250000 0x4>;
+			clocks = <&clkc CLK_SAADC>;
+			interrupts = <0 126 4>;
+			#io-channel-cells = <1>;
+		};
+
+		audio_pcm: audio_pcm@80120000 {
+			compatible = "augentix,agtx-pcm-audio";
+			status = "disable";
+			reg = <0x80120000 0x150000>;
+			/*           audiow   adc_l    adc_r    i2s_rx   audior   adac     i2s_tx  */
+			interrupts = <0 2 4>, <0 3 4>, <0 4 4>, <0 5 4>, <0 6 4>, <0 7 4>, <0 8 4>;
+			clocks = <&clkc CLK_ADO_IN>, <&clkc CLK_ADO_ADC>, <&clkc CLK_ADO_DMIC>, <&clkc CLK_ADO_OUT>, <&clkc CLK_ADO_DAC>;
+			i2s-rx = <0>;
+			i2s-rx_ck = <0>;
+			i2s-rx_ws = <0>;
+			i2s-tx = <0>;
+			i2s-tx_ck = <0>;
+			i2s-tx_ws = <0>;
+			/* audio-output-amp-en-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>; */
+			/* line-in-detect-gpios = <&gpio 2 GPIO_ACTIVE_LOW>; */
+			/* mic-sensitivity = <(-42)>; */
+		};
+
+		audio_machine: audio_machine {
+			compatible = "augentix,audio_machine";
+			status = "disable";
+		};
+
+		otp: otp {
+			compatible = "augentix,otp-agtx";
+			status = "okay";
+		};
+
+		earlyvideo: earlyvideo {
+			compatible = "augentix,earlyvideo";
+			reg = <0x83000000 0x590000>;
+			interrupt-parent = <&gic>;
+			interrupts = <0 13 4>, <0 14 4>, <0 49 4>, <0 50 4>;
+			status = "disable";
+		};
+	};
+};

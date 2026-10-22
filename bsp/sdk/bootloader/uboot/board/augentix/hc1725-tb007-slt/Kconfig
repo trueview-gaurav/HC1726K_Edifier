@@ -1,0 +1,25 @@
+if TARGET_HC1725_TB007_SLT
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1725-tb007-slt"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-tb007-slt"
+
+endif
+
+if TARGET_HC1725_FPU_TB007_SLT
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1725-tb007-slt"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1725-fpu-tb007-slt"
+
+endif

@@ -1,0 +1,25 @@
+if TARGET_HC1783S_TB006_NOR_8MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1783s-tb006-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-tb006-nor-8mb"
+
+endif
+
+if TARGET_HC1783S_FPU_TB006_NOR_8MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1783s-tb006-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-fpu-tb006-nor-8mb"
+
+endif

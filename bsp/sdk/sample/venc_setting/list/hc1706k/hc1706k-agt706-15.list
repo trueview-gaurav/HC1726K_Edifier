@@ -1,0 +1,6 @@
+[Channel 0]
+normal: 1.5mbps_384kps_main_cpsid99146.ini
+ir: 1.5mbps_384kps_main_cpsid99146_ir.ini
+[Channel 1]
+normal: 1.5mbps_384kps_sub_cpsid99146.ini
+ir: 1.5mbps_384kps_sub_cpsid99146_ir.ini

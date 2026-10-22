@@ -1,0 +1,20 @@
+#ifdef __UBOOT__
+#include <common.h>
+#include <asm-generic/gpio.h>
+#endif
+
+#include "sensor_comm.h"
+#include "sensor_params.h"
+
+// GPIOs are determined by the machine.
+#define SENSOR_MAIN_RSTB_PIN (49)
+#define SENSOR_SEC_RSTB_PIN (48)
+
+void sensor_power_up()
+{
+	gpio_direction_output(SENSOR_MAIN_RSTB_PIN, 0);
+	gpio_direction_output(SENSOR_SEC_RSTB_PIN, 0);
+	udelay(1000);
+	gpio_set_value(SENSOR_MAIN_RSTB_PIN, 1);
+	gpio_set_value(SENSOR_SEC_RSTB_PIN, 1);
+}

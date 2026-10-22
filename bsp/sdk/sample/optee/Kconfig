@@ -1,0 +1,8 @@
+mainmenu "OPTEE applications"
+
+source "optee_client/Kconfig"
+source "optee_examples/Kconfig"
+source "tee_trng/Kconfig"
+source "monotonic_counter/Kconfig"
+source "se_sim/Kconfig"
+source "efuse/Kconfig"

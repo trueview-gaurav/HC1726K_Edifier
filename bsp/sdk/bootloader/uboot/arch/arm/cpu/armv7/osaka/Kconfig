@@ -1,0 +1,31 @@
+if ARCH_OSAKA_32
+
+config CPU_V7_HAS_NONSEC
+	default y
+
+config ARMV7_BOOT_SEC_DEFAULT
+	default n
+
+config SYS_SOC
+	default "osaka"
+
+config SYS_CPU
+	default "armv7"
+
+choice # Product select
+	prompt "Augentix product select"
+	optional
+
+config TARGET_AGT785_1
+	bool "AGT785-1"
+
+config TARGET_OSAKA
+	bool "Generic design"
+
+endchoice # Product select
+
+# Augentix product level Kconfig
+source "board/augentix/osaka/Kconfig"
+source "board/augentix/hc1785/Kconfig"
+
+endif #ARCH_OSAKA_32

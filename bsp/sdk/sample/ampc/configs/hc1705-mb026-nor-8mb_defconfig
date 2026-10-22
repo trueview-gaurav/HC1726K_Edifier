@@ -1,0 +1,11 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# Augentix SDK AMPC Configuration
+#
+
+#
+# library
+#
+# CONFIG_LIBAMPC is not set
+# CONFIG_LIBOPEN_AMP is not set
+# CONFIG_LIBMETAL is not set

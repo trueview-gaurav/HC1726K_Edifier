@@ -1,0 +1,170 @@
+# Products using AGT_MA800020_V1 machine
+if TARGET_AGT800_20
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-agt800-20"
+
+endif
+
+if TARGET_AGT800_23
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-fpu-agt800-23"
+
+endif
+
+if TARGET_AGT800_30
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt800-30"
+
+endif
+
+if TARGET_AGT800_31
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt800-31"
+
+endif
+
+if TARGET_AGT800_34
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-agt800-34"
+
+endif
+
+if TARGET_AGT800_35
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-agt800-35"
+
+endif
+
+if TARGET_AGT800_36
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-agt800-36"
+
+endif
+
+if TARGET_AGT200_20
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt200-20"
+
+endif
+
+if TARGET_AGT200_21
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma200021-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt200-21"
+
+endif
+
+if TARGET_AGT804_37
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-agt804-37"
+
+endif
+
+if TARGET_AGT804_38
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-agt804-38"
+
+endif
+
+if TARGET_AGT100_21
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt100-21"
+
+endif
+
+if TARGET_AGT800_42
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt800-42"
+
+endif
+

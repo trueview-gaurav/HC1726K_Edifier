@@ -1,0 +1,244 @@
+The system is: Linux - 6.8.0-40-generic - x86_64
+Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+Compiler: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+
+The C compiler identification is GNU, found in "/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/3.8.2/CompilerIdC/a.out"
+
+Determining if the C compiler works passed with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_73853/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_73853.dir/build.make CMakeFiles/cmTC_73853.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_73853.dir/testCCompiler.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -o CMakeFiles/cmTC_73853.dir/testCCompiler.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp/testCCompiler.c
+Linking C executable cmTC_73853
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_73853.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_73853.dir/testCCompiler.c.o  -o cmTC_73853 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+Detecting C compiler ABI info compiled with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_1d3ab/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_1d3ab.dir/build.make CMakeFiles/cmTC_1d3ab.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -o CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o   -c /opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/share/cmake-3.8/Modules/CMakeCCompilerABI.c
+Linking C executable cmTC_1d3ab
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1d3ab.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid -v CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o  -o cmTC_1d3ab 
+Using built-in specs.
+COLLECT_GCC=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-uclibceabi/arm-augentix-linux-uclibceabi-gcc
+COLLECT_LTO_WRAPPER=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/lto-wrapper
+Target: arm-augentix-linux-gnueabi
+Configured with: ../../../../../../work-shared/gcc-10.3.0-r0/gcc-10.3.0/configure --build=x86_64-linux --host=x86_64-augentixsdk-linux --target=arm-augentix-linux-gnueabi --prefix=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr --exec_prefix=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr --bindir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-gnueabi --sbindir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-gnueabi --libexecdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi --datadir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share --sysconfdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/etc --sharedstatedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/com --localstatedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/var --libdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi --includedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/include --oldincludedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/include --infodir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share/info --mandir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share/man --disable-silent-rules --disable-dependency-tracking --with-libtool-sysroot=/work/yocto/build-hard/tmp/sysroots/x86_64-nativesdk-augentixsdk-linux --with-gnu-ld --enable-shared --enable-languages=c,c++ --enable-threads=posix --enable-c99 --enable-long-long --enable-symvers=gnu --enable-libstdcxx-pch --program-prefix=arm-augentix-linux-gnueabi- --without-local-prefix --disable-install-libiberty --disable-libssp --enable-libitm --disable-bootstrap --with-system-zlib --with-linker-hash-style=both --with-ppl=no --with-cloog=no --enable-checking=release --enable-cheaders=c_global --with-gxx-include-dir=/not/exist/usr/include/c++/10.3.0 --with-build-time-tools=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr/arm-augentix-linux-gnueabi/bin --with-sysroot=/not/exist --with-build-sysroot=/work/yocto/build-hard/tmp/sysroots/qti-ipcam-cortexa7 --disable-static --with-gmp=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-mpfr=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-mpc=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-isl=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --enable-initfini-array --disable-lto --disable-plugin --disable-nls --disable-multilib --enable-target-optspace --without-zstd --with-mode=thumb --disable-libmudflap --disable-libgomp --disable-libquadmath --disable-libquadmath-support --disable-libsanitizer --disable-libmpx --disable-libstdcxx-verbose --enable-__cxa_atexit --with-cpu=cortex-a7 --with-fpu=neon-vfpv4 --with-float=hard
+Thread model: posix
+Supported LTO compression algorithms: zlib
+gcc version 10.3.0 (GCC) 
+COMPILER_PATH=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/
+LIBRARY_PATH=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/
+COLLECT_GCC_OPTIONS='--sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi' '-muclibc' '-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib' '-v' '-o' 'cmTC_1d3ab' '-mcpu=cortex-a7' '-mfloat-abi=hard' '-mfpu=neon-vfpv4' '-mthumb' '-mtls-dialect=gnu' '-march=armv7ve+simd'
+ /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/collect2 --sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi --eh-frame-hdr --hash-style=both -dynamic-linker /lib/ld-uClibc.so.0 -X -m armelf_linux_eabi -o cmTC_1d3ab /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crt1.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crti.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtbegin.o -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0 -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0 -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib -luuid CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtend.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crtn.o
+COLLECT_GCC_OPTIONS='--sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi' '-muclibc' '-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib' '-v' '-o' 'cmTC_1d3ab' '-mcpu=cortex-a7' '-mfloat-abi=hard' '-mfpu=neon-vfpv4' '-mthumb' '-mtls-dialect=gnu' '-march=armv7ve+simd'
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+Parsed C implicit link information from above output:
+  link line regex: [^( *|.*[/\])(ld|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command:"/usr/bin/gmake" "cmTC_1d3ab/fast"]
+  ignore line: [gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”]
+  ignore line: [/usr/bin/gmake -f CMakeFiles/cmTC_1d3ab.dir/build.make CMakeFiles/cmTC_1d3ab.dir/build]
+  ignore line: [gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”]
+  ignore line: [Building C object CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o]
+  ignore line: [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -o CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o   -c /opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/share/cmake-3.8/Modules/CMakeCCompilerABI.c]
+  ignore line: [Linking C executable cmTC_1d3ab]
+  ignore line: [/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1d3ab.dir/link.txt --verbose=1]
+  ignore line: [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid -v CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o  -o cmTC_1d3ab ]
+  ignore line: [Using built-in specs.]
+  ignore line: [COLLECT_GCC=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-uclibceabi/arm-augentix-linux-uclibceabi-gcc]
+  ignore line: [COLLECT_LTO_WRAPPER=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/lto-wrapper]
+  ignore line: [Target: arm-augentix-linux-gnueabi]
+  ignore line: [Configured with: ../../../../../../work-shared/gcc-10.3.0-r0/gcc-10.3.0/configure --build=x86_64-linux --host=x86_64-augentixsdk-linux --target=arm-augentix-linux-gnueabi --prefix=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr --exec_prefix=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr --bindir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-gnueabi --sbindir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/bin/arm-augentix-linux-gnueabi --libexecdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi --datadir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share --sysconfdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/etc --sharedstatedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/com --localstatedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/var --libdir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi --includedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/include --oldincludedir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/include --infodir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share/info --mandir=/opt/qti-ipcam/2.1.3/sysroots/x86_64-augentixsdk-linux/usr/share/man --disable-silent-rules --disable-dependency-tracking --with-libtool-sysroot=/work/yocto/build-hard/tmp/sysroots/x86_64-nativesdk-augentixsdk-linux --with-gnu-ld --enable-shared --enable-languages=c,c++ --enable-threads=posix --enable-c99 --enable-long-long --enable-symvers=gnu --enable-libstdcxx-pch --program-prefix=arm-augentix-linux-gnueabi- --without-local-prefix --disable-install-libiberty --disable-libssp --enable-libitm --disable-bootstrap --with-system-zlib --with-linker-hash-style=both --with-ppl=no --with-cloog=no --enable-checking=release --enable-cheaders=c_global --with-gxx-include-dir=/not/exist/usr/include/c++/10.3.0 --with-build-time-tools=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr/arm-augentix-linux-gnueabi/bin --with-sysroot=/not/exist --with-build-sysroot=/work/yocto/build-hard/tmp/sysroots/qti-ipcam-cortexa7 --disable-static --with-gmp=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-mpfr=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-mpc=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --with-isl=/work/yocto/build-hard/tmp/sysroots/x86_64-linux/usr --enable-initfini-array --disable-lto --disable-plugin --disable-nls --disable-multilib --enable-target-optspace --without-zstd --with-mode=thumb --disable-libmudflap --disable-libgomp --disable-libquadmath --disable-libquadmath-support --disable-libsanitizer --disable-libmpx --disable-libstdcxx-verbose --enable-__cxa_atexit --with-cpu=cortex-a7 --with-fpu=neon-vfpv4 --with-float=hard]
+  ignore line: [Thread model: posix]
+  ignore line: [Supported LTO compression algorithms: zlib]
+  ignore line: [gcc version 10.3.0 (GCC) ]
+  ignore line: [COMPILER_PATH=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/]
+  ignore line: [LIBRARY_PATH=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/:/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/]
+  ignore line: [COLLECT_GCC_OPTIONS='--sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi' '-muclibc' '-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib' '-v' '-o' 'cmTC_1d3ab' '-mcpu=cortex-a7' '-mfloat-abi=hard' '-mfpu=neon-vfpv4' '-mthumb' '-mtls-dialect=gnu' '-march=armv7ve+simd']
+  link line: [ /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/collect2 --sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi --eh-frame-hdr --hash-style=both -dynamic-linker /lib/ld-uClibc.so.0 -X -m armelf_linux_eabi -o cmTC_1d3ab /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crt1.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crti.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtbegin.o -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0 -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0 -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib -luuid CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtend.o /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crtn.o]
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/libexec/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0/collect2] ==> ignore
+    arg [--sysroot=/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [--hash-style=both] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/lib/ld-uClibc.so.0] ==> ignore
+    arg [-X] ==> ignore
+    arg [-m] ==> ignore
+    arg [armelf_linux_eabi] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_1d3ab] ==> ignore
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crt1.o] ==> ignore
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crti.o] ==> ignore
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtbegin.o] ==> ignore
+    arg [-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib] ==> dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib]
+    arg [-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0] ==> dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0]
+    arg [-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib] ==> dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib]
+    arg [-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0] ==> dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0]
+    arg [-L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib] ==> dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib]
+    arg [-luuid] ==> lib [uuid]
+    arg [CMakeFiles/cmTC_1d3ab.dir/CMakeCCompilerABI.c.o] ==> ignore
+    arg [-lgcc] ==> lib [gcc]
+    arg [--push-state] ==> ignore
+    arg [--as-needed] ==> ignore
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [--pop-state] ==> ignore
+    arg [-lc] ==> lib [c]
+    arg [-lgcc] ==> lib [gcc]
+    arg [--push-state] ==> ignore
+    arg [--as-needed] ==> ignore
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [--pop-state] ==> ignore
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0/crtend.o] ==> ignore
+    arg [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/crtn.o] ==> ignore
+  remove lib [gcc]
+  remove lib [gcc_s]
+  remove lib [gcc]
+  remove lib [gcc_s]
+  collapse library dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib] ==> [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib]
+  collapse library dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0] ==> [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0]
+  collapse library dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib] ==> [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib]
+  collapse library dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0] ==> [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0]
+  collapse library dir [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib] ==> [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib]
+  implicit libs: [uuid;c]
+  implicit dirs: [/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib;/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/x86_64-augentixsdk-linux/usr/lib/arm-augentix-linux-gnueabi/gcc/arm-augentix-linux-gnueabi/10.3.0;/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/lib;/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib/arm-augentix-linux-gnueabi/10.3.0;/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/sdk/sysroots/cortexa7t2hf-neon-vfpv4-augentix-linux-uclibceabi/usr/lib]
+  implicit fwks: []
+
+
+
+
+Detecting C [-std=c11] compiler features compiled with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_6b878/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_6b878.dir/build.make CMakeFiles/cmTC_6b878.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_6b878.dir/feature_tests.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc   -std=c11 -o CMakeFiles/cmTC_6b878.dir/feature_tests.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/feature_tests.c
+Linking C executable cmTC_6b878
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6b878.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_6b878.dir/feature_tests.c.o  -o cmTC_6b878 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+    Feature record: C_FEATURE:1c_function_prototypes
+    Feature record: C_FEATURE:1c_restrict
+    Feature record: C_FEATURE:1c_static_assert
+    Feature record: C_FEATURE:1c_variadic_macros
+
+
+Detecting C [-std=c99] compiler features compiled with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_8a0bb/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_8a0bb.dir/build.make CMakeFiles/cmTC_8a0bb.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_8a0bb.dir/feature_tests.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc   -std=c99 -o CMakeFiles/cmTC_8a0bb.dir/feature_tests.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/feature_tests.c
+Linking C executable cmTC_8a0bb
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8a0bb.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_8a0bb.dir/feature_tests.c.o  -o cmTC_8a0bb 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+    Feature record: C_FEATURE:1c_function_prototypes
+    Feature record: C_FEATURE:1c_restrict
+    Feature record: C_FEATURE:0c_static_assert
+    Feature record: C_FEATURE:1c_variadic_macros
+
+
+Detecting C [-std=c90] compiler features compiled with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_7fa3b/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_7fa3b.dir/build.make CMakeFiles/cmTC_7fa3b.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_7fa3b.dir/feature_tests.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc   -std=c90 -o CMakeFiles/cmTC_7fa3b.dir/feature_tests.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/feature_tests.c
+Linking C executable cmTC_7fa3b
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7fa3b.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_7fa3b.dir/feature_tests.c.o  -o cmTC_7fa3b 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+    Feature record: C_FEATURE:1c_function_prototypes
+    Feature record: C_FEATURE:0c_restrict
+    Feature record: C_FEATURE:0c_static_assert
+    Feature record: C_FEATURE:0c_variadic_macros
+Determining if the include file pthread.h exists passed with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_3ff31/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_3ff31.dir/build.make CMakeFiles/cmTC_3ff31.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_3ff31.dir/CheckIncludeFile.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -o CMakeFiles/cmTC_3ff31.dir/CheckIncludeFile.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+Linking C executable cmTC_3ff31
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3ff31.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_3ff31.dir/CheckIncludeFile.c.o  -o cmTC_3ff31 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+
+Determining if the pthread_create exist passed with the following output:
+Change Dir: /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/gmake" "cmTC_8151e/fast"
+gmake[2]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+/usr/bin/gmake -f CMakeFiles/cmTC_8151e.dir/build.make CMakeFiles/cmTC_8151e.dir/build
+gmake[3]: 进入目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+Building C object CMakeFiles/cmTC_8151e.dir/CheckSymbolExists.c.o
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -o CMakeFiles/cmTC_8151e.dir/CheckSymbolExists.c.o   -c /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp/CheckSymbolExists.c
+Linking C executable cmTC_8151e
+/opt/mips-gcc540-glibc222-r3.3.7.mxu2.cve2_enz/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8151e.dir/link.txt --verbose=1
+/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc    -L/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/buildroot/output/target/usr/lib -luuid  CMakeFiles/cmTC_8151e.dir/CheckSymbolExists.c.o  -o cmTC_8151e 
+gmake[3]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+gmake[2]: 离开目录“/home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp”
+
+File /home/jiangtaixu/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <pthread.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pthread_create
+  return ((int*)(&pthread_create))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+

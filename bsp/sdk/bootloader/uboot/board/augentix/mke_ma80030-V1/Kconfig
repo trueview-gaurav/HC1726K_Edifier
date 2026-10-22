@@ -1,0 +1,28 @@
+# Products using AGT_MA800030_V1 machine
+
+if TARGET_AGT800_30
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt800-30"
+
+endif
+
+if TARGET_AGT800_31
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+        default "augentix"
+config SYS_BOARD
+        default "agt-ma800020-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+        default "hc1783s-fpu-agt800-31"
+
+endif
+

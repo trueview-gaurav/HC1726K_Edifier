@@ -1,0 +1,12 @@
+if TARGET_OSAKA
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "osaka"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "osaka"
+
+endif

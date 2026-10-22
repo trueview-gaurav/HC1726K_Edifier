@@ -1,0 +1,3 @@
+config TEE_EFUSE
+	bool "eFuse OTP read/write CA"
+	default n

@@ -1,0 +1,439 @@
+{
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"type": "object",
+	"title": "AGTX_VENC_CONF_S",
+	"comments": [
+		"==============================",
+		"== Venc parameters ==",
+		"==============================",
+		"ALSO SEE: MPI_ENC_setVencAttr"
+	],
+	"properties": {
+		"video_dev_idx": {
+			"ui_type": "number",
+			"type": "integer",
+			"default": 0,
+			"minimum": 0,
+			"maximum": 0
+		},
+
+		"codec": {
+			"comments": "--- type of venc ---",
+			"ui_type": "enum",
+			"type": "string",
+			"title": "AGTX_VENC_TYPE",
+			"enum": ["H264", "H265", "MJPEG"],
+			"default": "H264"
+		},
+		"H264_H265": {
+			"comments": [
+				"",
+				"--- H264 / H265 ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_H26X_CONF_S",
+			"properties": {
+				"profile": {
+					"ui_type": "enum",
+					"type": "string",
+					"title": "AGTX_VENC_PROFILE",
+					"enum": ["BASELINE", "MAIN", "HIGH"],
+					"default": "MAIN"
+				},
+				"rc_mode": {
+					"ui_type": "enum",
+					"type": "string",
+					"title": "AGTX_VENC_MODE",
+					"enum": ["VBR", "CBR", "SBR", "CQP"],
+					"default": "CBR"
+				},
+				"gop": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 30,
+					"minimum": 1,
+					"maximum": 65535
+				},
+				"frm_rate_o": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 30,
+					"minimum": 1,
+					"maximum": 120
+				}
+			}
+		},
+		"VBR": {
+			"comments": [
+				"",
+				"--- vbr ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_VBR_CONF_S",
+			"properties": {
+				"max_bit_rate": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 4096,
+					"minimum": 1,
+					"maximum": 102400
+				},
+				"quality_level_index": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 7,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"fluc_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 4
+				},
+				"regression_speed": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 6,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"scene_smooth": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"max_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 40,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"i_qp_offset": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": -2,
+					"minimum": -10,
+					"maximum": 0
+				},
+				"motion_tolerance_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 16,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"motion_tolerance_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 31,
+					"minimum": 0,
+					"maximum": 51
+				}
+			}
+		},
+		"CBR": {
+			"comments": [
+				"",
+				"--- cbr ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_CBR_CONF_S",
+			"properties": {
+				"bit_rate": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 4096,
+					"minimum": 1,
+					"maximum": 102400
+				},
+				"fluc_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 4
+				},
+				"regression_speed": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 6,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"scene_smooth": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"max_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 40,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"min_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 15,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"i_qp_offset": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": -2,
+					"minimum": -10,
+					"maximum": 0
+				},
+				"motion_tolerance_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 16,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"motion_tolerance_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 31,
+					"minimum": 0,
+					"maximum": 51
+				}
+			}
+		},
+		"SBR": {
+			"comments": [
+				"",
+				"--- sbr ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_SBR_CONF_S",
+			"properties": {
+				"bit_rate": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 4096,
+					"minimum": 1,
+					"maximum": 102400
+				},
+				"fluc_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 4
+				},
+				"regression_speed": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 6,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"scene_smooth": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"max_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 40,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"min_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 15,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"adjust_br_thres_pc": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 70,
+					"minimum": 50,
+					"maximum": 150
+				},
+				"adjust_step_times": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 20,
+					"minimum": 1,
+					"maximum": 50
+				},
+				"converge_frame": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 1,
+					"minimum": 1,
+					"maximum": 240
+				},
+				"i_qp_offset": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": -2,
+					"minimum": -10,
+					"maximum": 0
+				},
+				"motion_tolerance_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 16,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"motion_tolerance_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 31,
+					"minimum": 0,
+					"maximum": 51
+				}
+			}
+		},
+		"CQP": {
+			"comments": [
+				"",
+				"--- cqp ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_CQP_CONF_S",
+			"properties": {
+				"i_frame_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 20,
+					"minimum": 0,
+					"maximum": 51
+				},
+				"p_frame_qp": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 25,
+					"minimum": 0,
+					"maximum": 51
+				}
+			}
+		},
+		"MJPEG": {
+			"comments": [
+				"",
+				"--- mjpeg ---"
+			],
+			"type": "object",
+			"title": "AGTX_VENC_MJPEG_CONF_S",
+			"properties": {
+				"rc_mode": {
+					"ui_type": "enum",
+					"type": "string",
+					"title": "AGTX_VENC_MODE",
+					"enum": ["VBR", "CBR", "SBR", "CQP"],
+					"default": "CBR"
+				},
+				"frm_rate_o": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 30,
+					"minimum": 1,
+					"maximum": 120
+				},
+				"fluc_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 4
+				},
+				"bit_rate": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 10240,
+					"minimum": 1,
+					"maximum": 102400
+				},
+				"max_q_factor": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 90,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"min_q_factor": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 10,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"max_bit_rate": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 10240,
+					"minimum": 1,
+					"maximum": 102400
+				},
+				"quality_level_index": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 7,
+					"minimum": 0,
+					"maximum": 9
+				},
+				"q_factor": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 80,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"adjust_br_thres_pc": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 70,
+					"minimum": 50,
+					"maximum": 150
+				},
+				"adjust_step_times": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 20,
+					"minimum": 1,
+					"maximum": 50
+				},
+				"converge_frame": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 30,
+					"minimum": 1,
+					"maximum": 240
+				},
+				"motion_tolerance_level": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 16,
+					"minimum": 0,
+					"maximum": 100
+				},
+				"motion_tolerance_qfactor": {
+					"ui_type": "number",
+					"type": "integer",
+					"default": 38,
+					"minimum": 0,
+					"maximum": 100
+				}
+			}
+		}
+	}
+}

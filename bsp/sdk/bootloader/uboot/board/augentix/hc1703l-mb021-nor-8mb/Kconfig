@@ -1,0 +1,12 @@
+if TARGET_HC1703L_MB021_NOR_8MB
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1703l-mb021-nor-8mb"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1703l-mb021-nor-8mb"
+
+endif

@@ -1,0 +1,193 @@
+/dts-v1/;
+#include "hc1726.dtsi"
+
+/ {
+	model = "Augentix AGT726-4";
+
+	firmware {
+		optee {
+			method = "smc";
+			compatible = "linaro,optee-tz";
+		};
+	};
+
+	cpus {
+		enable-method = "augentix,hc1703_1723_1753_1783s-smp";
+
+		cpu@0 {
+			reg = <0xF00>;
+		};
+
+		cpu@1 {
+			compatible = "arm,cortex-a7";
+			device_type = "cpu";
+#if defined(CONFIG_FPGA)
+			clock-frequency = <CONFIG_CPU_FREQUENCY>;
+#elif defined(CONFIG_CPU_LOW_SPEED)
+			clock-frequency = <450000000>;
+#else
+			clock-frequency = <891000000>;
+#endif
+			reg = <0xF01>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	soc@80000000 {
+		i2c0: i2c@80070000 {
+			status = "okay";
+		};
+
+		i2c1: i2c@80080000 {
+			status = "disable";
+		};
+
+		i2c2: i2c@80090000 {
+			status = "okay";
+
+			rtc@51 {
+        compatible = "haoyu,hym8563";
+        reg = <0x51>;
+        status = "okay";
+    	};
+		};
+
+		uart1: uart@80830000 {
+			status = "okay";
+		};
+
+		uart2: uart@80840000 {
+			status = "disable";
+		};
+
+		sdc0: sdc@818A0000 {
+			sdc-cd-gpio-num = <45>;
+			sdpwren-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+			status = "okay";
+		};
+
+		sdc1_p0: sdc1_p0@818C0000 {
+			// status = "okay";
+		};
+
+		sdc1_p1: sdc1_p1@818C0000 {
+			// status = "okay";
+		};
+
+		pwm: pwm@80060000 {
+			 status = "okay";
+		};
+
+		usbc: usbc@A0000000 {
+			dr_mode = "host";
+			status = "okay";
+		};
+
+		usb2_phy: usbphy@0 {
+			status = "okay";
+		};
+
+		mpp {
+			is@83000000 {
+				isw-buf-num = <2>;
+			};
+
+			isp@82000000 {
+				nrw-buf-num = <4>;
+			};
+
+			enc@81001000 {
+				bsb-size = <0x200000 0x100000 0x200000 0x100000>;
+				rd-buf-size = <0x40000>;
+				snapshot-size = <0x40000>;
+				rd-buf-num = <4>;
+			};
+		};
+
+		qspi: spi@83610000{
+			status = "okay";
+			
+			nor@0{
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "augentix,m25p80", "augentix,spi-nor";
+				reg = <0>;
+				spi-tx-bus-width = <2>;
+				spi-rx-bus-width = <2>;
+				m25p,fast-read;
+				status = "okay";
+			};
+			nand@0{
+					compatible = "spi-nand";
+					reg = <0x0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					spi-tx-bus-width = <4>;
+					spi-rx-bus-width = <4>;
+					status = "disable";
+			};
+		};
+		dw_spi1: spi@80810000 {
+			status = "okay";
+			spidev1: spidev@0 {
+				spi-max-frequency = <6000000>;
+			};
+		};
+
+		gpio: gpio@80001400 {
+			pmu_gpio = <0x0>;
+			pioc0_gpio = <0x0 0x0>;
+			pioc1_gpio = <0x0 0x0>;
+			status = "okay";
+		};
+
+		gpio_test: gpio_test {
+			compatible = "augentix,gpio-test";
+			pmuioc-gpios = <&gpio 49 GPIO_ACTIVE_HIGH>, <&gpio 50 GPIO_ACTIVE_HIGH>, <&gpio 51 GPIO_ACTIVE_HIGH>;
+			pioc0-gpios = <&gpio 0 GPIO_ACTIVE_HIGH>, <&gpio 15 GPIO_ACTIVE_HIGH>, <&gpio 20 GPIO_ACTIVE_HIGH>, <&gpio 25 GPIO_ACTIVE_HIGH>, <&gpio 31 GPIO_ACTIVE_HIGH>;
+			pioc1-gpios = <&gpio 32 GPIO_ACTIVE_HIGH>, <&gpio 40 GPIO_ACTIVE_HIGH>, <&gpio 42 GPIO_ACTIVE_HIGH>, <&gpio 45 GPIO_ACTIVE_HIGH>, <&gpio 48 GPIO_ACTIVE_HIGH>;
+			status = "disable";
+		};
+
+		clk_test: clk_test {
+			compatible = "augentix,clk-test";
+			clocks = <&clkc 0>, <&clkc 1>, <&clkc 2>, <&clkc 3>, <&clkc 4>, <&clkc 5>, <&clkc 6>, <&clkc 7>, <&clkc 8>, <&clkc 9>, <&clkc 10>, <&clkc 11>, <&clkc 12>, <&clkc 13>, <&clkc 14>, <&clkc 15>, <&clkc 16>, <&clkc 17>, <&clkc 18>, <&clkc 19>, <&clkc 20>, <&clkc 21>, <&clkc 22>, <&clkc 23>, <&clkc 24>, <&clkc 25>, <&clkc 26>, <&clkc 27>, <&clkc 28>, <&clkc 29>, <&clkc 30>, <&clkc 31>, <&clkc 32>, <&clkc 33>, <&clkc 34>, <&clkc 35>, <&clkc 36>, <&clkc 37>, <&clkc 38>, <&clkc 39>, <&clkc 40>, <&clkc 41>, <&clkc 42>, <&clkc 43>, <&clkc 44>, <&clkc 45>, <&clkc 46>, <&clkc 47>, <&clkc 48>, <&clkc 49>, <&clkc 50>, <&clkc 51>, <&clkc 52>, <&clkc 53>;
+			status = "disable";
+		};
+
+		eirq_test3: eirq_test3 {
+ 			compatible = "augentix,eirq-test";
+ 			interrupt-parent = <&gic>;
+ 			interrupts = <0 92 4>, <0 93 4>, <0 94 4>, <0 95 4>, <0 96 4>;
+			eirq-gpios = <&gpio 7 GPIO_ACTIVE_HIGH>;
+ 			//status = "okay";
+ 		};
+ 
+		ethernet2@81880000 {
+			status = "okay";
+			phy-reset-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>;
+			clock-frequency = <50000000>;
+		};
+
+		adc@80110000 {
+			status = "disable";
+		};
+
+		audio_pcm@80120000 {
+			status = "okay";
+			audio-output-amp-en-gpios = <&gpio 48 GPIO_ACTIVE_LOW>;
+		};
+
+		audio_machine {
+			status = "okay";
+		};
+
+		rtc: rtc@80290000 {
+			// status = "okay";
+		};
+	};
+};

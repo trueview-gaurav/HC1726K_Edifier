@@ -1,0 +1,101 @@
+{
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"type": "object",
+	"title": "AGTX_DIP_DMS_CONF_S",
+	"comments": [
+		"============================",
+		"== Demosaicing parameters ==",
+		"============================",
+		"ALSO SEE: MPI_setDipDmsAttr"
+	],
+	"properties": {
+		"video_dev_idx": {
+			"ui_type": "number",
+			"ui_access_right": "read_write",
+			"type": "integer",
+			"default": 0,
+			"minimum": 0,
+			"maximum": 0
+		},
+		"mode": {
+			"comments": "Operation mode, 0 for auto, 2 for manual",
+			"ui_type": "enum",
+			"ui_access_right": "read_write",
+			"type": "integer",
+			"enum": [0, 2],
+			"default": 0
+		},
+		"auto_g_at_m_inter_ratio_list": {
+			"ini_name": "dms_auto.g_at_m_inter_ratio",
+			"ui_type": "table",
+			"ui_access_right": "read_write",
+			"type": "array",
+			"maxItems": 16,
+			"minItems": 16,
+			"items": {
+				"type": "integer",
+				"default": 12,
+				"minimum": 0,
+				"maximum": 63
+			}
+		},
+		"auto_m_at_m_inter_ratio_list": {
+			"ini_name": "dms_auto.m_at_m_inter_ratio",
+			"ui_type": "table",
+			"ui_access_right": "read_write",
+			"type": "array",
+			"maxItems": 16,
+			"minItems": 16,
+			"items": {
+				"type": "integer",
+				"default": 24,
+				"minimum": 0,
+				"maximum": 63
+			}
+		},
+		"auto_m_at_g_inter_ratio_list": {
+			"ini_name": "dms_auto.m_at_g_inter_ratio",
+			"ui_type": "table",
+			"ui_access_right": "read_write",
+			"type": "array",
+			"maxItems": 16,
+			"minItems": 16,
+			"items": {
+				"type": "integer",
+				"default": 24,
+				"minimum": 0,
+				"maximum": 63
+			}
+		},
+        "manual_g_at_m_inter_ratio": {
+			"ini_name": "dms_manual.g_at_m_inter_ratio",
+			"comments": "g_at_m_inter_ratio (0~63)",
+			"ui_type": "number",
+			"ui_access_right": "read_write",
+			"type": "integer",
+			"default": 12,
+			"minimum": 0,
+			"maximum": 63
+		},
+		"manual_m_at_m_inter_ratio": {
+			"ini_name": "dms_manual.m_at_m_inter_ratio",
+			"comments": "luma m_at_m_inter_ratio (0~63)",
+			"ui_type": "number",
+			"ui_access_right": "read_write",
+			"type": "integer",
+			"default": 24,
+			"minimum": 0,
+			"maximum": 63
+		},
+		"manual_m_at_g_inter_ratio": {
+			"ini_name": "dms_manual.m_at_g_inter_ratio",
+			"comments": "luma m_at_g_inter_ratio (0~63)",
+			"ui_type": "number",
+			"ui_access_right": "read_write",
+			"type": "integer",
+			"default": 24,
+			"minimum": 0,
+			"maximum": 63
+		}
+	}
+}

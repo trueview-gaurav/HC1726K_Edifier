@@ -1,0 +1,57 @@
+SDKSRC_DIR ?= $(realpath $(CURDIR)/../../../../..)
+include $(SDKSRC_DIR)/firmware/build/sdksrc.mk
+include $(SAMPLE_DEMO_PATH)/internal.mk
+
+CC=gcc
+AR=ar
+
+LIB := libcm-x86.a
+LIB_DEST := $(SAMPLE_DEMO_LIB)
+LIB_TRGT := $(addprefix $(LIB_DEST)/, $(LIB))
+
+INC    := -I./include -I$(SAMPLE_DEMO_INC) -I$(JSON_INC)
+CFLAGS := $(INC) -std=gnu99 -g3 -fPIC -fno-omit-frame-pointer -O2 -Wall -Wextra -pedantic -Werror -MMD
+
+ifeq ($(CONFIG_KERNEL_V6_1)$(CONFIG_UCLIBC),yy)
+CFLAGS += -fstack-protector-strong
+endif
+
+#LDFLAGS := -pthread -lrt -L$(JSON_LIB) -ljson-c
+
+SRCS := $(wildcard *.c)
+OBJS := $(patsubst %.c, %.o, $(SRCS))
+
+
+.PHONY: default
+default: all
+
+.PHONY: all
+all: $(LIB)
+
+$(LIB): $(OBJS)
+	@printf "  %-8s  $(notdir $^)\n" "AR"
+	$(Q)$(AR) rcs $@ $^
+
+%.o: %.c
+	$(Q)$(CC) $< -c -fPIC $(CFLAGS) -o $@ $(INC)
+
+.PHONY: install
+install: $(LIB_TRGT)
+
+.PHONY: uninstall
+uninstall:
+	$(Q)rm -f $(LIB_TRGT)
+
+.PHONY: clean
+clean:
+	$(Q)find . -type f -name "*.[doa]" -exec rm -f {} \;
+	$(Q)rm -f $(LIB)
+
+.PHONY: distclean
+distclean: uninstall clean
+
+$(LIB_TRGT): $(LIB) $(LIB_DEST)
+	$(Q)cp -f $< $@
+
+$(LIB_DEST):
+	$(Q)install -d $@

@@ -1,0 +1,7 @@
+[Channel 0]
+normal: 2mpx_4mbps_cpsid5660.ini
+ir: 2mpx_4mbps_cpsid5660_ir.ini
+
+[Channel 1]
+normal: 230kpx_512kbps_cpsid5660.ini
+ir: 230kpx_512kbps_cpsid5660_ir.ini

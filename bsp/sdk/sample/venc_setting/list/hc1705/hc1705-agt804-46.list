@@ -1,0 +1,6 @@
+[Channel 0]
+normal: 3mpx_1.5mbps_cpsid58966.ini
+ir: 3mpx_1.5mbps_ir_cpsid58966.ini
+[Channel 1]
+normal: 307kpx_384kbps_cpsid58966.ini
+ir: 307kpx_384kbps_ir_cpsid58966.ini

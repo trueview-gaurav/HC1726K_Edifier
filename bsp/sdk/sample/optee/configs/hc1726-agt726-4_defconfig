@@ -1,0 +1,10 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# OPTEE applications
+#
+# CONFIG_OPTEE_CLIENT is not set
+# CONFIG_OPTEE_EXAMPLES is not set
+# CONFIG_TEE_TRNG is not set
+# CONFIG_TEE_MONO_CNT is not set
+# CONFIG_TEE_SE_SIM is not set
+# CONFIG_TEE_EFUSE is not set

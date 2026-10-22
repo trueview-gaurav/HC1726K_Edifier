@@ -1,0 +1,1 @@
+../../../../extdrv/adc_ctrl/augentix-adc-v2.c

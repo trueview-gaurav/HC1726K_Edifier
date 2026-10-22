@@ -1,0 +1,1 @@
+augentix/templates/emmc_slot_ab.h

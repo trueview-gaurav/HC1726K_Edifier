@@ -1,0 +1,1 @@
+../../../../arm/boot/dts/osaka-clk-enum.h

@@ -1,0 +1,22 @@
+config OPTEE_CLIENT
+	bool "optee_client"
+	default n
+
+config TEE_SUPPLICANT_LOG_LEVEL
+	int "tee-supplicant log level"
+	depends on OPTEE_CLIENT
+	range 0 4
+	default "1"
+	help
+	  The log level of tee-supplicant, 0=ERROR, 1=WARNING,
+	  2=INFO, 3=DEBUG, 4=VERBOSE.
+
+
+config TEE_CLIENT_LOG_LEVEL
+	int "tee client log level"
+	depends on OPTEE_CLIENT
+	range 0 4
+	default "1"
+	help
+	  The log level of tee clients, 0=ERROR, 1=WARNING,
+	  2=INFO, 3=DEBUG, 4=VERBOSE.

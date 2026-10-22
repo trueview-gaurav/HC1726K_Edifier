@@ -1,0 +1,14 @@
+# Products using AGT_MA300029_V1 machine
+
+if TARGET_AGT300_29
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "agt-ma300029-v1"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1783s-fpu-agt300-29"
+
+endif

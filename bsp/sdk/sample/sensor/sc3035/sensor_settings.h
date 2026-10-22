@@ -1,0 +1,70 @@
+#ifndef SENSOR_SETTINGS_H_
+#define SENSOR_SETTINGS_H_
+
+#include "sensor_params.h"
+
+#ifdef SET_2304_1536_30fps
+
+#error "This setting has not yet been supported!"
+
+#define LVDS_LANE_NUM (0) // DVP sensor
+#define SENSOR_WIDTH (2304)
+#define SENSOR_HEIGHT (1536)
+#define SENSOR_FPS (30)
+#define INIT_FRAME_LINE (1125)
+#define INIT_LINE_LEN (2200)
+#define MAX_FPS (30)
+#define MIN_FPS (5)
+
+#elif defined SET_1536_1536_30fps
+
+#error "This setting has not yet been supported!"
+
+#define LVDS_LANE_NUM (0) // DVP sensor
+#define SENSOR_WIDTH (1536)
+#define SENSOR_HEIGHT (1536)
+#define SENSOR_FPS (30)
+#define INIT_FRAME_LINE (1125)
+#define INIT_LINE_LEN (2200)
+#define MAX_FPS (30)
+#define MIN_FPS (5)
+
+#elif defined SET_1536_1536_15fps
+
+#define LVDS_LANE_NUM (0) // DVP sensor
+#define SENSOR_WIDTH (1536)
+#define SENSOR_HEIGHT (1536)
+#define SENSOR_FPS (15)
+#define INIT_FRAME_LINE (1584)
+#define INIT_LINE_LEN (2500)
+#define MAX_FPS (15)
+#define MIN_FPS (5)
+
+#endif
+
+#define PCLK (SENSOR_FPS * INIT_FRAME_LINE * INIT_LINE_LEN)
+#define SENSOR_FRAME_LINES_MAX (INIT_FRAME_LINE * SENSOR_FPS / MIN_FPS)
+#define SENSOR_FRAME_LINES_MIN (INIT_FRAME_LINE * SENSOR_FPS / MAX_FPS)
+#define SENSOR_GAIN_MAX (3968) // 124x
+#define SENSOR_GAIN_MIN (32)
+
+#define ROW_TIME_PRC (6)
+#define ROW_TIME_UNIT (1 << ROW_TIME_PRC)
+#define FPS_PRC (14)
+#define FPS_UNIT (1 << FPS_PRC)
+
+typedef enum {
+	IDX_VMAX_1,
+	IDX_VMAX_2,
+	IDX_SHS_1,
+	IDX_SHS_2,
+	IDX_CGAIN,
+	IDX_FGAIN,
+	IDX_LOGIC_1,
+	IDX_LOGIC_2,
+	IDX_LOGIC_3,
+	IDX_LOGIC_4,
+	IDX_NUM,
+} I2C_DATA_IDX_E;
+
+#endif /* SENSOR_SETTINGS_H_ */

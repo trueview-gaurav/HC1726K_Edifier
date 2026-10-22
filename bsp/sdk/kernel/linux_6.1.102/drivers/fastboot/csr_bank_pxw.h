@@ -1,0 +1,1 @@
+../../../../core/cpvs/include/csr/csr_bank_pxw.h

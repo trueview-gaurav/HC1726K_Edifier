@@ -1,0 +1,15 @@
+menu "audio"
+
+config LIBADO
+	bool "libado"
+	default n
+
+config SAMPLE_DEMO_ACTL
+	bool "actl"
+	default y
+
+config SAMPLE_DEMO_G726
+	bool "g726"
+	default y
+
+endmenu

@@ -1,0 +1,1 @@
+/home/yxy/qualcomm/r4.1_app-iot_release/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc -fPIC -shared -Wl,-soname,libteeacl.so.0 -o libteeacl.so.0.1.0 CMakeFiles/teeacl.dir/src/group.c.o CMakeFiles/teeacl.dir/src/tee_uuid.c.o  -luuid -lPkgConfig::uuid 

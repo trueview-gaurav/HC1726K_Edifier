@@ -1,0 +1,1 @@
+../../../../extdrv/mtd/devices/augentix_serial_flash.h

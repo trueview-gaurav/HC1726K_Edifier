@@ -1,0 +1,6 @@
+AR = $(CROSS_COMPILE)ar
+CC = $(CROSS_COMPILE)gcc
+CFLAGS = -Wall -g -std=gnu99
+
+TARGET_SCRIPT_DIR := $(SYSTEMFS)/mpp/script
+TARGET_SCRIPT_INI_DIR := $(SYSTEMFS)/mpp/ini

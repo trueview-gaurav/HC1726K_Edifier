@@ -1,0 +1,11 @@
+mainmenu "Augentix SDK Core Sample Configuration"
+
+source "ai/Kconfig"
+
+source "audio/Kconfig"
+
+source "display/Kconfig"
+
+source "utils/Kconfig"
+
+source "video/Kconfig"

@@ -1,0 +1,1 @@
+augentix/templates/nand_32MB_rootfs_single.h

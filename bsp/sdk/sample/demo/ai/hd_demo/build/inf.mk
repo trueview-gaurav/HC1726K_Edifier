@@ -1,0 +1,1 @@
+../../../ai/libinf/build/config.mk

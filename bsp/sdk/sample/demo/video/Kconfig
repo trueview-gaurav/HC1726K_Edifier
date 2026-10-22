@@ -1,0 +1,317 @@
+menu "video"
+
+config SAMPLE_DEMO_CMD_SENDER
+	bool "cmd_sender"
+	default y
+
+config SAMPLE_DEMO_MPI_SNAPSHOT
+	bool "mpi_snapshot"
+	default y
+
+config SAMPLE_DEMO_MPI_STREAM
+	bool "mpi_stream"
+	select LIBSAMPLE
+	select LIBFSINK
+	default y
+	help
+		A lightweight application to construct and run video pipeline.
+
+config SAMPLE_DEMO_MPI_STREAM_STATIC_LINK_ALL_LIBS
+	bool "Link all libraries statically and optimize binary size"
+	depends on SAMPLE_DEMO_MPI_STREAM
+	default n
+	help
+	When enabled, all libraries linked into the final binary will be
+	statically linked (i.e., using .a archives instead of .so).
+	This option also enables linker section garbage collection
+	to reduce binary size (--gc-sections).
+	Use this option when targeting minimal or self-contained deployments.
+
+config SAMPLE_DEMO_MPI_STREAM_ENABLE_ML
+	bool "enable machine learning features"
+	depends on SAMPLE_DEMO_MPI_STREAM
+	default n
+	help
+		Enable machine learning features.
+		When enabled, you can choose to run ML models either
+		on local or remote core, and select specific model type.
+
+choice SAMPLE_DEMO_MPI_STREAM_ML_MODE
+    bool "select ml features executing mode"
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML
+
+config SAMPLE_DEMO_MPI_STREAM_ENABLE_ML_LOCAL
+    bool "execute ml features on local core"
+    help
+        Run machine learning on local core
+
+config SAMPLE_DEMO_MPI_STREAM_ENABLE_ML_REMOTE
+    bool "execute ml features on remote core"
+    help
+        Run machine learning on remote core
+endchoice
+
+choice SAMPLE_DEMO_MPI_STREAM_ML_FEATURES
+    bool "select ODv5 model type"
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML_LOCAL
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_LOCAL
+    bool "object detection v5 (people vehicle pet)"
+    help
+        Run object detection v5 on local core and detect people, vehicles, and pets.
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_VEHICLE_PET_LOCAL
+    bool "object detection v5 lite (people vehicle pet)"
+    help
+        Run object detection v5 on local core and detect people, vehicles, and pets.
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_LOCAL
+    bool "object detection v5 lite (people)"
+    help
+        Run object detection v5 on local core and detect people.
+endchoice
+
+choice SAMPLE_DEMO_MPI_STREAM_ML_FEATURES_REMOTE
+    bool "select ODv5 model type"
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML_REMOTE
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_REMOTE
+    bool "object detection v5 (people vehicle pet)"
+    help
+        Run object detection v5 on remote core and detect people, vehicles, and pets.
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_VEHICLE_PET_REMOTE
+    bool "object detection v5 lite (people vehicle pet)"
+    help
+        Run object detection v5 on remote core and detect people, vehicles, and pets.
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_REMOTE
+    bool "object detection v5 lite (people)"
+    help
+        Run object detection v5 on remote core and detect people.
+
+config SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_EARLY
+    bool "object detection v5 (people vehicle pet) early"
+    help
+        Run object detection v5 on remote core and detect people, vehicles, and pets with early detect.
+endchoice
+
+config SAMPLE_DEMO_MPI_STREAM_STATIC_LINK_ML_LIBS
+    bool "link ml libraries statically"
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML
+    depends on SAMPLE_DEMO_MPI_STREAM_ENABLE_ML_LOCAL
+    depends on !SAMPLE_DEMO_MPI_STREAM_STATIC_LINK_ALL_LIBS
+    default n
+    help
+    When enabled, ml related libraries linked into the final binary will be
+    statically linked (i.e., using .a archives instead of .so).
+
+config SAMPLE_DEMO_MPI_STREAM_USE_OD_PEOPLE_VEHICLE_PET
+    bool
+    default y if SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_LOCAL || SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_REMOTE
+    default n
+
+config SAMPLE_DEMO_MPI_STREAM_USE_OD_LITE_PEOPLE_VEHICLE_PET
+    bool
+    default y if SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_VEHICLE_PET_LOCAL || SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_VEHICLE_PET_REMOTE
+    default n
+
+config SAMPLE_DEMO_MPI_STREAM_USE_OD_LITE_PEOPLE
+    bool
+    default y if SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_LOCAL || SAMPLE_DEMO_MPI_STREAM_ML_OD_LITE_PEOPLE_REMOTE
+    default n
+
+config SAMPLE_DEMO_MPI_STREAM_USE_OD_PEOPLE_VEHICLE_PET_EARLY
+    bool
+    default y if SAMPLE_DEMO_MPI_STREAM_ML_OD_PEOPLE_VEHICLE_PET_EARLY
+    default n
+
+config SAMPLE_DEMO_MPI_STREAM_ENABLE_OSD
+	bool "enable_osd"
+	depends on SAMPLE_DEMO_MPI_STREAM
+	default y
+	help
+		When the option is enabled, the process will create OSDs in each video channels.
+		Some bitmap files is necessary for mpi_stream runtime. Please check directory 'assets' for details.
+
+		When it's disabled, the steps for OSD construction will be skipped when running mpi_stream.
+
+config SAMPLE_DEMO_MPI_STREAM_ENABLE_DYNAMIC_DIP
+	bool "enable DIP update thread"
+	depends on SAMPLE_DEMO_MPI_STREAM
+	default n
+	help
+		The DIP update thread is an interface designed for debugging during the development phase.
+		It is disabled by default.
+		If debugging is required, please enable it and recompile the mpi_stream binary file.
+
+
+config SAMPLE_DEMO_MPI_STREAM_MULTIPLE_IQ_SUPPORT
+	bool "support multiple iq settings"
+	default y
+	depends on SAMPLE_DEMO_MPI_STREAM
+	help
+		mpi_stream install multiple sensor.ini and can be switched by various methods.
+
+choice SAMPLE_DEMO_MPI_STREAM_IQ_SWITCH_METHOD
+	bool "select a switch method"
+	depends on SAMPLE_DEMO_MPI_STREAM_MULTIPLE_IQ_SUPPORT
+
+config SAMPLE_DEMO_MPI_STREAM_SUPPORT_EXTERNAL_IQ_MODE_SWITCH
+	bool "external control by files"
+	help
+		Make mpi_stream be able to switch modes by receiving external commands
+		via '/tmp/augentix/iq/iq_mode_0' and '/tmp/augentix/iq/iq_mode_1' files.
+		The files are created after the program start.
+
+config SAMPLE_DEMO_MPI_STREAM_SUPPORT_SOFTWARE_LIGHT_SENSOR
+	bool "software light sensor"
+	help
+		mpi_stream select day/ir mode by using a software light sensor.
+
+config SAMPLE_DEMO_MPI_STREAM_SUPPORT_GPIO_LIGHT_SENSOR
+	bool "GPIO HW light sensor"
+	help
+		mpi_stream select day/ir mode by real GPIO value
+
+endchoice
+
+config SAMPLE_DEMO_MP4_MUXER
+	bool "mp4_muxer"
+	default n
+	help
+		This feature allows the system to combine a raw H.264 video stream and
+		a PCM audio file into a single MP4 file. It is especially designed to
+		handle cases where the video and audio sources have different initial
+		timestamps (i.e., start time offset). The muxer intelligently aligns
+		the streams by adjusting their time references to ensure proper
+		synchronization in the final output.
+
+
+config LIBAGTX
+	bool "libagtx"
+	default n
+
+menuconfig LIBAVFTR
+	bool "libavftr"
+	select LIBEAIF
+	default y
+	help
+	  Say Y here if you are not sure.
+
+config LIBCM
+	bool "libcm"
+	default n
+
+menuconfig LIBSAMPLE
+    bool "Enable libsample"
+    default y
+
+if LIBSAMPLE
+config LIBSAMPLE_USE_LIBOSD
+	bool "libsample use libosd"
+	select LIBOSD
+	depends on LIBSAMPLE
+	default n
+
+config LIBSAMPLE_INSTALL_SIMPLIFIED_CHINESE
+	bool "install simplified chinese font"
+	depends on LIBSAMPLE_USE_LIBOSD
+	default y
+	help
+		'y' to install simplified, 'n' to install traditional
+
+config LIBSAMPLE_ENABLE_AUDIO_RECORDING
+	bool "Enable Audio recording"
+	depends on LIBSAMPLE
+	default n
+
+config LIBSAMPLE_ENABLE_VIDEO_RECORD
+	bool "Enable Video Recording"
+	default y
+
+choice
+	prompt "Select Video Recording Format"
+	depends on LIBSAMPLE_ENABLE_VIDEO_RECORD
+	default LIBSAMPLE_ENABLE_RAW_RECORDING
+
+config LIBSAMPLE_ENABLE_RAW_RECORDING
+	bool "Record video clip as raw"
+
+
+config LIBSAMPLE_ENABLE_MP4_RECORDING
+	bool "enable mp4 recording"
+	depends on LIBSAMPLE
+	default n
+
+endchoice
+
+config LIBSAMPLE_TEST_PROGRAM
+	bool "Install test program"
+	depends on LIBSAMPLE
+	depends on LIBCM
+	depends on LIBFSINK
+	default n
+	help 
+		'y' to install libsample_test
+
+endif # LIBSAMPLE
+
+config LIBOSD
+	bool "libosd"
+	default n
+
+config LIBOSD_USE_FREETYPE
+	bool "remove SDL & SDL_ttf dependency, only use libfreetype"
+	depends on LIBOSD
+	default y
+	help
+		remove SDL & SDL_ttf dependency, only use libfreetype
+
+config SAMPLE_DEMO_OSD_DEMO
+	bool "osd_demo"
+	select LIBOSD
+	depends on !SAMPLE_DEMO_MPI_STREAM_ENABLE_OSD
+	default n
+	help
+		need extra space to store .otf file
+
+config SAMPLE_DEMO_OSD_DEMO_RGBA2AYUV
+	bool "install rgba2ayuv"
+	depends on SAMPLE_DEMO_OSD_DEMO
+	default n
+	help
+		install sample RGBA8888 -> AYUV3544
+
+config SAMPLE_DEMO_OSD_DEMO_LINE_DYNAMIC
+	bool "install drawLine_dynamic"
+	depends on SAMPLE_DEMO_OSD_DEMO
+	default n
+	help
+		install sample draw lines randomly
+
+config SAMPLE_DEMO_OSD_DEMO_INSTALL_SIMPLIFIED_CHINESE
+	bool "install simplified chinese font"
+	depends on SAMPLE_DEMO_OSD_DEMO
+	default y
+	help
+		'y' to install simplified, 'n' to install traditional
+
+source "video/unicorn/Kconfig"
+
+if SAMPLE_DEMO_EAI_HD_SUPPORT_SEI
+
+config AOV_BLOCK_BY_OBJECT
+    bool "AOV block by object"
+    default n
+endif
+
+config DFN202_113002
+	bool "DFN202-113002 specific OSD support"
+	default n
+
+endmenu
+
+

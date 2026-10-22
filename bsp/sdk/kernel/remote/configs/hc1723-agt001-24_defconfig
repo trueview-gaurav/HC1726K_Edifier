@@ -1,0 +1,21 @@
+#
+# Automatically generated file; DO NOT EDIT.
+# Augentix SDK Remote Configuration
+#
+
+#
+# baremetal
+#
+
+#
+# freertos
+#
+
+#
+# library
+#
+CONFIG_MOD_TFLITE_MICRO=y
+
+#
+# openamp
+#

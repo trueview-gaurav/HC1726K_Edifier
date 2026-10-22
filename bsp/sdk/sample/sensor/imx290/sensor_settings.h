@@ -1,0 +1,8 @@
+#ifndef SENSOR_SETTINGS_H_
+#define SENSOR_SETTINGS_H_
+
+#define SENSOR_WIDTH (1920)
+#define SENSOR_HEIGHT (1080)
+#define SENSOR_FPS (30)
+
+#endif /* SENSOR_SETTINGS_H_ */

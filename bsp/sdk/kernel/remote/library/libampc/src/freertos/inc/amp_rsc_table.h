@@ -1,0 +1,1 @@
+../../common/amp_rsc_table.h

@@ -1,0 +1,1 @@
+augentix/templates/nand_256MB_slot_ab.h

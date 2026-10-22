@@ -1,0 +1,8 @@
+[Channel 0]
+normal: 3mpx_1mbps_cpsid50117.ini
+ir: 3mpx_1mbps_cpsid50117_ir.ini
+light: 3mpx_1mbps_cpsid50117_light.ini
+[Channel 1]
+normal: 450kpx_100kbps_cpsid50117.ini
+ir: 450kpx_100kbps_cpsid50117_ir.ini
+light: 450kpx_100kbps_cpsid50117_light.ini

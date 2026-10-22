@@ -1,0 +1,22 @@
+#Sensor options
+SENIF=SONYLVDS
+FORMAT=FULLHD
+LANE=DUAL_LANE
+OUTPUT=OP12BIT
+MODE=MASTER
+SENSOR_NUM=1
+
+SNS_INI := sensor_single.ini
+PWR_ON_SCRIPT := sensor_power_on.sh
+
+ifeq ($(SENSOR_NUM), 2)
+	LANE = DUAL_LANE
+	SNS_INI := sensor_dual.ini
+endif
+
+DEF=-DSENIF=$(SENIF) -DFORMAT=$(FORMAT) -DLANE=$(LANE) -DOUTPUT=$(OUTPUT) -DMODE=$(MODE)
+
+ifeq ($(SENSOR_NUM), 2)
+	DEF += -DDUAL_SENSOR_SUPPORT
+endif
+

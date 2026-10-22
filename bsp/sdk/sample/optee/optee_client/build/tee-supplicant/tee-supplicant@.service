@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: BSD-2-Clause
+[Unit]
+Description=TEE Supplicant on %i
+DefaultDependencies=no
+After=dev-%i.device
+Wants=dev-%i.device
+Conflicts=shutdown.target
+Before=tpm2.target sysinit.target shutdown.target
+
+[Service]
+Type=notify
+User=teesuppl
+Group=teesuppl
+EnvironmentFile=-etc/default/tee-supplicant
+ExecStart=/home/yxy/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/optee_client/out/sbin/tee-supplicant $OPTARGS
+# Workaround for fTPM TA: stop kernel module before tee-supplicant
+ExecStop=-/bin/sh -c "/sbin/modprobe -v -r tpm_ftpm_tee ; /bin/kill $MAINPID"

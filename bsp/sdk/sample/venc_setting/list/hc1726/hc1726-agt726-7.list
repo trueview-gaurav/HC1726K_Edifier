@@ -1,0 +1,7 @@
+[Channel 0]
+normal: 5mpx_4mbps_cpsid6644.ini
+ir: 5mpx_4mbps_cpsid6644_ir.ini
+[Channel 1]
+normal: 300px_512kbps_cpsid6644.ini
+ir: 300px_512kbps_cpsid6644_ir.ini
+

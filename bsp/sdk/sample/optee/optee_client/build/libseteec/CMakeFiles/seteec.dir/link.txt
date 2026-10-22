@@ -1,0 +1,1 @@
+/home/yxy/qualcomm/r4.1_app-iot_release/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc -fPIC -shared -Wl,-soname,libseteec.so.0 -o libseteec.so.0.1.0 CMakeFiles/seteec.dir/src/se.c.o  -Wl,-rpath,/home/yxy/qualcomm/SDK_R420_rc9_0908_SDK_rel/sdk/sample/optee/optee_client/build/libteec: -luuid -lpthread ../libteec/libteec.so.2.0.0 

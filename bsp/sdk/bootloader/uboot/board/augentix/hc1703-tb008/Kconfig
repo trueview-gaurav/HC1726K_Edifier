@@ -1,0 +1,12 @@
+if TARGET_HC1703_TB008
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1703-tb008"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1703-tb008"
+
+endif

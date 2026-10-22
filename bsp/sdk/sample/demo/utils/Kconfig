@@ -1,0 +1,77 @@
+menu "utils"
+
+config SAMPLE_DEMO_MPI_SCRIPT
+	bool "mpi_script"
+	default y
+
+config LIBFSINK
+	bool "libfsink"
+	default n
+
+config LIBLPW
+	bool "liblpw"
+	default n
+
+config SAMPLE_DEMO_LPW
+	bool "Low power wireless"
+	depends on LIBLPW
+	default n
+
+choice
+	prompt "lpw module"
+	default LPW_HI3861L
+	depends on SAMPLE_DEMO_LPW
+
+	config LPW_HI3861L
+		bool "Hi3681L WiFi module"
+	config LPW_AIW4211L
+		bool "AIW4211L WiFi module"
+
+endchoice
+
+config SAMPLE_DEMO_LPW_SUPP
+	bool "lpw_supplicant"
+	depends on SAMPLE_DEMO_LPW
+	default n
+	help
+		Sample program of lpw_supplicant to handle WiFi connection.
+
+config SAMPLE_DEMO_HIBER_DEMO
+	bool "hiber_demo"
+	depends on SAMPLE_DEMO_LPW
+	default n
+	help
+		Sample program to demonstrate how to use Lib LPW.
+
+config SAMPLE_DEMO_LPW_FW_UPG
+	bool "lpw_fw_upg"
+	depends on SAMPLE_DEMO_LPW
+	default n
+	help
+		Program to upgrade the firmware of Low Power Wireless (LPW) module.
+
+config SAMPLE_DEMO_LPWIO
+	bool "lpwio"
+	depends on SAMPLE_DEMO_LPW
+	default n
+	help
+		Program to measure Low Power Wireless (LPW) module's gpio value.
+
+config LIBMOTOR
+	bool "libmotor"
+	select LIBSAMPLE
+	default n
+
+config LIBFOO
+	bool "libfoo"
+	default n
+	help
+	  Reference library.
+
+config SAMPLE_DEMO_APPVERIFY
+	bool "app_verify"
+	default n
+	help
+		Verify the signature of the sample application at every boot.
+
+endmenu

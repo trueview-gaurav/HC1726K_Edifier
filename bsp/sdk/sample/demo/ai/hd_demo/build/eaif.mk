@@ -1,0 +1,1 @@
+../../../ai/libeaif/build/config.mk

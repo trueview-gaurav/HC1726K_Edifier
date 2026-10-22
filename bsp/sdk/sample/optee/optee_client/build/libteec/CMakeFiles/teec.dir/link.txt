@@ -1,0 +1,1 @@
+/home/yxy/qualcomm/r4.1_app-iot_release/toolchain/arm-augentix-linux-uclibcgnueabihf/bin/arm-augentix-linux-uclibcgnueabihf-gcc -fPIC -shared -Wl,-soname,libteec.so.2 -o libteec.so.2.0.0 CMakeFiles/teec.dir/src/tee_client_api.c.o CMakeFiles/teec.dir/src/teec_trace.c.o 

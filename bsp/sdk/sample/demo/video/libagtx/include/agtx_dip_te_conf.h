@@ -1,0 +1,40 @@
+#ifndef AGTX_DIP_TE_CONF_H_
+#define AGTX_DIP_TE_CONF_H_
+
+#include "agtx_types.h"
+#include "agtx_common.h"
+struct json_object;
+
+typedef enum { AGTX_TE_MODE_NORMAL, AGTX_TE_MODE_WDR, AGTX_TE_MODE_WDR_AUTO, AGTX_TE_MODE_ADAPTIVE } AGTX_TE_MODE_E;
+
+typedef enum {
+	AGTX_TE_BASED_TYPE_TE_ADAPT_NL_BASED,
+	AGTX_TE_BASED_TYPE_TE_ADAPT_INTTIME_BASED,
+	AGTX_TE_BASED_TYPE_TE_ADAPT_EV_BASED,
+	AGTX_TE_BASED_TYPE_TE_ADAPT_BASED_TYPE_RSV
+} AGTX_TE_BASED_TYPE_E;
+
+#define MAX_AGTX_DIP_TE_CONF_S_NORMAL_CTL_SIZE 60
+
+typedef struct {
+	AGTX_INT32 black_th[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 dark_enhance[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 dark_enhance_th[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 dark_protect_smooth[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 dark_protect_str[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 max_str[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_INT32 max_str_prec_sel;
+	AGTX_INT32 speed;
+	AGTX_INT32 str_auto[AGTX_ISO_LUT_ENTRY_NUM];
+	AGTX_TE_BASED_TYPE_E te_adapt_based_type;
+	AGTX_INT32 white_th[AGTX_ISO_LUT_ENTRY_NUM];
+} AGTX_DIP_TE_ADAPT_S;
+
+typedef struct {
+	AGTX_DIP_TE_ADAPT_S adapt_ctl;
+	AGTX_TE_MODE_E mode;
+	AGTX_INT32 normal_ctl[MAX_AGTX_DIP_TE_CONF_S_NORMAL_CTL_SIZE];
+	AGTX_INT32 video_dev_idx;
+} AGTX_DIP_TE_CONF_S;
+
+#endif /* AGTX_DIP_TE_CONF_H_ */

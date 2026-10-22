@@ -1,0 +1,615 @@
+/*
+ * Copyright Augentix Inc. Proprietary and confidential.
+ * Unauthorized use or distribution is prohibited.
+ * Please contact customer.support@augentix.com for any inquiries.
+ */
+
+#include "sensor.h"
+#include "sensor_settings.h"
+#include "sensor_params.h"
+
+#ifdef __UBOOT__
+#include <common.h>
+#else
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <assert.h>
+
+#include "l_sensor_cal.h"
+#endif
+
+#define DIP_MAX_PATH_NUM (2)
+
+#define SENSOR_ID (4653) // sensor ID
+
+#define GC4653_VMAX1_ADDR (0x0340) // frame length [13:8]
+#define GC4653_VMAX2_ADDR (0x0341) // frame length [7:0]
+
+#define GC4653_SHS1_ADDR (0x0202) // shutter time [13:8], sensor exposure line control(shs1)
+#define GC4653_SHS2_ADDR (0x0203) // shutter time [7:0],  sensor exposure line control(shs2)
+
+#define GC4653_AGAIN1_ADDR (0x02b3)
+#define GC4653_AGAIN2_ADDR (0x02b4)
+#define GC4653_AGAIN3_ADDR (0x02b8)
+#define GC4653_AGAIN4_ADDR (0x02b9)
+#define GC4653_AGAIN5_ADDR (0x0515)
+#define GC4653_AGAIN6_ADDR (0x0519)
+#define GC4653_AGAIN7_ADDR (0x02d9)
+#define GC4653_DGAIN1_ADDR (0x020e)
+#define GC4653_DGAIN2_ADDR (0x020f)
+
+#define EXP_LINE_GAP \
+	(32) // Sensor Datasheet spec 9.9 : Minimum frame length = window height + 32 + VB(VB_min=8)e ... actual frame length = shutter time + 32
+#define SENSOR_EXP_LINES_MAX (SENSOR_FRAME_LINES_MAX - EXP_LINE_GAP)
+#define SENSOR_EXP_LINES_MIN \
+	(1) // Sensor Datasheet spec 9.9 : Minimum frame length = window height + 32 + VB(VB_min=8)e
+#define SENSOR_EXP_LINE_SHIF (0) // Sensor Datasheet spec 9.5 : 1 step size = 0 or 0.5 step size = 1
+
+#define ROW_TIME_PRC (5) // Significant Figures, This value is relevant to the calculation and should not be modified.
+#define ROW_TIME_UNIT (1 << ROW_TIME_PRC)
+#define FPS_PRC (16) // Significant Figures, This value is relevant to the calculation and should not be modified.
+#define FPS_UNIT (1 << FPS_PRC)
+
+#define CLAMP(x, min, max) (((x) > (max)) ? (max) : (((x) < (min)) ? (min) : (x)))
+
+static uint8_t regValTable_30fps[26][7] = {
+   //2b3    2b4    2b8    2b9    515    519    2d9
+    {0x00,  0x00,  0x01,  0x00,  0x30,  0x1e,  0x5C},
+    {0x20,  0x00,  0x01,  0x0B,  0x30,  0x1e,  0x5C},
+    {0x01,  0x00,  0x01,  0x19,  0x30,  0x1d,  0x5B},
+    {0x21,  0x00,  0x01,  0x2A,  0x30,  0x1e,  0x5C},
+    {0x02,  0x00,  0x02,  0x00,  0x30,  0x1e,  0x5C},
+
+    {0x22,  0x00,  0x02,  0x17,  0x30,  0x1d,  0x5B},
+    {0x03,  0x00,  0x02,  0x33,  0x20,  0x16,  0x54},
+    {0x23,  0x00,  0x03,  0x14,  0x20,  0x17,  0x55},
+    {0x04,  0x00,  0x04,  0x00,  0x20,  0x17,  0x55},
+    {0x24,  0x00,  0x04,  0x2F,  0x20,  0x19,  0x57},
+
+    {0x05,  0x00,  0x05,  0x26,  0x20,  0x19,  0x57},
+    {0x25,  0x00,  0x06,  0x28,  0x20,  0x1b,  0x59},
+    {0x0c,  0x00,  0x08,  0x00,  0x20,  0x1d,  0x5B},
+    {0x2C,  0x00,  0x09,  0x1E,  0x20,  0x1f,  0x5D},
+    {0x0D,  0x00,  0x0B,  0x0C,  0x20,  0x21,  0x5F},
+
+    {0x2D,  0x00,  0x0D,  0x11,  0x20,  0x24,  0x62},
+    {0x1C,  0x00,  0x10,  0x00,  0x20,  0x26,  0x64},
+    {0x3C,  0x00,  0x12,  0x3D,  0x18,  0x2a,  0x68},
+    {0x5C,  0x00,  0x16,  0x19,  0x18,  0x2c,  0x6A},
+    {0x7C,  0x00,  0x1A,  0x22,  0x18,  0x2e,  0x6C},
+
+    {0x9C,  0x00,  0x20,  0x00,  0x18,  0x32,  0x70},
+    {0xBC,  0x00,  0x25,  0x3A,  0x18,  0x35,  0x73},
+    {0xDC,  0x00,  0x2C,  0x33,  0x10,  0x36,  0x74},
+    {0xFC,  0x00,  0x35,  0x05,  0x10,  0x38,  0x76},
+    {0x1C,  0x01,  0x40,  0x00,  0x10,  0x3c,  0x7A},
+
+    {0x3C,  0x01,  0x4B,  0x35,  0x10,  0x42,  0x80},
+};
+
+// use 64 as base, 4853 max
+static uint32_t analogGainTable[27] = {
+	64,
+	75,
+	89,
+	106,
+	128,
+
+	151,
+	179,
+	212,
+	256,
+	303,
+
+	358,
+	424,
+	512,
+	606,
+	716,
+
+	849,
+	1024,
+	1213,
+	1433,
+	1698,
+
+	2048,
+	2426,
+	2867,
+	3397,
+	4096,
+
+	4853,
+	0xffffffff,
+};
+
+typedef enum {
+	IDX_VMAX_1,
+	IDX_VMAX_2,
+	IDX_SHS_1,
+	IDX_SHS_2,
+	IDX_AGAIN_1,
+	IDX_AGAIN_2,
+	IDX_AGAIN_3,
+	IDX_AGAIN_4,
+	IDX_AGAIN_5,
+	IDX_AGAIN_6,
+	IDX_AGAIN_7,
+	IDX_DGAIN_1,
+	IDX_DGAIN_2,
+	IDX_NUM,
+} I2C_DATA_IDX_E;
+
+static CUSTOM_SNS_STATE_S g_sensor_state[DIP_MAX_PATH_NUM];
+static CUSTOM_SNS_STATE_S *g_sns_state[DIP_MAX_PATH_NUM] = { &g_sensor_state[0], &g_sensor_state[1] };
+
+static int32_t g_inttime = 16500;
+
+#ifndef __UBOOT__
+static int32_t SENSOR_updateExpCmd(int32_t i2c_fd, uint8_t path_idx)
+{
+	MPI_SNS_REGS_TABLE_S *regs = g_sns_state[path_idx]->regs_info;
+	SensCmd cmd[32];
+	int32_t ret;
+	int32_t i;
+
+	if (regs[0].is_config == false) {
+		return MPI_SUCCESS;
+	}
+
+	for (i = 0; i < regs[0].reg_num; ++i) {
+		cmd[i].reg = regs->i2c_data[i].reg_addr;
+		cmd[i].val = regs->i2c_data[i].reg_data;
+	}
+
+	ret = SENSOR_writeSeqWaddrBdata(i2c_fd, regs[0].reg_num, cmd, regs[0].i2c_data[IDX_VMAX_1].dev_addr);
+	return ret;
+}
+#endif
+
+static int32_t SENSOR_getRegsInfo(MPI_PATH idx, MPI_SNS_REGS_TABLE_S *regs)
+{
+	MPI_SNS_REGS_TABLE_S *pregs = g_sns_state[idx.path]->regs_info;
+	int32_t i;
+
+	if (NULL == regs) {
+		printf("invalid NULL pointer!\n");
+		return -EINVAL;
+	}
+
+	if (false == pregs[0].is_config) {
+		pregs[0].bus_type = BUS_TYPE_I2C;
+		pregs[0].bus_sel.i2c_dev = 1;
+		pregs[0].cfg_delay_max = 2;
+		pregs[0].reg_num = IDX_NUM;
+
+		for (i = 0; i < pregs[0].reg_num; ++i) {
+			pregs[0].i2c_data[i].is_update = true;
+#ifdef DUAL_SENSOR_SUPPORT
+			if (idx.path == 0) {
+				pregs[0].i2c_data[i].dev_addr = SENSOR_I2C_SLAVE_ADDR;
+			} else if (idx.path == 1) {
+				pregs[0].i2c_data[i].dev_addr = SENSOR_I2C_SLAVE_ADDR1;
+			}
+#else
+			pregs[0].i2c_data[i].dev_addr = SENSOR_I2C_SLAVE_ADDR;
+#endif
+			pregs[0].i2c_data[i].reg_addr_byte_num = 2;
+			pregs[0].i2c_data[i].reg_data_byte_num = 1;
+		}
+
+		pregs[0].i2c_data[IDX_VMAX_1].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_VMAX_1].reg_addr = GC4653_VMAX1_ADDR;
+		pregs[0].i2c_data[IDX_VMAX_2].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_VMAX_2].reg_addr = GC4653_VMAX2_ADDR;
+
+		pregs[0].i2c_data[IDX_SHS_1].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_SHS_1].reg_addr = GC4653_SHS1_ADDR;
+		pregs[0].i2c_data[IDX_SHS_2].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_SHS_2].reg_addr = GC4653_SHS2_ADDR;
+
+		pregs[0].i2c_data[IDX_AGAIN_1].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_1].reg_addr = GC4653_AGAIN1_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_2].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_2].reg_addr = GC4653_AGAIN2_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_3].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_3].reg_addr = GC4653_AGAIN3_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_4].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_4].reg_addr = GC4653_AGAIN4_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_5].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_5].reg_addr = GC4653_AGAIN5_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_6].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_6].reg_addr = GC4653_AGAIN6_ADDR;
+		pregs[0].i2c_data[IDX_AGAIN_7].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_AGAIN_7].reg_addr = GC4653_AGAIN7_ADDR;
+		pregs[0].i2c_data[IDX_DGAIN_1].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_DGAIN_1].reg_addr = GC4653_DGAIN1_ADDR;
+		pregs[0].i2c_data[IDX_DGAIN_2].delay_frm_num = 0;
+		pregs[0].i2c_data[IDX_DGAIN_2].reg_addr = GC4653_DGAIN2_ADDR;
+		pregs[0].is_config = true;
+	}
+
+	memcpy(regs, &pregs[0], sizeof(MPI_SNS_REGS_TABLE_S));
+	for (i = 0; i < IDX_NUM; i++) {
+		switch (pregs[0].i2c_data[i].delay_frm_num) {
+		case 1:
+			memcpy(&regs->i2c_data[i], &pregs[1].i2c_data[i], sizeof(MPI_I2C_DATA_S));
+			break;
+		default:;
+		}
+	}
+	memcpy(&pregs[1], &pregs[0], sizeof(MPI_SNS_REGS_TABLE_S));
+
+	g_sns_state[idx.path]->exp_line[1] = g_sns_state[idx.path]->exp_line[0];
+	g_sns_state[idx.path]->frame_line[1] = g_sns_state[idx.path]->frame_line[0];
+	g_sns_state[idx.path]->line_pixel[1] = g_sns_state[idx.path]->line_pixel[0];
+
+	for (i = 0; i < pregs[0].reg_num; ++i) {
+		pregs[0].i2c_data[i].is_update = false;
+	}
+
+	return MPI_SUCCESS;
+}
+
+static void SENSOR_globalInit(MPI_PATH idx)
+{
+	g_sensor_state[idx.path].sensor_gain = SENSOR_GAIN_MIN;
+	g_sensor_state[idx.path].pclk = PCLK;
+	g_sensor_state[idx.path].fps_line = INIT_FRAME_LINE;
+	g_sensor_state[idx.path].frame_line[0] = INIT_FRAME_LINE;
+	g_sensor_state[idx.path].line_pixel[0] = INIT_LINE_LEN;
+
+	int32_t tmp_pclk = (g_sensor_state[idx.path].pclk + (1 << ROW_TIME_PRC)) >> (ROW_TIME_PRC + 1);
+
+	assert(tmp_pclk > 0 && "[Sensor Error] tmp_pclk must be greater than than 0.\n");
+	g_sensor_state[idx.path].row_time[0] =
+	        ((g_sensor_state[idx.path].line_pixel[0] * 500000) + (tmp_pclk >> 1)) / tmp_pclk;
+
+	g_sensor_state[idx.path].exp_line[0] =
+	        ((g_inttime << ROW_TIME_PRC) + (g_sensor_state[idx.path].row_time[0] >> 1)) /
+	        g_sensor_state[idx.path].row_time[0];
+
+	g_sensor_state[idx.path].exp_line[1] = g_sensor_state[idx.path].exp_line[0];
+	g_sensor_state[idx.path].frame_line[1] = g_sensor_state[idx.path].frame_line[0];
+	g_sensor_state[idx.path].line_pixel[1] = g_sensor_state[idx.path].line_pixel[0];
+	g_sensor_state[idx.path].row_time[1] = g_sensor_state[idx.path].row_time[0];
+
+	MPI_SNS_REGS_TABLE_S init_regs = { 0 };
+	memcpy(&g_sns_state[idx.path]->regs_info[0], &init_regs, sizeof(MPI_SNS_REGS_TABLE_S));
+	memcpy(&g_sns_state[idx.path]->regs_info[1], &init_regs, sizeof(MPI_SNS_REGS_TABLE_S));
+	g_sns_state[idx.path]->regs_info[0].is_config = false;
+	g_sns_state[idx.path]->regs_info[1].is_config = false;
+}
+
+static int32_t SENSOR_setInttime(MPI_PATH idx, uint32_t time_us, uint32_t *effective_time)
+{
+	assert(time_us > 0 && "[Sensor Error] exposure time must be greater than than 0.\n");
+	assert(g_sensor_state[idx.path].row_time[0] > 0 &&
+	       "[Sensor Error] Global parameters(row time) must be greater than than 0.\n");
+	//exp_line_addr value = exp_line * 2
+	int32_t line_shif = SENSOR_EXP_LINE_SHIF;
+	int32_t exp_line_x2 = (time_us << (ROW_TIME_PRC + line_shif)) / g_sensor_state[idx.path].row_time[0];
+
+	//exp_line_addr value max = fps_line * 2 - EXP_LINE_GAP
+	if (exp_line_x2 > (SENSOR_EXP_LINES_MAX << line_shif) || (exp_line_x2 < (SENSOR_EXP_LINES_MIN << line_shif))) {
+		printf("[Sensor warning] Exposure time exceeds hardware limit.\n");
+		exp_line_x2 =
+		        CLAMP(exp_line_x2, (SENSOR_EXP_LINES_MIN << line_shif), (SENSOR_EXP_LINES_MAX << line_shif));
+	}
+
+	if (exp_line_x2 > (g_sensor_state[idx.path].frame_line[0] << line_shif) - (EXP_LINE_GAP << line_shif)) {
+		printf("[Sensor Error] Expsoure time too long in current FPS.\n");
+		return MPI_FAILURE;
+	}
+
+	g_sensor_state[idx.path].exp_line[0] = (exp_line_x2 >> line_shif);
+	uint32_t time_tmp = (uint32_t)exp_line_x2 * g_sensor_state[idx.path].row_time[0];
+	time_tmp = (time_tmp + (1 << (ROW_TIME_PRC + line_shif - 1))) >> (ROW_TIME_PRC + line_shif);
+	if (time_tmp < time_us) {
+		time_tmp += 1;
+	}
+	g_inttime = time_tmp;
+	if (effective_time) {
+		*effective_time = time_tmp;
+	}
+
+	int32_t value = exp_line_x2;
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_SHS_1].reg_data = (value & 0xFF00) >> 8;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_SHS_2].reg_data = (value & 0xFF);
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_SHS_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_SHS_2].is_update = true;
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_setSensorGain(MPI_PATH idx, uint32_t gain)
+{
+	g_sns_state[idx.path]->sensor_gain = gain;
+
+	uint32_t aGain = gain << 1;
+	uint8_t i;
+	uint8_t total;
+	uint32_t tol_dig_gain = 0;
+
+	if (gain < SENSOR_GAIN_MIN) {
+		printf("[Sensor Error] Sensor gain must be greater than %d\n", SENSOR_GAIN_MIN);
+		return -EINVAL;
+	} else if (gain > SENSOR_GAIN_MAX) {
+		printf("[Sensor Error] Sensor gain must be lesser than %d (sensor limit)\n", SENSOR_GAIN_MAX);
+		return -EINVAL;
+	}
+
+	// GC FAE supply.
+	total = sizeof(analogGainTable) / sizeof(UINT32);
+
+	for(i = 0; i < total; i++) {
+		if((analogGainTable[i] <= aGain) && (aGain < analogGainTable[i+1])) {
+			break;
+		}
+	}
+
+	tol_dig_gain = aGain*64/analogGainTable[i];
+	//
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_1].reg_data = regValTable_30fps[i][0];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_2].reg_data = regValTable_30fps[i][1];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_3].reg_data = regValTable_30fps[i][2];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_4].reg_data = regValTable_30fps[i][3];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_5].reg_data = regValTable_30fps[i][4];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_6].reg_data = regValTable_30fps[i][5];
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_7].reg_data = regValTable_30fps[i][6];
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_DGAIN_1].reg_data = (tol_dig_gain >> 6);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_DGAIN_2].reg_data = ((tol_dig_gain & 0x3f) << 2);
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_2].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_3].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_4].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_5].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_6].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_AGAIN_7].is_update = true;
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_DGAIN_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_DGAIN_2].is_update = true;
+
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_setFramrate(MPI_PATH idx, float fps, RANGE_S *inttime)
+{
+	assert(fps > 0 && "[Sensor Error] FPS must be greater than 0.\n");
+	assert(g_sensor_state[idx.path].line_pixel[0] > 0 &&
+	       "[Sensor Error] Global parameters(line_pixel) must be greater than 0.\n");
+	assert(g_sensor_state[idx.path].row_time[0] > 0 &&
+	       "[Sensor Error] Global parameters(row_time) must be greater than 0.\n");
+
+	uint32_t frame_line; /* In one frame, number of sensor can output lines */
+	uint32_t sec_line; /* In one second, number of sensor can output lines */
+	uint32_t inttime_max;
+	uint32_t inttime_min;
+
+	fps = fps * FPS_UNIT;
+	sec_line = ((g_sensor_state[idx.path].pclk + (g_sensor_state[idx.path].line_pixel[0] >> 1)) /
+	            g_sensor_state[idx.path].line_pixel[0])
+	           << FPS_PRC;
+	assert(sec_line > 0 && "[Sensor Error] sec_line must be greater than than 0.\n");
+	frame_line = (sec_line + ((int32_t)fps >> 1)) / (int32_t)fps;
+	frame_line = ((frame_line < 1) ? 1 : frame_line);
+
+	if ((frame_line) > SENSOR_FRAME_LINES_MAX || ((frame_line) < SENSOR_FRAME_LINES_MIN)) {
+		printf("[Sensor Error] FPS exceeds hardware limit.\n");
+		return MPI_FAILURE;
+	}
+
+	g_sensor_state[idx.path].frame_line[0] = frame_line;
+
+	inttime_max = (((frame_line - EXP_LINE_GAP) * g_sensor_state[idx.path].row_time[0] + (ROW_TIME_UNIT >> 1)) >>
+	                ROW_TIME_PRC);
+	inttime_min =
+	        ((SENSOR_EXP_LINES_MIN * g_sensor_state[idx.path].row_time[0] + (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
+	if (inttime) {
+		inttime->max = inttime_max;
+		inttime->min = inttime_min;
+	}
+	uint32_t effective_time;
+	if (g_sensor_state[idx.path].exp_line[0] > frame_line - EXP_LINE_GAP) {
+		SENSOR_setInttime(idx, inttime_max, &effective_time);
+	} else {
+		SENSOR_setInttime(idx, g_inttime, &effective_time);
+	}
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data = (frame_line & 0xFF00) >> 8;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data = (frame_line & 0xFF);
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
+	return MPI_SUCCESS;
+}
+
+#ifndef __UBOOT__
+static int32_t SENSOR_setSlowInttime(MPI_PATH idx, uint32_t time_us, float *fps)
+{
+	assert(time_us > 0 && "[Sensor Error] exposure time must be greater than 0.\n");
+	assert(g_sensor_state[idx.path].line_pixel[0] > 0 &&
+	       "[Sensor Error] Global parameters of sensor driver has problem.\n");
+	assert(g_sensor_state[idx.path].row_time[0] > 0 &&
+	       "[Sensor Error] Global parameters(row_time) must be greater than 0.\n");
+
+	int32_t exp_line = ((time_us << ROW_TIME_PRC) + (g_sensor_state[idx.path].row_time[0] >> 1)) /
+	               g_sensor_state[idx.path].row_time[0];
+	int32_t frame_line = exp_line + EXP_LINE_GAP;
+	assert(frame_line > 0 && "[Sensor Error] frame_line must be greater than 0.\n");
+
+	if (frame_line < SENSOR_FRAME_LINES_MIN) {
+		frame_line = SENSOR_FRAME_LINES_MIN;
+	}
+	if (frame_line > SENSOR_FRAME_LINES_MAX) {
+		printf("[Sensor Error] Exposure time or FPS exceeds hardware limit.\n");
+		return MPI_FAILURE;
+	}
+
+	g_sensor_state[idx.path].frame_line[0] = frame_line;
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data = (frame_line & 0xFF00) >> 8;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data = (frame_line & 0xFF);
+
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
+
+	int32_t temp = (frame_line * g_sensor_state[idx.path].line_pixel[0]);
+	*fps = (float)g_sensor_state[idx.path].pclk / (float)temp;
+
+	uint32_t effective_time;
+	SENSOR_setInttime(idx, time_us, &effective_time);
+
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_getAeDefault(MPI_PATH idx, MPI_AE_SNS_DEFAULT_S *dft)
+{
+	dft->inttime_range.max =
+	        ((SENSOR_EXP_LINES_MAX * g_sensor_state[idx.path].row_time[0] + (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
+	dft->inttime_range.min = ((SENSOR_EXP_LINES_MIN * g_sensor_state[idx.path].row_time[0]) >> ROW_TIME_PRC) + 1;
+	dft->sensor_gain_range.max = SENSOR_GAIN_MAX;
+	dft->sensor_gain_range.min = SENSOR_GAIN_MIN;
+	dft->target_sys_gain_range.max = 3200;
+	dft->target_sys_gain_range.min = 32;
+	dft->target_sensor_gain_range.max = SENSOR_GAIN_MAX;
+	dft->target_sensor_gain_range.min = SENSOR_GAIN_MIN;
+	dft->target_isp_gain_range.max = 3200;
+	dft->target_isp_gain_range.min = 32;
+	dft->gain_thr_up = 256;
+	dft->gain_thr_down = 512;
+	dft->max_fps = (float)MAX_FPS;
+	dft->min_fps = (float)MIN_FPS;
+	dft->speed = 160;
+	dft->tolerance = 1280;
+	dft->brightness = 7400;
+	dft->exp_value = g_inttime * 32;
+
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_getDipDefault(MPI_PATH idx, MPI_DIP_SNS_DEFAULT_S *dft)
+{
+	memcpy(dft, &dip_dft, sizeof(dip_dft));
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_getAwbDefault(MPI_PATH idx, MPI_AWB_SNS_DEFAULT_S *awb)
+{
+	/* TODO - fool proof design */
+
+	memcpy(awb->k_table, &ct_tbl_dft[0], sizeof(MPI_AWB_COLOR_TEMP_S) * MPI_K_TABLE_ENTRY_NUM);
+	memcpy(awb->delta_table, &delta_tbl_dft[0], sizeof(MPI_AWB_COLOR_DELTA_S) * MPI_K_TABLE_ENTRY_NUM);
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_getBlackLevel(MPI_PATH idx, MPI_DBC_SNS_DEFAULT_S *level)
+{
+	int32_t array[11];
+	int32_t i;
+
+	for (i = 0; i < 11; i++) {
+		array[i] = black_level_table.black_level[i];
+	}
+
+	int32_t black_level;
+	uint32_t gain = g_sns_state[idx.path]->sensor_gain;
+	gain = CLAMP(gain, k_sensor_gain_bin[0], k_sensor_gain_bin[MPI_SENSOR_GAIN_LUT_ENTRY_NUM - 1]);
+
+	int32_t target_bin = binary_search_bin(gain, k_sensor_gain_bin, 0, MPI_SENSOR_GAIN_LUT_ENTRY_NUM - 1);
+	int32_t norm = k_sensor_gain_bin[target_bin] - k_sensor_gain_bin[target_bin - 1];
+	int32_t alpha = gain - k_sensor_gain_bin[target_bin - 1];
+	black_level = interpolation(array[target_bin], array[target_bin - 1], alpha, norm);
+
+	level->dbc_level = (uint16_t)black_level;
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_getCalDefault(MPI_PATH idx, MPI_CAL_SNS_DEFAULT_S *cal)
+{
+	/* TODO - fool proof design*/
+
+	memcpy(cal, &cal_tbl_dft, sizeof(MPI_CAL_SNS_DEFAULT_S));
+	return MPI_SUCCESS;
+}
+#endif
+
+static int32_t SENSOR_regCallback(MPI_PATH idx)
+{
+	MPI_SNS_CALLBACK_S sensor_callback = {
+		.dip =
+		        {
+						.global_init = SENSOR_globalInit,
+						.get_regs_info = SENSOR_getRegsInfo,
+#ifndef __UBOOT__
+		                .init = SENSOR_configInit,
+		                .get_sns_op_info = SENSOR_getOpInfo,
+		                .get_dip_default = SENSOR_getDipDefault,
+		                .exit = SENSOR_configExit,
+#endif
+		        },
+
+		.ae =
+		        {
+		                .set_framerate = SENSOR_setFramrate,
+		                .set_inttime = SENSOR_setInttime,
+		                .set_sensor_gain = SENSOR_setSensorGain,
+#ifndef __UBOOT__
+						.set_slow_inttime = SENSOR_setSlowInttime,
+						.get_ae_default = SENSOR_getAeDefault,
+#endif
+		        },
+#ifndef __UBOOT__
+		.cal =
+		        {
+		                .get_black_level = SENSOR_getBlackLevel,
+		                .get_cal_default = SENSOR_getCalDefault,
+		        },
+
+		.awb =
+		        {
+		                .get_awb_default = SENSOR_getAwbDefault,
+		        },
+#endif
+	};
+
+	MPI_regSnsCallback(idx, SENSOR_ID, &sensor_callback);
+	return MPI_SUCCESS;
+}
+
+static int32_t SENSOR_deregSnsCallback(MPI_PATH idx)
+{
+	MPI_deregSnsCallback(idx, SENSOR_ID);
+	return MPI_SUCCESS;
+}
+
+#ifdef SNS0
+__attribute__((visibility("default"))) CUSTOM_SNS_CTRL_S custom_sns(SNS0_ID) = {
+	.reg_callback = SENSOR_regCallback,
+	.dereg_callback = SENSOR_deregSnsCallback,
+};
+
+#ifndef __UBOOT__
+__attribute__((visibility("default"))) SENSOR_CMOS_CTRL_S cmos_ctrl(SNS0_ID) = {
+	.update_exp_cmd = SENSOR_updateExpCmd,
+};
+#endif
+#endif
+
+#ifdef SNS1
+__attribute__((visibility("default"))) CUSTOM_SNS_CTRL_S custom_sns(SNS1_ID) = {
+	.reg_callback = SENSOR_regCallback,
+	.dereg_callback = SENSOR_deregSnsCallback,
+};
+
+#ifndef __UBOOT__
+__attribute__((visibility("default"))) SENSOR_CMOS_CTRL_S cmos_ctrl(SNS1_ID) = {
+	.update_exp_cmd = SENSOR_updateExpCmd,
+};
+#endif
+#endif

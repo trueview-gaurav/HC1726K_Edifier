@@ -1,0 +1,8 @@
+[Channel 0]
+normal: 2mpx_1.5mbps_cpsid71968.ini
+ir:
+light:
+[Channel 1]
+normal: 230kpx_384kbps_cpsid71968.ini
+ir:
+light:

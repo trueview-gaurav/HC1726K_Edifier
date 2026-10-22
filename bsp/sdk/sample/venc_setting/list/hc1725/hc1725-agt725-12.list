@@ -1,0 +1,9 @@
+[Channel 0]
+normal: 4mpx_2mbps_cpsid91677.ini
+ir: 4mpx_2mbps_cpsid91677_ir.ini
+light: 4mpx_2mbps_cpsid91677_light.ini
+[Channel 1]
+normal: 230kpx_512kbps_cpsid91677.ini
+ir: 230kpx_512kbps_cpsid91677_ir.ini
+light: 230kpx_512kbps_cpsid91677_light.ini
+

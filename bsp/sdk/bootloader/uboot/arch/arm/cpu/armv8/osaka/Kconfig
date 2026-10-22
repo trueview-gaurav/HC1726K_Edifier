@@ -1,0 +1,25 @@
+if ARCH_OSAKA
+
+config SYS_SOC
+	default "osaka"
+
+config SYS_CPU
+	default "armv8"
+
+choice # Product select
+	prompt "Augentix product select"
+	optional
+
+config TARGET_AGT785_1
+	bool "AGT785-1"
+
+config TARGET_OSAKA
+	bool "Generic design"
+
+endchoice # Product select
+
+# Augentix product level Kconfig
+source "board/augentix/osaka/Kconfig"
+source "board/augentix/hc1785/Kconfig"
+
+endif #ARCH_OSAKA

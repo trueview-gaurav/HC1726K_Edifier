@@ -1,0 +1,3 @@
+config TEE_SE_SIM
+	bool "Secure Element Simulation CA"
+	default n

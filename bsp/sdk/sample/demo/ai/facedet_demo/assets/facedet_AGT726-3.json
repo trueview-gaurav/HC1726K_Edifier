@@ -1,0 +1,11 @@
+{
+    "obj_life_th": 16,
+    "target_idx": 0,
+    "data_fmt": "MPI_RGB",
+    "url": "inapp",
+    "snapshot_width": 2592,
+    "snapshot_height": 1944,
+    "inf_with_obj_list": 1,
+    "model_path": "/system/eaif/models/facereco/inapp_yolox.ini",
+    "detect_period": 6
+}

@@ -1,0 +1,14 @@
+# Products using main board hc1705k on hc1703_tb008
+
+if TARGET_AGT300_31
+
+# board/SYS_VENDOR/SYS_BOARD
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "hc1705k-tb008"
+# include/config/SYS_CONFIG_NAME.h
+config SYS_CONFIG_NAME
+	default "hc1705k-agt300-31"
+
+endif

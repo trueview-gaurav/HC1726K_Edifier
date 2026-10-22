@@ -1,0 +1,63 @@
+{
+	"$schema": "http://json-schema.org/draft-06/schema#",
+	"type": "object",
+	"title": "AGTX_DIP_ISO_CONF_S",
+	"ini_name": "DIP_ISO",
+	"comments": [
+		"===================================",
+		"== DIP EFFECTIVE ISO parameters ===",
+		"===================================",
+		"ALSO SEE: MPI_setDipIsoAttr"
+	],
+	"properties": {
+		"video_dev_idx": {
+			"ui_type": "number",
+			"type": "integer",
+			"default": 0,
+			"minimum": 0,
+			"maximum": 0
+		},
+		"mode": {
+			"comments": "Operation mode, 0: auto, 2: manual",
+			"ui_type": "enum",
+			"type": "integer",
+			"enum": [0, 2],
+			"default": 0
+		},
+		"manual_iso": {
+			"ini_name": "iso_manual.effective_iso",
+			"comments": [
+				"--- Manual mode attribute ---",
+				"manual effective iso"
+			],
+			"ui_type": "number",
+			"type": "integer",
+			"default": 100,
+			"minimum": 0,
+			"maximum": 2147483647
+		},
+		"auto_iso_table": {
+			"ini_name": "iso_auto.effective_iso",
+			"comments": "--- auto mode attribute ---",
+			"ui_type": "table",
+			"type": "array",
+			"minItems": 16,
+			"maxItems": 16,
+			"items": {
+				"type": "integer",
+				"default": 100,
+				"minimum": 0,
+				"maximum": 2147483647
+			},
+			"defaultItems": [100, 150, 200, 250, 300, 500, 700, 900, 1200, 1500, 3000, 3000, 3000, 3000, 3000, 3000]
+		},
+		"iso_type": {
+			"ui_type": "enum",
+			"ini_name": "iso_type",
+			"comments": "Type/Version of ISO values",
+			"type": "integer",
+			"enum": [1, 2],
+			"default": 1
+		}
+	}
+}

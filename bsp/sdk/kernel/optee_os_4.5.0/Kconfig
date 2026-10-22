@@ -1,0 +1,738 @@
+config OPTEE
+	bool "OPTEE"
+	default n
+
+config TEE_CORE_LOG_LEVEL
+	int "optee_os log level"
+	depends on OPTEE
+	range 0 4
+	default "1"
+	help
+	  The log level of tee-supplicant, 0=ERROR, 1=WARNING,
+	  2=INFO, 3=DEBUG, 4=VERBOSE.
+
+config TEE_ANTI_ROLLBACK
+	bool "TEE Anti-rollback Protection"
+	depends on OPTEE
+	default y
+	help
+	   Ensure that the TEE cannot roll back to a lower-version image.
+
+config REE_TA
+	bool "REE_TA"
+	depends on OPTEE
+	default y
+
+config REE_TA_AVB
+	bool "AVB"
+	depends on REE_TA && !EARLY_TA_AVB
+	default n
+
+config REE_TA_REMOTEPROC
+	bool "REMOTEPROC"
+	depends on REE_TA && !EARLY_TA_REMOTEPROC
+	default n
+
+config REE_TA_PKCS11
+	bool "PKCS11"
+	depends on REE_TA && !EARLY_TA_PKCS11
+	default n
+
+config REE_TA_TRUSTED_KEY
+	bool "TRUSTED_KEY"
+	depends on REE_TA && !EARLY_TA_TRUSTED_KEY
+	default n
+
+config EARLY_TA
+	bool "EARLY_TA"
+	depends on OPTEE
+	default y
+
+config EARLY_TA_AVB
+	bool "AVB"
+	depends on EARLY_TA
+	default n
+
+config EARLY_TA_REMOTEPROC
+	bool "REMOTEPROC"
+	depends on EARLY_TA
+	default n
+
+config EARLY_TA_PKCS11
+	bool "PKCS11"
+	depends on EARLY_TA
+	default n
+
+config EARLY_TA_TRUSTED_KEY
+	bool "TRUSTED_KEY"
+	depends on EARLY_TA
+	default n
+
+menu "PTA"
+depends on OPTEE
+
+config AGTX_SE_SIM
+	bool "SE SIM"
+	default n
+	help 
+	   Secure element simulation sample code
+
+endmenu # "PTA"
+
+menu "Counter"
+depends on OPTEE
+
+config BYPASS_LOCK
+	bool "Counter bypass lock"
+	default n
+	help
+	    The counter is stored in flash and cannot be locked.
+	
+	    WARNING: The counter may be tampered with while the system is running in the normal world.
+
+choice
+	depends on OPTEE
+	prompt "Select Flash Type"
+
+config FLASH_NOR
+	bool "NOR Flash"
+
+config FLASH_NAND
+	bool "NAND FLash"
+
+config FLASH_EMMC
+	bool "eMMC"
+
+endchoice # "Select Flash Type"
+
+menu "FLash Model Selection"
+	depends on OPTEE
+
+menu "NOR Flash"
+	depends on FLASH_NOR
+
+config SPI_FLASH_BY25Q64ES
+	bool "BY25Q64ES"
+	default n
+	help
+	  Select this option if the target hardware uses the BY25Q64ES NOR Flash 
+	  device.
+
+config SPI_FLASH_BY25Q128ES
+	bool "BY25Q128ES"
+	default n
+	help
+	  Select this option if the target hardware uses the BY25Q128ES NOR Flash 
+	  device.
+
+config SPI_FLASH_GM25Q64A
+	bool "GM25Q64A"
+	default n
+	help
+	  Select this option if the target hardware uses the GM25Q64A NOR Flash 
+	  device.
+
+config SPI_FLASH_GM25Q128A
+	bool "GM25Q128A"
+	default n
+	help
+	  Select this option if the target hardware uses the GM25Q128A NOR Flash 
+	  device.
+
+config SPI_FLASH_FM25Q128A_SOB_T_G
+	bool "FM25Q128A-SOB-T-G"
+	default n
+	help
+	  Select this option if the target hardware uses the FM25Q128A-SOB-T-G NOR 
+	  Flash device.
+
+config SPI_FLASH_PY25Q64HA
+	bool "PY25Q64HA"
+	default n
+	help
+	  Select this option if the target hardware uses the PY25Q64HA NOR Flash 
+	  device.
+
+config SPI_FLASH_W25Q64JV
+	bool "W25Q64JV"
+	default n
+	help
+	  Select this option if the target hardware uses the W25Q64JV NOR Flash 
+	  device.
+
+config SPI_FLASH_W25Q128JV
+	bool "W25Q128JV"
+	default n
+	help
+	  Select this option if the target hardware uses the W25Q128JV NOR Flash 
+	  device.
+
+config SPI_FLASH_W25Q256JV
+	bool "W25Q256JV"
+	default n
+	help
+	  Select this option if the target hardware uses the W25Q256JV NOR Flash 
+	  device.
+
+config SPI_FLASH_XM25QH64C
+	bool "XM25QH64C"
+	default n
+	help
+	  Select this option if the target hardware uses the XM25QH64C NOR Flash 
+	  device.
+
+config SPI_FLASH_XM25QH64D
+	bool "XM25QH64D"
+	default n
+	help
+	  Select this option if the target hardware uses the XM25QH64D NOR Flash 
+	  device.
+
+config SPI_FLASH_NM25Q128EVB
+	bool "NM25Q128EVB"
+	default n
+	help
+	  Select this option if the target hardware uses the NM25Q128EVB NOR Flash 
+	  device.
+
+config SPI_FLASH_ZB25VQ64A
+	bool "ZB25VQ64A"
+	default n
+	help
+	  Select this option if the target hardware uses the ZB25VQ64A NOR Flash 
+	  device.
+
+config SPI_FLASH_ZB25VQ128A
+	bool "ZB25VQ128A"
+	default n
+	help
+	  Select this option if the target hardware uses the ZB25VQ128A NOR Flash 
+	  device.
+
+config SPI_FLASH_EN25QX128A_104HIP2V
+	depends on BYPASS_LOCK
+	bool "EN25QX128A_104HIP2V"
+	default n
+	help
+	  Select this option if the target hardware uses the EN25QX128A_104HIP2V NOR 
+	  Flash device.
+
+config SPI_FLASH_MX25L12805D
+	depends on BYPASS_LOCK
+	bool "MX25L12805D"
+	default n
+	help
+	  Select this option if the target hardware uses the MX25L12805D or HK25QX128A NOR 
+	  Flash device.
+
+config SPI_FLASH_PY25Q129HA
+	depends on BYPASS_LOCK
+	bool "PY25Q129HA"
+	default n
+	help
+	  Select this option if the target hardware uses the PY25Q129HA NOR 
+	  Flash device.
+
+endmenu # "NOR Flash"
+
+
+menu "NAND Flash"
+	depends on FLASH_NAND
+
+config SPI_FLASH_W25N01GV
+	bool "W25N01GV"
+	default n
+	help
+	  Select this option if the target hardware uses the W25N01GV NAND 
+	  Flash device.
+
+config SPI_FLASH_W25N02KV
+	bool "W25N02KV"
+	default n
+	help
+	  Select this option if the target hardware uses the W25N02KV NAND 
+	  Flash device.
+
+config SPI_FLASH_W25N04KVZEIR
+	bool "W25N04KVZEIR"
+	default n
+	help
+	  Select this option if the target hardware uses the W25N04KVZEIR NAND 
+	  Flash device.
+
+config SPI_FLASH_F50L1G41LB
+	bool "F50L1G41LB"
+	default n
+	help
+	  Select this option if the target hardware uses the F50L1G41LB NAND 
+	  Flash device.
+
+config SPI_FLASH_MX35LF1G
+        bool "MX35LF1G"
+        depends on FLASH_NAND
+        default n
+        help
+          Select this option if the target hardware uses the MX35LF1G SPI NAND
+          Flash device (Macronix 1Gbit, 128MB).
+
+endmenu # "NAND Flash"
+
+endmenu # "Flash Model Selection"
+
+endmenu # "Counter"
+
+menu "Crypto Algorithms"
+depends on OPTEE
+
+config CRYPTO_SIZE_OPTIMIZATION
+	bool "Size Optimization for Crypto Library"
+	default y
+	help
+	  Select small code size in the crypto library if applicable
+	  (for instance LibTomCrypt has -DLTC_SMALL_CODE)
+
+menu "Ciphers"
+
+config CRYPTO_AES
+	bool "AES"
+	default y
+
+config CRYPTO_DES
+	bool "DES"
+	default n
+
+config CRYPTO_SM4
+	bool "SM4"
+	default n
+
+endmenu # "Ciphers"
+
+menu "Cipher block modes"
+
+config CRYPTO_ECB
+	bool "ECB"
+	default y
+
+config CRYPTO_CBC
+	bool "CBC"
+	default n
+
+config CRYPTO_CTR
+	bool "CTR"
+	default y
+
+config CRYPTO_CTS
+	bool "CTS"
+	default n
+
+config CRYPTO_XTS
+	bool "XTS"
+	default n
+
+endmenu # "Cipher block modes"
+
+menu "Message authentication codes"
+
+config CRYPTO_HMAC
+	bool "HMAC"
+	default y
+
+config CRYPTO_CMAC
+	bool "CMAC"
+	default n
+
+config CRYPTO_CBC_MAC
+	bool "CBC_MAC"
+	default n
+
+endmenu # "Message authentication codes"
+
+menu "Hashes"
+
+config CRYPTO_MD5
+	bool "MD5"
+	default n
+
+config CRYPTO_SHA1
+	bool "SHA1"
+	default n
+
+config CRYPTO_SHA224
+	bool "SHA224"
+	default n
+
+config CRYPTO_SHA256
+	bool "SHA256"
+	default y
+
+config CRYPTO_SHA384
+	bool "SHA384"
+	default n
+
+config CRYPTO_SHA512
+	bool "SHA512"
+	default n
+
+config CRYPTO_SHA512_256
+	bool "SHA512_256"
+	default n
+
+config CRYPTO_SM3
+	bool "SM3"
+	default n
+
+config CRYPTO_SHA3_224
+	bool "SHA3_224"
+	default n
+
+config CRYPTO_SHA3_256
+	bool "SHA3_256"
+	default n
+
+config CRYPTO_SHA3_384
+	bool "SHA3_384"
+	default n
+
+config CRYPTO_SHA3_512
+	bool "SHA3_512"
+	default n
+
+endmenu # "Hashes"
+
+menu "Extendable-Output Functions (XOF)"
+
+config CRYPTO_SHAKE128
+	bool "SHAKE128"
+	default n
+
+config CRYPTO_SHAKE256
+	bool "SHAKE256"
+	default n
+
+endmenu # "Extendable-Output Functions (XOF)"
+
+menu "Asymmetric ciphers"
+
+config CRYPTO_DSA
+	bool "DSA"
+	default n
+
+config CRYPTO_RSA
+	bool "RSA"
+	default y
+
+config CRYPTO_DH
+	bool "DH"
+	default n
+	help
+	  Diffie-Hellman key exchange
+
+config CRYPTO_ECC
+	bool "ECC"
+	default y
+	help
+	  ECC includes ECDSA and ECDH
+
+config CRYPTO_SM2_PKE
+	bool "SM2_PKE"
+	default n
+
+config CRYPTO_SM2_DSA
+	bool "SH2_DSA"
+	default n
+
+config CRYPTO_SM2_KEP
+	bool "SM2_KEP"
+	default n
+
+config CRYPTO_ED25519
+	bool "ED25519"
+	default n
+
+config CRYPTO_X25519
+	bool "X25519"
+	default n
+
+endmenu # "Asymmetric ciphers"
+
+menu "Authenticated encryption"
+
+config CRYPTO_CCM
+	bool "CCM"
+	default n
+
+config CRYPTO_GCM
+	bool "GCM"
+	default y
+
+endmenu # "Authenticated encryption"
+
+config CRYPTO_HKDF
+	bool "HKDF"
+	default n
+	help
+	  HMAC-based Extract-and-Expand Key Derivation Function
+	  http://tools.ietf.org/html/rfc5869
+	  This is an OP-TEE extension, not part of the GlobalPlatform Internal API v1.0
+
+config CRYPTO_CONCAT_KDF
+	bool "CONCAT_KDF"
+	default n
+	help
+	  NIST SP800-56A Concatenation Key Derivation Function
+	  This is an OP-TEE extension
+
+config CRYPTO_PBKDF2
+	bool "PBKDF2"
+	default n
+	help
+	  PKCS #5 v2.0 / RFC 2898 key derivation function 2
+	  This is an OP-TEE extension
+
+config CRYPTO_RSASSA_NA1
+	bool "RSASSA_NA1"
+	default n
+	help
+	  Enable TEE_ALG_RSASSA_PKCS1_V1_5 algorithm for signing
+	  with PKCS#1 v1.5 EMSA without ASN.1 around the hash.
+
+endmenu # "Crypto Algorithms"
+
+menu "Kernel Setting"
+depends on OPTEE
+
+config SM_PLATFORM_HANDLER
+	bool "Secure Monitor Platform Handler"
+	default n
+	help
+	  Enable platform-specific secure monitor handler.
+	  This affects memory mapping and platform control access.
+
+config SM_PLATFORM_SUSPEND
+	bool "Augentix platform suspend support"
+	default n
+	depends on SM_PLATFORM_HANDLER
+	help
+	  Enable Augentix Platform suspend/resume flow
+	  through TrustZone OP-TEE SMC handler.
+
+	  Suspends the system to a low-power state where DRAM is
+	  placed in self-refresh and DDRPHY I/O is powered down. The
+	  SMC handler runs in SRAM during this period.
+
+
+menu "Debug"
+
+config TEE_CORE_DEBUG
+	bool "Show more debug information"
+	default n
+	help
+	  If y, enable debug features of the TEE core (assertions and lock checks
+	  are enabled, panic and assert messages are more verbose, data and prefetch
+	  aborts show a stack dump). When disabled, the NDEBUG directive is defined
+	  so assertions are disabled.
+
+config DEBUG_INFO
+	bool "Embed debug information in core"
+	default n
+	help
+	  Enabling CFG_DEBUG_INFO makes debug information embedded in core.
+
+config UNWIND
+	bool "Dump call stack when abort/panic"
+	default n
+	help
+	  Stack unwinding: print a stack dump to the console on core or TA abort, or
+	  when a TA panics.
+	  If CFG_UNWIND is enabled, both the kernel and user mode call stacks can be
+	  unwound (not paged TAs, however).
+	  Note that 32-bit ARM code needs unwind tables for this to work, so enabling
+	  this option will increase the size of the 32-bit TEE binary by a few KB.
+	  Similarly, TAs have to be compiled with -funwind-tables (default when the
+	  option is set) otherwise they can't be unwound.
+	  Warning: since the unwind sequence for user-mode (TA) code is implemented in
+	  the privileged layer of OP-TEE, enabling this feature will weaken the
+	  user/kernel isolation. Therefore it should be disabled in release builds.
+
+menu "Lock Detection"
+
+config LOCKDEP
+	bool "LOCKDEP"
+	default n
+	help
+	  Runtime lock dependency checker: ensures that a proper locking hierarchy is
+	  used in the TEE core when acquiring and releasing mutexes. Any violation will
+	  cause a panic as soon as the invalid locking condition is detected. If
+	  CFG_UNWIND and CFG_LOCKDEP_RECORD_STACK are both enabled, the algorithm
+	  records the call stacks when locks are taken, and prints them when a
+	  potential deadlock is found.
+	  Expect a significant performance impact when enabling this.
+
+config LOCKDEP_RECORD_STACK
+	bool "LOCKDEP_RECORD_STACK"
+	default n
+
+endmenu # "Lock Detection"
+
+endmenu # "Debug"
+
+menu "ASLR"
+
+config CORE_ASLR
+	bool "CORE_ASLR"
+	default n
+	help
+	  When this flag is enabled, the early init code will introduce a random
+	  offset when mapping TEE Core. ASLR makes the exploitation of memory
+	  corruption vulnerabilities more difficult.
+
+config TA_ASLR
+	bool "TA_ASLR"
+	default n
+	help
+	  When this flag is enabled, the ELF loader will introduce a random offset
+	  when mapping the application in user space. ASLR makes the exploitation of
+	  memory corruption vulnerabilities more difficult.
+
+endmenu # "ASLR"
+
+menu "Stack Protection"
+
+config WITH_STACK_CANARIES
+	bool "WITH_STACK_CANARIES"
+	default n
+	help
+	  Add stack guards before/after stacks and periodically check them
+
+choice
+	prompt "Stack Protector for Kernel"
+	default CORE_STACK_PROTECTOR_NONE
+
+config CORE_STACK_PROTECTOR
+	bool "fstack-protector"
+	help
+	  This flag enables the compiler stack protection mechanisms -fstack-protector.
+	  It will check the stack canary value before returning from a function to
+	  prevent buffer overflow attacks. Stack protector canary logic will be added
+	  for vulnerable functions that contain:
+	  - A character array larger than 8 bytes.
+	  - An 8-bit integer array larger than 8 bytes.
+	  - A call to alloca() with either a variable size or a constant size bigger
+	    than 8 bytes.
+
+config CORE_STACK_PROTECTOR_STRONG
+	bool "fstack-protector-strong"
+	help
+	  This enable stack protector flag -fstack-protector-strong. Stack protector
+	  canary logic will be added for vulnerable functions that contain:
+	  - An array of any size and type.
+	  - A call to alloca().
+	  - A local variable that has its address taken.
+
+config CORE_STACK_PROTECTOR_ALL
+	bool "fstack-protector-all"
+	help
+	  This enable stack protector flag -fstack-protector-all. Stack protector canary
+	  logic will be added to all functions regardless of their vulnerability.
+
+config CORE_STACK_PROTECTOR_NONE
+	bool "fno-stack-protector"
+
+endchoice # "Stack Protector for Kernel"
+
+choice
+	prompt "Stack Protector for TA"
+	default TA_STACK_PROTECTOR_NONE
+
+config TA_STACK_PROTECTOR
+	bool "fstack-protector"
+
+config TA_STACK_PROTECTOR_STRONG
+	bool "fstack-protector-strong"
+
+config TA_STACK_PROTECTOR_ALL
+	bool "fstack-protector-all"
+
+config TA_STACK_PROTECTOR_NONE
+	bool "fno-stack-protector"
+
+endchoice # "Stack Protector for TA"
+
+endmenu # "Stack Protection"
+
+config CORE_HEAP_SIZE
+	int "Heap Size for Kernel"
+	default "32768"
+
+config CORE_BIGNUM_MAX_BITS
+	int "Maximum Bits for Big Numbers"
+	default "2048"
+
+config FAULT_MITIGATION
+	bool "FAULT_MITIGATION"
+	default n
+	help
+	  Enables best effort mitigations against fault injected when the hardware is tampered with.
+	  Details in lib/libutils/ext/include/fault_mitigation.h
+
+config PREALLOC_RPC_CACHE
+	bool "PREALLOC_RPC_CACHE"
+	default n
+	help
+	  When enabled, makes core to preallocate shared memory for each secure thread.
+	  When disabled, RPC shared memory is released once the secure thread has completed is execution.
+
+endmenu # "Kernel Setting"
+
+menu "Memory Layout"
+depends on OPTEE
+
+config TZDRAM_START
+	hex "Starting address of memory for OP-TEE kernel and TA"
+	default 0x03E90000
+
+config TZDRAM_SIZE
+	hex "Size of memory for OP-TEE kernel and TA"
+	default 0x00120000
+
+config SHMEM_START
+	hex "Starting address of memory shared between OP-TEE and Linux"
+	default 0x03FB0000
+
+config SHMEM_SIZE
+	hex "Size of memory shared between OP-TEE and Linux"
+	default 0x00050000
+
+endmenu # "Memory Layout"
+
+menu "Debug Utils"
+	depends on OPTEE
+
+config INSECURE
+	bool
+
+config DISABLE_SECURE_STORAGE_NV_COUNTER
+	bool "Disable NV Counter for REE FS Secure Storage"
+	select INSECURE
+	help
+	   Disables the use of the non-volatile counter in secure storage. 
+           This is intended to simplify development when frequent NV counter 
+           updates would otherwise make testing difficult.
+
+           WARNING: Enabling this config removes anti-rollback protection, 
+           weakening system security, and MUST NOT be enabled in production.
+
+config REE_FS_ALLOW_RESET
+	bool "Allow REE FS Secure Storage Reset"
+	select INSECURE
+	help
+	   Allows the entire secure storage in the REE FS to be deleted without
+	   causing anti-rollback errors. 
+           This is intended for testing purposes only, for example by removing 
+           /usrdata/tee/dirf.db or the whole secure storage path.
+
+           WARNING: Enabling this in a release build will break rollback protection 
+           for TA and the entire REE FS secure storage, and MUST NOT be enabled 
+           in production.
+
+endmenu # "Debug Utils"

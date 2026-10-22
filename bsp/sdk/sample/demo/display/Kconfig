@@ -1,0 +1,23 @@
+menu "display"
+
+config SAMPLE_DEMO_DD_DEMO
+	bool "dd_demo"
+	default n
+	help
+		Sample program to demonstrate demo of decoder and display.
+
+config SAMPLE_DEMO_DFB_DEMO
+	bool "install directfb-demo for display test"
+	default n
+
+config SAMPLE_DEMO_GTK3_DEMO_GUI
+	bool "gtk3 demo gui"
+	default n
+	help
+		Need to install display related libs.
+
+config SAMPLE_DEMO_SDL_DEMO
+	bool "sdl_demo"
+	default n
+
+endmenu

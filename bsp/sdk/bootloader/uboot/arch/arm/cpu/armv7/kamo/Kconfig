@@ -1,0 +1,31 @@
+if ARCH_KAMO
+
+config CPU_V7_HAS_NONSEC
+	default y
+
+config ARMV7_BOOT_SEC_DEFAULT
+	default n
+
+config SYS_SOC
+	default "kamo"
+
+config SYS_CPU
+	default "armv7"
+
+choice # Product select
+	prompt "Augentix product select"
+	optional
+
+config TARGET_AGT705_8
+	bool "AGT705-8"
+
+config TARGET_KAMO
+	bool "Generic design"
+
+endchoice # Product select
+
+# Augentix product level Kconfig
+source "board/augentix/kamo/Kconfig"
+source "board/augentix/hc1705l/Kconfig"
+
+endif #ARCH_KAMO

@@ -1,0 +1,43 @@
+config OPTEE_EXAMPLES
+	bool "optee_example"
+	default n
+
+config HELLO_WORLD_EXAMPLE
+	bool "tee hello_world example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config AES_EXAMPLE
+	bool "tee aes example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config ACIPHER_EXAMPLE
+	bool "tee acipher example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config HOTP_EXAMPLE
+	bool "tee hotp example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config RANDOM_EXAMPLE
+	bool "tee random example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config SECURE_STORAGE_EXAMPLE
+	bool "tee secure_storage example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config USER_AUTH_AGTX_EXAMPLE
+	bool "Augentix tee user_auth example"
+	depends on OPTEE_EXAMPLES
+	default n
+
+config SECURE_STORAGE_AGTX_EXAMPLE
+	bool "Augentix tee secure_storage example"
+	depends on OPTEE_EXAMPLES
+	default n
