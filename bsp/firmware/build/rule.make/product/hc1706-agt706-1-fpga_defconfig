@@ -17,7 +17,7 @@ AUDIO_CODEC=adc
 
 # FPGA verification
 CONFIG_FPGA=y
-CONFIG_CPU_FREQUENCY=40000000
+CONFIG_CPU_FREQUENCY=12000000
 
 # Buildroot
 BUILDROOT_DEFCONFIG=arm-augentix-linux-uclibcgnueabihf_defconfig

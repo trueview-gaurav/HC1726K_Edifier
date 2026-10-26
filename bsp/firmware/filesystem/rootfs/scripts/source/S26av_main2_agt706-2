@@ -33,7 +33,6 @@ do_stop_av_main2() {
 	else
 		echo "PID file does not exist."
 	fi
-	sh /system/mpp/script/load_mpp.sh -e
 }
 
 do_start() {

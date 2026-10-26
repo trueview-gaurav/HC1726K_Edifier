@@ -1,0 +1,604 @@
+if ARCH_AUGENTIX
+
+config BOOTCOMMAND
+	default "run default_boot"
+
+config MACH_TYPE
+	# Carried over from the legacy tree, where mach-types.h defined
+	# MACH_TYPE_HC1703_1723_1753_1783S as 5001 in a local addition.
+	# Upstream lists 5001 as MACH_TYPE_NOKIAN97; the collision predates
+	# this port and the value is kept so the machine ID is unchanged.
+	default 5001
+
+config NR_DRAM_BANKS
+	default 1
+
+config TEXT_BASE
+	default 0x00008000
+
+config SYS_NS16550_REG_SIZE
+	default -4 if !AUGENTIX_SOC_KYOTO
+
+config SPL
+	select SPL_BOARD_INIT
+	help
+	  spl_board_init() is where the Augentix SPL loads U-Boot from flash
+	  and branches to it, so board_init_r() must call it.
+
+config SYS_ARCH
+	default "arm"
+
+config SYS_SOC
+	default "augentix"
+
+config SPL_TEXT_BASE
+	default 0xFFE00800 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config SPL_MAX_SIZE
+	default 0x6920 if (AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO) && SECURE_BOOT
+	default 0x8000 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+	help
+	  0x6920 is 26912, the ceiling that applies under SECURE_BOOT.
+
+config SPL_SYS_THUMB_BUILD
+	default y if (AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO) && SECURE_BOOT
+	help
+	  Thumb is how the SPL fits under the 0x6920 ceiling above, so it
+	  belongs to SECURE_BOOT rather than to any one product. v2016.03 built
+	  every Sapporo and Kyoto SPL as ARM, so the 0x8000 ceiling that applies
+	  without SECURE_BOOT does not need it.
+
+config SPL_BSS_MAX_SIZE
+	default 0x2000 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config BOOTDELAY
+	default -2 if (AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO) && SECURE_BOOT
+	default 0 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+	help
+	  -2 also suppresses the autoboot prompt, so a secure product gives the
+	  console no window in which to interrupt it.
+
+config SPL_STACK
+	default 0xFFE08000 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config BOOTSTD
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config CMD_BDI
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config CMD_CONSOLE
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config EFI_LOADER
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config SPL_SHARES_INIT_SP_ADDR
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config SPL_DOS_PARTITION
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config SYS_MALLOC_F
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config USE_PRIVATE_LIBGCC
+	default n if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+config LOGLEVEL
+	default 6 if AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+
+choice
+	prompt "Augentix board port"
+	default TARGET_AUGENTIX_SAPPORO
+
+config TARGET_AUGENTIX_SAPPORO
+	bool "Augentix Sapporo board"
+	select AUGENTIX_SOC_SAPPORO
+	select ARMV7_BOOT_SEC_DEFAULT
+	select AUGENTIX_WATCHDOG_V2
+	select SYS_NS16550_MEM32
+	select SYS_NS16550_SERIAL
+	select AUGENTIX_GPIO
+	select CLK
+	select CMD_DM
+	select CMDLINE_TAG
+	select DM_GPIO
+	select DWC_ETH_QOS
+	select DWC_ETH_QOS_AUGENTIX
+	select HUSH_PARSER
+	select INITRD_TAG
+	select OF_CONTROL
+	select SKIP_LOWLEVEL_INIT
+	select SPL
+	select SPL_HAVE_INIT_STACK
+	select SPL_SKIP_LOWLEVEL_INIT
+	select STATIC_MACH_TYPE
+	select SUPPORT_PASSING_ATAGS
+	select SYS_ARCH_TIMER
+	select USE_BOOTCOMMAND
+
+config TARGET_AUGENTIX_KYOTO
+	bool "Augentix Kyoto board"
+	select AUGENTIX_SOC_KYOTO
+	select AUGENTIX_WATCHDOG
+	select AUGENTIX_GPIO
+	select CLK
+	select CMD_DM
+	select CMDLINE_TAG
+	select DM_GPIO
+	select DWC_ETH_QOS
+	select DWC_ETH_QOS_AUGENTIX
+	select HUSH_PARSER
+	select INITRD_TAG
+	select OF_CONTROL
+	select SKIP_LOWLEVEL_INIT
+	select SPL
+	select SPL_HAVE_INIT_STACK
+	select SPL_SKIP_LOWLEVEL_INIT
+	select STATIC_MACH_TYPE
+	select SUPPORT_PASSING_ATAGS
+	select SYS_ARCH_TIMER
+	select USE_BOOTCOMMAND
+
+endchoice
+
+config AUGENTIX_SOC_SAPPORO
+	bool
+	select CPU_V7A
+	help
+	  Sapporo family, Cortex-A7. Names the sapporo register arms in the
+	  carried-over drivers; kyoto is their else arm and needs no symbol.
+
+config AUGENTIX_SOC_OSAKA
+	bool
+	help
+	  Osaka counterpart of AUGENTIX_SOC_SAPPORO. No Phase 1 product
+	  selects it; stage5-soc-rollout owns turning it on.
+
+config AUGENTIX_SOC_KYOTO
+	bool
+	select CPU_V7A
+	help
+	  Kyoto family, Cortex-A7.
+
+config CPU_LOW_SPEED
+	bool "Run the CPU at the reduced clock"
+	help
+	  Sapporo parts binned for the lower grade run at 450 MHz rather than
+	  891 MHz. Sets CFG_SYS_HZ_CLOCK and the lpj handed to the kernel.
+
+config SECURE_BOOT
+	bool "Verify the boot chain against the production key"
+	help
+	  The SPL checks the U-Boot image against the production key before
+	  branching to it, and the check costs SPL image space.
+
+config AGTX_EMAC_CLK_O_50M
+	bool "AGTX EMAC CLK_O out put 50M"
+	help
+	  AGTX EMAC CLK_O out put 50M for phy.
+
+choice
+	prompt "Boot flash type"
+	default FLASH_NOR
+
+config FLASH_NOR
+	bool "SPI-NOR"
+	select SPI
+	select SPI_FLASH
+	imply CMD_SF
+	imply DM_SPI
+	imply DM_SPI_FLASH
+	imply MTD
+	imply AUGENTIX_QSPI
+	imply SPI_FLASH_WINBOND
+	imply SPI_FLASH_GIGADEVICE
+	imply SPI_FLASH_MACRONIX
+	imply SPI_FLASH_EON
+	imply SPI_FLASH_PUYA
+	imply SPI_FLASH_XMC
+	imply SPI_FLASH_ZBIT
+	imply SPI_FLASH_BOYA
+	imply SPI_FLASH_CFX
+	imply SPI_FLASH_FM
+	imply SPI_FLASH_NORMEM
+	help
+	  Selects the SPI-NOR boot path. The eleven implied vendors are the set
+	  sf probe needs to identify the parts this family ships. The last four
+	  have no upstream entries and are added in drivers/mtd/spi.
+
+config FLASH_NAND
+	bool "SPI-NAND"
+	select SPI
+	select DM_SPI
+	select MTD
+	select DM_MTD
+	imply MTD_SPI_NAND
+	imply AUGENTIX_QSPI
+	imply CMD_MTD
+	help
+	  Selects the SPI-NAND boot path: the CPVS QSPI NAND primitives in
+	  the SPL, the spi-mem SPI-NAND framework in U-Boot proper. The
+	  product defconfig states it, as it already states the DRAM type.
+
+config EMMC
+	bool "eMMC"
+	help
+	  Selects the eMMC boot path in the SPL, over the CPVS agtx_mmc
+	  primitives. Stated per product defconfig like FLASH_NAND. U-Boot
+	  proper has no ported eMMC boot integration yet.
+
+endchoice
+
+config PROTECTED_BLOCK_NUM
+	int "NAND blocks reserved for the protected region"
+	depends on AUGENTIX_OPTEE
+	default 4
+	help
+	  Number of NAND blocks at the top of the boot flash reserved for the
+	  protected region holding the monotonic counters, whose count the SDK
+	  product defconfig states as CONFIG_NUMBER_OF_CNTS. 4 is the only
+	  value the SDK product defconfigs set; a product on another layout
+	  states its own.
+
+config AGTX_QSPI_FREQ
+	int "QSPI clock in Hz"
+	default 80000000
+
+choice
+	prompt "DRAM type"
+	default DDR_TYPE_DDR3
+
+config DDR_TYPE_DDR3
+	bool "DDR3"
+
+config DDR_TYPE_DDR2
+	bool "DDR2"
+
+endchoice
+
+choice
+	prompt "DRAM part family"
+	default DRAM_GENERIC_DDR3L
+
+config DRAM_GENERIC_DDR3L
+	bool "Generic DDR3L"
+
+config DRAM_GENERIC_DDR2
+	bool "Generic DDR2"
+
+endchoice
+
+choice
+	prompt "DRAM data rate in MT/s"
+	default DRAM_MTS_1600
+
+config DRAM_MTS_500
+	bool "500"
+config DRAM_MTS_650
+	bool "650"
+config DRAM_MTS_800
+	bool "800"
+config DRAM_MTS_1066
+	bool "1066"
+config DRAM_MTS_1200
+	bool "1200"
+config DRAM_MTS_1333
+	bool "1333"
+config DRAM_MTS_1600
+	bool "1600"
+config DRAM_MTS_1700
+	bool "1700"
+
+endchoice
+
+config DRAM_CAPACITY
+	int "DRAM capacity in MB"
+	default 64
+
+config AUGENTIX_FLASH_CAPACITY_MB
+	int "Boot flash capacity in MB"
+	default 32
+
+config KERNEL_OFFSET
+	hex "Kernel image offset in the boot flash"
+	default 0x00100000
+	help
+	  Start of the linux partition named in CONFIG_MTDPARTS_DEFAULT. The
+	  default here is the single-slot 32 MB v4 layout. A product on another
+	  layout states its own value.
+
+config AUGENTIX_KERNEL_MAX_SIZE
+	hex "Kernel partition size in bytes"
+	default 0x00600000
+	help
+	  Bytes read from CONFIG_KERNEL_OFFSET before the image header
+	  is parsed, so this is the partition size and not the image size.
+
+config AUGENTIX_ROOTFS_MTD_ID
+	int "MTD partition index holding the root filesystem"
+	default 3
+	help
+	  Position of the rootfs partition within CONFIG_MTDPARTS_DEFAULT,
+	  counted from zero, which the kernel sees as /dev/mtdblockN.
+
+config AUGENTIX_SLOT_AB
+	bool "Dual-slot A/B boot layout"
+	help
+	  A second kernel and rootfs pair, chosen by a boot counter that switches
+	  to the other slot after three unsuccessful boots.
+
+config AUGENTIX_KERNEL_1_OFFSET
+	hex "Slot B kernel image offset in the boot flash"
+	depends on AUGENTIX_SLOT_AB
+	default 0x00E80000
+
+config AUGENTIX_ROOTFS_1_MTD_ID
+	int "MTD partition index holding the slot B root filesystem"
+	depends on AUGENTIX_SLOT_AB
+	default 5
+
+config ROOTFS_UBIFS
+	bool "Root filesystem is UBIFS"
+	depends on AUGENTIX_SLOT_AB
+	help
+	  nandroot mounts ubi0:rootfs as UBIFS instead of squashfs over
+	  ubiblock.
+
+config AUGENTIX_TEE_VIA_FIP
+	bool
+	default y if AUGENTIX_SOC_OSAKA
+	help
+	  TF-A owns the TEE image and hands U-Boot over as BL33.
+
+config AUGENTIX_OPTEE
+	bool "Boot through an OP-TEE image held in a flash slot"
+	depends on AUGENTIX_SLOT_AB && !AUGENTIX_TEE_VIA_FIP
+	help
+	  The SPL loads the TEE image from the active slot, verifies it and
+	  branches to it ahead of U-Boot. Distinct from OPTEE, which upstream
+	  defines as the client driver that calls an OP-TEE already running.
+
+config AUGENTIX_TEE_0_OFFSET
+	hex "Slot A TEE image offset in the boot flash"
+	depends on AUGENTIX_OPTEE
+	default 0x01E00000
+
+config AUGENTIX_TEE_1_OFFSET
+	hex "Slot B TEE image offset in the boot flash"
+	depends on AUGENTIX_OPTEE
+	default 0x01EF0000
+
+config AUGENTIX_TEE_SIZE
+	hex "TEE partition size in bytes"
+	depends on AUGENTIX_OPTEE
+	default 0x000F0000
+
+config AUGENTIX_GIC
+	bool "Build the Augentix GIC driver"
+	depends on AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+	default y
+	select DRIVER_GICV2
+	help
+	  The HC17xx GIC driver, fronted by the standard irq_func.h
+	  irq_install_handler()/irq_free_handler() API. board_init() calls
+	  agtx_gic_init(), and do_irq() overrides the weak handler in
+	  arch/arm/lib/interrupts.c.
+
+config AUGENTIX_UARTBOOT_RANDOM_ETHADDR
+	def_bool y
+	depends on AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+	help
+	  On a UART-mode boot (strap register 0x8001000C, bits [3:2] equal
+	  to 1) drop the environment ethaddr before networking starts. The
+	  MAC then comes from the device SROM, and eth errors out when none
+	  exists.
+
+config AUGENTIX_FASTBOOT
+	bool "Start the early-video pipeline in U-Boot"
+	depends on AUGENTIX_SOC_SAPPORO || AUGENTIX_SOC_KYOTO
+	select AUGENTIX_GIC
+	help
+	  Prefixed because upstream declares FASTBOOT for the Android USB
+	  protocol. Gates the agtx_video and sensor subtrees. Stated per
+	  product defconfig.
+
+config EARLYAUDIO
+	bool "Start early audio capture in U-Boot"
+	depends on AUGENTIX_FASTBOOT
+	help
+	  Captures audio into a DRAM ring ahead of the kernel and hands the
+	  buffer over through bootargs.
+
+if AUGENTIX_FASTBOOT
+
+comment "FastBoot per-product tuning"
+
+config AUGENTIX_EARLY_VIDEO_PATH0_WIDTH
+	int "Early-video path 0 width"
+	default 1920
+
+config AUGENTIX_EARLY_VIDEO_PATH0_HEIGHT
+	int "Early-video path 0 height"
+	default 1080
+
+config AUGENTIX_EARLY_VIDEO_PATH1_WIDTH
+	int "Early-video path 1 width"
+	default 1920
+
+config AUGENTIX_EARLY_VIDEO_PATH1_HEIGHT
+	int "Early-video path 1 height"
+	default 1080
+
+config AUGENTIX_EARLY_VB_SIZE
+	int "Early video buffer reservation in MB"
+	default 64
+
+config AUGENTIX_EARLY_VB_PATH0_SIZE
+	int "Early VB share of path 0 in MB"
+	default 0
+
+config AUGENTIX_EARLY_VB_PATH1_SIZE
+	int "Early VB share of path 1 in MB"
+	default 0
+
+config AUGENTIX_CAMERA_FPS
+	int "Early-video capture rate"
+	default 15
+
+config AUGENTIX_LIGHT_SRC_HW
+	bool "Read scene lux from the hardware light meter"
+	help
+	  Off means software lux from the sensor exposure loop.
+
+config AUGENTIX_LIGHT_SENSOR_TYPE
+	int "Light sensor type"
+	default 1
+	help
+	  1 selects the AGT300_27 light sensor, 2 the AGT300_22 one.
+
+config AUGENTIX_IR_CUT_MODE
+	int "IR-cut control mode"
+	default 0
+
+config AUGENTIX_IR_CUT_GPIO_1
+	int "IR-cut GPIO 1"
+	default 0
+
+config AUGENTIX_IR_CUT_GPIO_2
+	int "IR-cut GPIO 2, -1 when absent"
+	default -1
+
+config AUGENTIX_IR_FILTER_ENABLE_LEVEL
+	int "IR filter enable level"
+	default 0
+
+config AUGENTIX_LIGHT_LED_GPIO
+	int "Light LED GPIO, -1 when absent"
+	default -1
+
+config AUGENTIX_LIGHT_LED_GPIO_ACT_LEVEL
+	int "Light LED active level"
+	default 1
+
+config AUGENTIX_LIGHT_LED_MODE
+	int "Light LED mode"
+	default 1
+
+config AUGENTIX_LOCK_PARAM_TO_SPEED_UP
+	bool "Lock tuning parameters at build time"
+	default y
+	help
+	  On, values compile in, the env lookups are skipped and the pipeline
+	  starts from board_init(), before the env loads. Off, the pipeline
+	  starts from board_late_init() and reads the tuning env variables.
+
+config AUGENTIX_PWM_V2
+	bool "Augentix PWM driver"
+	depends on AUGENTIX_SOC_SAPPORO
+	help
+	  Built with zero callers, so no defconfig enables it.
+
+config ADC_AUGENTIX_V2
+	bool "Augentix SAADC driver"
+	help
+	  The sapporo SAADC, read by the light meter. Registers through
+	  augentix_adc_read(); no uclass, no device tree binding.
+
+config AUGENTIX_PWM_V1
+	bool "Augentix PWM v1 driver (kyoto family)"
+	depends on AUGENTIX_PWM_V2=n
+	help
+	  PWM for the kyoto (hc1703/1705) family. No board in this tree
+	  enables it yet.
+
+config ADC_AUGENTIX
+	bool "Augentix ADC v1 driver (kyoto family)"
+	depends on ADC_AUGENTIX_V2=n && AUGENTIX_SOC_KYOTO
+	help
+	  The kyoto-family ADC. No board in this tree enables it yet.
+	  augentix_adc.h picks the augentix_adc_setup() return type from
+	  AUGENTIX_SOC_KYOTO, so this driver only matches its own header
+	  on a Kyoto build.
+
+endif
+
+config SYS_I2C_BUS_MAX
+	int
+	depends on SYS_I2C_AUGENTIX
+	default 2
+	help
+	  Visibility re-declaration: upstream gates this symbol on
+	  ARCH_OMAP2PLUS || ARCH_SOCFPGA. The augentix IP has two fixed
+	  masters.
+
+config WDT_CLK
+	int
+	depends on ARCH_AUGENTIX
+	default 24000000
+	help
+	  Clock feeding the always-on watchdog counter. One value covers the
+	  family, outside every SoC branch.
+
+config ENV_MTD_AUGENTIX
+	def_bool y
+	depends on ENV_IS_IN_MTD
+	help
+	  Build env/mtd_augentix.c in place of env/mtd.c: the same MTD
+	  backend extended with the legacy two-copy redundant environment
+	  and NAND bad-block handling. env/Makefile forks on this symbol.
+
+config ENV_RANGE
+	hex "Length of the region in which the environment can be written"
+	depends on ENV_MTD_AUGENTIX
+	range ENV_SIZE 0x7fffffff
+	default ENV_SIZE
+	help
+	  Re-declaration for visibility only: upstream gates ENV_RANGE on
+	  ENV_IS_IN_NAND. Semantics unchanged, see env/Kconfig.
+
+config ENV_OFFSET_REDUND
+	hex "Redundant environment offset"
+	depends on ENV_MTD_AUGENTIX && ENV_REDUNDANT
+	default 0x0
+	help
+	  Re-declaration for visibility only: upstream's backend list lacks
+	  ENV_IS_IN_MTD. Semantics unchanged, see env/Kconfig.
+
+config ENV_FLAGS_LIST_DEFAULT
+	string "Default environment variable flags list"
+	depends on SECURE_BOOT
+	default "ethaddr:mw,bootcounter:dw,slot_a_successful:dw,slot_b_successful:dw,slot_a_active:dw,slot_b_active:dw,slot_a_bootable:dw,slot_b_bootable:dw,fal_alarm_debug:dw,fal_alarm_frame_num:dw,fal_alarm_type:dw,fal_alarm_thre:dw,factory_mode:dw,envsaved:dw"
+	help
+	  Consumed by include/env_default.h under its own ifdef. Upstream
+	  declares only the STATIC pair at env/Kconfig:24 and :37, so this
+	  symbol is declared here. The depends gates it on SECURE_BOOT.
+
+config ENV_CALLBACK_LIST_DEFAULT
+	string "Default environment variable callback list"
+	depends on AUGENTIX_FASTBOOT
+	default "bootargs:bootargs_h"
+	help
+	  The depends gates this on AUGENTIX_FASTBOOT, so the symbol is absent
+	  from autoconf.h on products without FastBoot.
+
+# arch/Kconfig is sourced at Kconfig:13 and env/Kconfig at :818, so this
+# default is seen first and wins over the empty one at env/Kconfig:39.
+config ENV_FLAGS_LIST_STATIC
+	default ENV_FLAGS_LIST_DEFAULT if SECURE_BOOT
+
+# Emitted with the flags list or not at all. The restriction without a
+# list makes every variable unwritable, ethaddr included.
+config ENV_WRITEABLE_LIST
+	default y if SECURE_BOOT
+
+# The OP-TEE reserved region at the top of DRAM. Derived here so the three
+# OPTEE defconfigs do not repeat the SDK value by hand.
+config SYS_MEM_TOP_HIDE
+	default 0x170000 if AUGENTIX_OPTEE
+
+source "arch/arm/mach-augentix/sapporo/Kconfig"
+source "arch/arm/mach-augentix/kyoto/Kconfig"
+
+endif

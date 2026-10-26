@@ -55,6 +55,8 @@ CONFIG_PT_NUM_MONO_CNT=11
 
 # U-Boot
 UBOOT_CONFIG=hc1726-str726-13_defconfig
+# Routed to sdk/bootloader/uboot_upstream_sync at v2026.07, SENTRY-2906 track 2.
+CONFIG_UBOOT_UPSTREAM=y
 
 # Rootfs
 ROOTFS_LOADADDR=0x01100000

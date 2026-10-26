@@ -1,0 +1,8 @@
+if AUGENTIX_SOC_SAPPORO
+
+config CPU_V7_HAS_NONSEC
+	default y
+
+source "board/augentix/sapporo/Kconfig"
+
+endif

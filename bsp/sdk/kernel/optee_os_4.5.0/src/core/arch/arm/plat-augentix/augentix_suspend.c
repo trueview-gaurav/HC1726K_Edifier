@@ -50,20 +50,16 @@ unsigned int sram_get_cpu_cnt(void)
 static inline __attribute__((always_inline))
 void sram_delay_ns(unsigned int ns, int cpu_highspeed)
 {
-    unsigned int start = sram_get_cpu_cnt();
+    /* Busy-wait loop calibrated to ~4 cycles per iteration.
+     * cpu_freq in MHz: 891 (PLL) or 24 (XTAL).
+     * cycles_needed = ns * cpu_freq / 1000
+     * Divide by 4 (cycles per loop), add 1, apply 2x margin.
+     * Does not depend on Generic Timer counter. */
     unsigned int cpu_freq = (cpu_highspeed == 1) ? 891 : 24;
-    unsigned int cycles;
-
-    if (ns > 1000000) {
-        unsigned int ms = ns / 1000000;
-        unsigned int remaining_ns = ns % 1000000;
-        cycles = (ms * cpu_freq * 1000) + (remaining_ns * cpu_freq / 1000) + 1;
-    } else {
-        cycles = ns * cpu_freq / 1000 + 1;
-    }
-    while ((sram_get_cpu_cnt() - start) < cycles) {
+    volatile unsigned int count = (ns * cpu_freq / (1000 * 4)) + 1;
+    count *= 2;
+    while (count--)
         asm volatile("" : : : "memory");
-    }
 }
 
 int augentix_sram_resume(unsigned long aon_va,
@@ -72,8 +68,9 @@ int augentix_sram_resume(unsigned long aon_va,
 {
     unsigned long pll_va[4];
     unsigned int rdata;
-    int cpu_highspeed;
+    int cpu_highspeed = 1;
     int i;
+
 
     /* ADO, SNS, CPU, CAS */
     pll_va[0] = pc_va + 0x17000;

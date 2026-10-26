@@ -1,0 +1,5 @@
+if AUGENTIX_SOC_KYOTO
+
+source "board/augentix/kyoto/Kconfig"
+
+endif

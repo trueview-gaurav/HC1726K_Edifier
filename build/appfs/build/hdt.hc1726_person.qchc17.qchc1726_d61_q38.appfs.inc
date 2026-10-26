@@ -133,7 +133,7 @@ update_fs_lib:
 	@cp ${ROOT}/ovfs/lib/libvftr.so ${LIB_PATH}/libvftr.so
 	@cp ${ROOT}/ovfs/lib/libsensor_0_sc4336p.so ${LIB_PATH}/libsensor_0_sc4336p.so
 	@cp ${ROOT}/ovfs/lib/libncnn-compact.so ${LIB_PATH}/libncnn-compact.so
-	@cp ${ROOT}/ovfs/lib/libml_peoplevehiclepet_lite.so ${LIB_PATH}/libml_peoplevehiclepet_lite.so
+	@cp ${ROOT}/ovfs/lib/libml_peoplevehiclepet.so ${LIB_PATH}/libml_peoplevehiclepet.so
 	@cp ${ROOT}/ovfs/lib/libstdc++.so.6.0.28 ${LIB_PATH}/libstdc++.so.6.0.28
 
 	@cp ${ROOT}/ovfs/lib/libboardsys_smart.so ${LIB_PATH}/libboardsys_smart.so
@@ -154,7 +154,7 @@ update_fs_lib:
 	@ln -sf libvftr.so						${LIB_PATH}/libvftr.so.3;
 	@ln -sf libsensor_0_sc4336p.so			${LIB_PATH}/libsensor_0.so;
 	@ln -sf libncnn-compact.so				${LIB_PATH}/libncnn-compact.so.1;
-	@ln -sf libml_peoplevehiclepet_lite.so	${LIB_PATH}/libml_peoplevehiclepet_lite.so.3;
+	@ln -sf libml_peoplevehiclepet.so	${LIB_PATH}/libml_peoplevehiclepet.so.3;
 	@ln -sf libcurl.so						${LIB_PATH}/libcurl.so.4;
 	@ln -sf libz.so							${LIB_PATH}/libz.so.1;
 	@ln -sf libstdc++.so.6.0.28					${LIB_PATH}/libstdc++.so.6;

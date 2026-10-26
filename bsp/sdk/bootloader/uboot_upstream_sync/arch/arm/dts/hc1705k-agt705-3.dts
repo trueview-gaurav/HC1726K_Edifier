@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Augentix HC1705K AGT705-3. Kyoto SoC.
+ *
+ * Copyright (C) 2026 Augentix Inc.
+ */
+
+/dts-v1/;
+#include "kyoto.dtsi"
+
+/ {
+	model = "Augentix HC1705K AGT705-3";
+	compatible = "augentix,hc1705k-agt705-3", "augentix,kyoto";
+};
+
+&sdc0 {
+	status = "okay";
+};

@@ -27,9 +27,7 @@ dtb-$(CONFIG_MACH_HC17XX) += \
 	hc1726-agt726-7.dtb \
 	hc1726-agt726-10.dtb \
 	hc1726-agt726-12.dtb \
-	hc1726-dfn202-113002.dtb \
 	hc1726-agt726-7.dtb  \
-	hc1726-dfn202-113002.dtb \
 	hc1726-agt726-11.dtb \
 	hc1726-str726-13.dtb
 dtb-$(CONFIG_ARCH_ALPINE) += \

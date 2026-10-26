@@ -419,25 +419,6 @@ update-optee-conf:
 update-uboot-conf:
 	@echo - Override U-Boot configuration with $(UBOOT_CONFIG)
 	$(Q)$(MAKE) -C $(UBOOT_PATH) $(UBOOT_CONFIG) $(UBOOT_BUILD_FLAG)
-ifeq ($(CONFIG_UBOOT_UPSTREAM), y)
-ifneq ($(CONFIG_NUMBER_OF_CNTS),)
-# optee_os and the nvsp programmer read this from the product defconfig, so the
-# SPL reads the same copy rather than a second one in the U-Boot Kconfig.
-	$(Q)sed -i '/^CONFIG_NUMBER_OF_CNTS=/d' $(UBOOT_PATH)/.config
-	$(Q)echo CONFIG_NUMBER_OF_CNTS=$(CONFIG_NUMBER_OF_CNTS) >> $(UBOOT_PATH)/.config
-	$(Q)$(MAKE) -C $(UBOOT_PATH) olddefconfig $(UBOOT_BUILD_FLAG)
-endif
-endif
-ifeq ($(CONFIG_UBOOT_UPSTREAM)$(CONFIG_SECURE_BOOT), yy)
-# The product defconfig owns this, so no U-Boot defconfig carries a second copy.
-	$(Q)sed -i '/^# CONFIG_SECURE_BOOT is not set$$/d' $(UBOOT_PATH)/.config
-	$(Q)echo CONFIG_SECURE_BOOT=y >> $(UBOOT_PATH)/.config
-# olddefconfig keeps a value already written, so symbols whose Kconfig default
-# reads CONFIG_SECURE_BOOT must be dropped here to be resolved again.
-	$(Q)sed -i '/^CONFIG_BOOTDELAY=/d' $(UBOOT_PATH)/.config
-	$(Q)sed -i '/^CONFIG_SPL_MAX_SIZE=/d' $(UBOOT_PATH)/.config
-	$(Q)$(MAKE) -C $(UBOOT_PATH) olddefconfig $(UBOOT_BUILD_FLAG)
-endif
 
 .PHONY: update-ampc-conf
 update-ampc-conf:
@@ -536,7 +517,6 @@ endif
 	$(Q)LD_LIBRARY_PATH=$(BUILDROOT_HOST_LIB) $(SECURE_MKIMAGE) -f $(UBOOT_PATH)/dummy.its \
 		$(UBOOT_PATH)/dummyImg 1>/dev/null
 ifeq ($(CONFIG_UBOOT_UPSTREAM), y)
-# EXT_DTB replaces the built-in tree, which on v2026.07 holds the board.
 	$(Q)$(MAKE) -C $(UBOOT_PATH) -s all $(UBOOT_BUILD_FLAG)
 	@cp $(UBOOT_PATH)/dts/dt.dtb $(UBOOT_DTS_KEY).dtb
 endif

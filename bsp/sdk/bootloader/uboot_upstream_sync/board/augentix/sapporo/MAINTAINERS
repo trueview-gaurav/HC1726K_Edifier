@@ -1,0 +1,11 @@
+AUGENTIX SAPPORO
+M:	Will Chuang <shichu@qti.qualcomm.com>
+S:	Maintained
+F:	board/augentix/sapporo/
+F:	arch/arm/mach-augentix/sapporo/
+F:	configs/hc1706k-agt706-2_defconfig
+F:	configs/hc1726-agt726-2_defconfig
+F:	configs/hc1726-agt726-4_defconfig
+F:	configs/hc1726-agt726-10_defconfig
+F:	configs/hc1726-emmc-nvspc_defconfig
+F:	configs/hc1726-str726-13_defconfig

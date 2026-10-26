@@ -46,6 +46,8 @@ OPTEE_CONFIG=hc1726-agt726-10_defconfig
 
 # U-Boot
 UBOOT_CONFIG=hc1726-agt726-10_defconfig
+# Routed to sdk/bootloader/uboot_upstream_sync at v2026.07, SENTRY-2906 track 2.
+CONFIG_UBOOT_UPSTREAM=y
 
 # Rootfs
 ROOTFS_LOADADDR=0x01100000

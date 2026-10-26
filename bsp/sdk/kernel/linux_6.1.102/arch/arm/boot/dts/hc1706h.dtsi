@@ -321,7 +321,7 @@
 			g-rx-fifo-size = <170>;
 			g-np-tx-fifo-size = <16>;
 			g-use-dma;
-			phys = <&usb2_phy>;
+			phys = <&usb2_phy 0>;
 			phy-names = "usb2-phy";
 			clocks = <&clkc CLK_USB_UTMI>, <&clkc CLK_AHB_USB>;
 			clock-names = "otg";

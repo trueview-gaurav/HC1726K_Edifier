@@ -1,0 +1,12 @@
+if TARGET_AUGENTIX_KYOTO
+
+config SYS_VENDOR
+	default "augentix"
+config SYS_BOARD
+	default "kyoto"
+config SYS_CONFIG_NAME
+	default "augentix_common"
+
+source "board/augentix/common/Kconfig"
+
+endif

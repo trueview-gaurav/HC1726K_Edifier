@@ -326,6 +326,13 @@ static int __init augentix_aon_rtc_init(void)
 	int ret;
 	struct device_node *node;
 
+	/* FPGA bitfile does not have AON RTC HW (no 32K clock),
+	 * so RTC never report counting and wait loop below would spin
+	 * forever, cause Kernel hang on FPGA.
+	 */
+#ifdef CONFIG_FPGA
+	return 0;
+#endif
 	/* Check if RTC has been reset */
 	rst_state = readl(aon_rtc_base + AGTX_RTC_RST_STATE);
 	if (rst_state == RTC_RST_MAGIC) {

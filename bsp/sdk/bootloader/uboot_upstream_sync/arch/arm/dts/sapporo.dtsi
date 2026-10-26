@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Augentix Sapporo SoC (HC1706, HC1726). Cortex-A7, armv7.
+ *
+ * Copyright (C) 2026 Augentix Inc.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "augentix,sapporo";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0>;
+		};
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		gic: interrupt-controller@84001000 {
+			compatible = "arm,cortex-a7-gic";
+			#interrupt-cells = <3>;
+			#address-cells = <0>;
+			interrupt-controller;
+			reg = <0x84001000 0x1000>,	/* distributor */
+			      <0x84002000 0x1000>,	/* cpu interface */
+			      <0x84004000 0x2000>,	/* virtual interface control */
+			      <0x84006000 0x2000>;	/* virtual cpu interface */
+		};
+
+		timer: timer@80050000 {
+			compatible = "augentix,timer";
+			reg = <0x80050000 0x1000>;
+			status = "disabled";
+		};
+
+
+
+
+		/* Five windows, in driver index order. */
+		qspi: spi@83610000 {
+			compatible = "augentix,qspi";
+			reg = <0x83610000 0x1000>,
+			      <0x83620000 0x1000>,
+			      <0x83630000 0x1000>,
+			      <0x81300058 0x4>,
+			      <0x8000081c 0x10>;
+			reg-names = "ctrl", "read", "write", "darb", "syscfg";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			flash0: flash@0 {
+				compatible = "jedec,spi-nor";
+				reg = <0>;
+				spi-max-frequency = <80000000>;
+				spi-rx-bus-width = <4>;
+				spi-tx-bus-width = <4>;
+				m25p,fast-read;
+				status = "okay";
+			};
+		};
+
+		sdc0: sdc@818a0000 {
+			compatible = "augentix,sdc";
+			/* Second range gates the core clock; third holds the
+			 * shared CD and WP pin ids.
+			 */
+			reg = <0x818a0000 0x200>,
+			      <0x81340000 0x3c>,
+			      <0x80001434 0x4>;
+			bus-width = <4>;
+			num-slots = <1>;
+			clock-frequency = <49800000>;
+			max-frequency = <49800000>;
+			disable-wp;
+			cap-sd-highspeed;
+			status = "disabled";
+		};
+
+		gpio: gpio@80001400 {
+			compatible = "augentix,gpio";
+			reg = <0x80001400 0x34>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "okay";
+		};
+
+		emac: ethernet@81880000 {
+			compatible = "augentix,sapporo-eqos";
+			/* Linux states one range; EQOS_CFG is U-Boot's alone. */
+			reg = <0x81880000 0x4000>,
+			      <0x81360000 0x50>;
+			phy-mode = "rmii";
+			phy-handle = <&phy2>;
+			phy-reset-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>;
+			snps,write-requests = <1>;
+			snps,read-requests = <1>;
+			snps,burst-map = <0x7>;
+			snps,txpbl = <8>;
+			snps,rxpbl = <2>;
+			status = "okay";
+
+			mdio {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				phy2: phy@1 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <1>;
+				};
+			};
+		};
+	};
+
+};

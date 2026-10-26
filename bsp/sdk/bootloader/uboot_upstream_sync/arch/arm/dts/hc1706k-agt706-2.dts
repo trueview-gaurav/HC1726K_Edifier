@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Augentix HC1706K AGT706-2. Sapporo SoC.
+ *
+ * Copyright (C) 2026 Augentix Inc.
+ */
+
+/dts-v1/;
+#include "sapporo.dtsi"
+
+/ {
+	model = "Augentix HC1706K AGT706-2";
+	compatible = "augentix,hc1706k-agt706-2", "augentix,sapporo";
+};
+
+&sdc0 {
+	sdc-cd-gpio-num = <45>;
+	sdpwren-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};

@@ -70,4 +70,16 @@ config APP_GST_RTSP_SERVER_ENABLE_IVA
 	help
 		When the option is enabled, gstreamer rtsp server use libavftr API to get vaftr shm to generate SEI.
 
+config APP_GST_RTSP_SERVER_ENABLE_RTSPS
+	bool "GST RTSP Server enable RTSPS (TLS)"
+	depends on APP_GST_RTSP_SERVER
+	default n
+	help
+		When enabled, the RTSP server also listens on a second port (rtsps_port,
+		default 9554) using TLS.  The TLS certificate and private key are loaded
+		from the paths defined by CERT_path / KEY_path in agtx-rtsp-server.c
+		(default: /etc/nginx/ssl/cert.pem.default and key.pem.default).
+		When disabled, only plain RTSP is built and no TLS library dependency
+		is required.
+
 endmenu

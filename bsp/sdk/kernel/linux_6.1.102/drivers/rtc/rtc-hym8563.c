@@ -155,10 +155,6 @@ static int hym8563_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	if (ret < 0)
 		return ret;
 
-	ret = i2c_smbus_write_byte_data(client, HYM8563_SEC, buf[0] & ~HYM8563_SEC_VL);
-	if (ret < 0)
-	    return ret;
-
 	return 0;
 }
 

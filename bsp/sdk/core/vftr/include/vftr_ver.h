@@ -11,7 +11,7 @@
 #ifndef VFTR_VER_H_
 #define VFTR_VER_H_
 
-#define VFTR_VER "r4.2.0-rc9"
+#define VFTR_VER "r4.2.3"
 #define VFTR_VER_INFO "@(#) %s, " VFTR_VER ", " __DATE__ ", " __TIME__
 
 #endif

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Device tree for the Augentix HC1726 AGT726-2 board.
+ *
+ * Copyright (C) 2026 Augentix Inc.
+ */
+
+/dts-v1/;
+#include "sapporo.dtsi"
+
+/ {
+	model = "Augentix HC1726 AGT726-2";
+	compatible = "augentix,hc1726-agt726-2", "augentix,sapporo";
+};
+
+&sdc0 {
+	sdc-cd-gpio-num = <63>;
+	sdpwren-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};

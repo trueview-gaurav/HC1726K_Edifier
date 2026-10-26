@@ -1,0 +1,6 @@
+AUGENTIX KYOTO
+M:	Will Chuang <shichu@qti.qualcomm.com>
+S:	Maintained
+F:	board/augentix/kyoto/
+F:	arch/arm/mach-augentix/kyoto/
+F:	configs/hc1705k-agt705-3_defconfig

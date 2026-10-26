@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Augentix HC1726 AGT726-4. Sapporo SoC, 128MB SPI-NAND boot flash.
+ *
+ * Copyright (C) 2026 Augentix Inc.
+ */
+
+/dts-v1/;
+#include "sapporo.dtsi"
+
+/ {
+	model = "Augentix HC1726 AGT726-4";
+	compatible = "augentix,hc1726-agt726-4", "augentix,sapporo";
+};
+
+&sdc0 {
+	sdc-cd-gpio-num = <45>;
+	sdpwren-gpios = <&gpio 46 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};

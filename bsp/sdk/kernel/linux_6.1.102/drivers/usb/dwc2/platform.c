@@ -24,6 +24,15 @@
 #include "hcd.h"
 #include "debug.h"
 
+#if defined(CONFIG_USB_DWC2_AUGENTIX_PHY)
+#include <linux/io.h>
+#define AUGENTIX_RESET_GEN_PA  0x80000400
+#define LV_USB_OFFSET          0x0AC
+#define LV_USB_UTMI_BIT        BIT(2)
+#define LV_USB_PHY_BIT         BIT(3)
+static void __iomem *augentix_reset_gen_base;
+#endif
+
 static const char dwc2_driver_name[] = "dwc2";
 
 /*
@@ -604,6 +613,13 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		}
 	}
 #endif /* CONFIG_USB_DWC2_PERIPHERAL || CONFIG_USB_DWC2_DUAL_ROLE */
+#if defined(CONFIG_USB_DWC2_AUGENTIX_PHY)
+	if (!augentix_reset_gen_base) {
+		augentix_reset_gen_base = ioremap(AUGENTIX_RESET_GEN_PA, 0x200);
+		if (!augentix_reset_gen_base)
+			dev_err(&dev->dev, "Failed to ioremap reset gen\n");
+	}
+#endif
 	return 0;
 
 #if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
@@ -677,6 +693,29 @@ static int __maybe_unused dwc2_suspend(struct device *dev)
 		dwc2->phy_off_for_suspend = true;
 	}
 
+#if defined(CONFIG_USB_DWC2_AUGENTIX_PHY)
+	/* Mask only the CONIDSTSCHNG interrupt (not all global interrupts)
+	 * before clock/PHY are turned off below, so the ID-pin glitch
+	 * produced by the level reset does not queue
+	 * dwc2_conn_id_status_change work and race with dwc2_core_reset()
+	 * while clock/PHY are off.
+	 */
+	if (dwc2->ll_hw_enabled) {
+		u32 gintmsk = dwc2_readl(dwc2, GINTMSK);
+
+		gintmsk &= ~GINTSTS_CONIDSTSCHNG;
+		dwc2_writel(dwc2, gintmsk, GINTMSK);
+	}
+
+	/* Assert USB UTMI/PHY level reset before suspend */
+	if (augentix_reset_gen_base) {
+		u32 val = readl(augentix_reset_gen_base + LV_USB_OFFSET);
+		writel(val | LV_USB_UTMI_BIT | LV_USB_PHY_BIT,
+		       augentix_reset_gen_base + LV_USB_OFFSET);
+		dev_info(dwc2->dev, "USB UTMI/PHY reset asserted\n");
+	}
+#endif
+
 	return ret;
 }
 
@@ -687,6 +726,31 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 
 	if (!dwc2->ll_hw_enabled)
 		return 0;
+
+#if defined(CONFIG_USB_DWC2_AUGENTIX_PHY)
+	/* Deassert USB UTMI/PHY level reset on resume */
+	if (augentix_reset_gen_base) {
+		u32 val = readl(augentix_reset_gen_base + LV_USB_OFFSET);
+		writel(val & ~(LV_USB_UTMI_BIT | LV_USB_PHY_BIT),
+		       augentix_reset_gen_base + LV_USB_OFFSET);
+		dev_info(dwc2->dev, "USB UTMI/PHY reset deasserted\n");
+	}
+	
+	/* Wait for USB PHY to stabilize */
+	mdelay(5);
+
+	/* Clear any stale CONIDSTSCHNG status produced by the PHY reset and
+	 * unmask the interrupt again now that clock/PHY are back on.
+	 */
+	if (dwc2->ll_hw_enabled) {
+		u32 gintsts = dwc2_readl(dwc2, GINTSTS);
+		u32 gintmsk = dwc2_readl(dwc2, GINTMSK);
+
+		dwc2_writel(dwc2, gintsts | GINTSTS_CONIDSTSCHNG, GINTSTS);
+		gintmsk |= GINTSTS_CONIDSTSCHNG;
+		dwc2_writel(dwc2, gintmsk, GINTMSK);
+	}
+#endif
 
 	if (dwc2->phy_off_for_suspend && dwc2->ll_hw_enabled) {
 		ret = __dwc2_lowlevel_hw_enable(dwc2);

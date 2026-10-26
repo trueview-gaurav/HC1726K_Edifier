@@ -95,10 +95,10 @@
 			};
 
 			enc@81001000 {
-				bsb-size = <0x200000 0x100000 0x200000 0x100000>;
-				rd-buf-size = <0x40000>;
+				bsb-size = <0x200000 0x40000 0x200000 0x40000>;
+				rd-buf-size = <0x20000>;
 				snapshot-size = <0x40000>;
-				rd-buf-num = <4>;
+				rd-buf-num = <6>;
 			};
 		};
 

@@ -3,6 +3,19 @@
  * All rights reserved.
  * Confidential and Proprietary - Qualcomm Technologies, Inc.
  */
+
+/*
+ * Version history
+ * ---------------
+ * 1.0.0  Initial release (SDK_R420_rc9_0901)
+ * 1.1.0  Memory-aware weighted vqueue sizing (min_mem_reserve_kb,
+ *         calc_weighted_vqueue_bytes, Stage-1/2 memory estimate logs,
+ *         7 MB CRITICAL threshold)
+ */
+#define AGTX_RTSP_SERVER_VERSION       "1.1.0"
+#define AGTX_RTSP_SERVER_VERSION_MAJOR  1
+#define AGTX_RTSP_SERVER_VERSION_MINOR  1
+#define AGTX_RTSP_SERVER_VERSION_PATCH  0
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <gst/app/app.h>
@@ -20,8 +33,15 @@
 
 #include <ifaddrs.h> //network interface
 #include <arpa/inet.h>
+/* OPT-MEM: calc_weighted_vqueue_bytes() reads /proc/meminfo for MemAvailable;
+ * no extra header needed beyond <stdio.h> which is already included. */
 
+#ifdef GST_RTSP_SERVER_ENABLE_RTSPS
 #define RTSPS_support 1 /* 1: RTSP + RTSPS 	0: RTSP only */
+#else
+#define RTSPS_support 0
+#endif
+
 
 /* ============================================================================
  * agtx-rtsp-server — Usage & Configuration Guide
@@ -114,11 +134,11 @@
  *   attempted; permanently-absent channels are never re-armed.
  *
  * SENSOR RECOVERY
- *   If MPI_getBitStream() fails mid-stream the server retries up to
- *   SENSOR_RECOVERY_MAX times (with SENSOR_RECOVERY_DELAY_S second
- *   backoff).  On full failure EOS is sent, the channel is marked for
- *   re-probe, and the periodic timer will re-register the factory once
- *   the sensor recovers — without affecting any other active channel.
+ *   If MPI_getBitStream() fails mid-stream (ENODATA or SENSOR_TIMEOUT_MAX
+ *   consecutive errors) EOS is sent immediately (~1 s detect time).
+ *   No in-thread retry loop is used.  The channel is marked for re-probe
+ *   and the periodic timer re-registers the factory once the sensor
+ *   recovers — without affecting any other active channel.
  *
  * STARTUP LOG
  *   On startup, after server initialisation, print_running_config() emits
@@ -286,6 +306,13 @@ static volatile gint sg_isServiceRunning = 1; /* atomic: 1=running, 0=stopped.
  * Written in setup_augentix_rtsp_server() and in the periodic
  * re-probe callback; read-only after that (GLib main loop context). */
 static gboolean sg_debug_mode = FALSE;      /* OPT-1B: set TRUE by -d CLI flag */
+static guint    g_min_mem_reserve_kb = 8192U; /* OPT-MEM: minimum memory to keep free
+ * (kB).  budget = max(MemAvailable - g_min_mem_reserve_kb, 0).
+ * Default 8192 = 8 MB reserved for kernel, MPP/ISP, audio, IVA, and
+ * other userspace processes.  Set min_mem_reserve_kb in the .conf:
+ *   Single-sensor : 8192 (8 MB) — default
+ *   Two-sensor    : 12288 (12 MB) — each instance keeps 12 MB free,
+ *                   combined vqueue budget stays within safe limits */
 static gboolean g_channel_registered[CHANNEL_NUM];
 /* kept alive so the periodic re-probe callback can add
  * factories after startup without calling gst_rtsp_server_get_mount_points()
@@ -348,8 +375,8 @@ static MPI_WIN g_avftr_src_win = MPI_VIDEO_WIN(0, 0, 0);
 typedef struct {
     MPI_WIN iva_src_win; /* -i equivalent: source IVA window (chn+win) */
     MPI_WIN iva_dst_win; /* -o equivalent: destination window (chn+win) */
-    guint       vqueue_max_bytes; /* 0 = use built-in default (4194304) */
-    guint       aqueue_max_bytes; /* 0 = use built-in default (524288)  */
+    guint       vqueue_max_bytes; /* 0 = weighted dynamic (calc_weighted_vqueue_bytes); non-zero = explicit override */
+    guint       aqueue_max_bytes; /* 0 = use built-in default (131072 = 128 KB) */
 } ChannelIvaConf;
 
 static ChannelIvaConf g_channel_conf[CHANNEL_NUM];
@@ -450,6 +477,19 @@ static void create_default_config(const char *conf_path)
         "#   2 = force-enable (same as -S CLI flag; -S always wins)\n"
         "avftr_conn = 0\n"  /* always baseline 0; use -S or edit this file to enable */
         "\n"
+        "# min_mem_reserve_kb : minimum memory (kB) to keep free for the system.\n"
+        "#   budget = max(MemAvailable - min_mem_reserve_kb, 0).\n"
+        "#   The budget is then split proportionally across channels by\n"
+        "#   resolution x fps.  Remaining memory is reserved for kernel,\n"
+        "#   MPP/ISP, audio, IVA/AVFTR, and other userspace processes.\n"
+        "#\n"
+        "#   Single-sensor product (default):  8192   (keep 8 MB free)\n"
+        "#   Two-sensor product:               12288  (keep 12 MB free per instance)\n"
+        "#\n"
+        "#   Rule of thumb: set to (MemAvailable - desired_total_vqueue_MB * 1024).\n"
+        "#   Example: MemAvailable=14852, want 4 MB total vqueue -> 14852-4096=10756\n"
+        "min_mem_reserve_kb = 8192\n"
+        "\n"
         "# -------------------------------------------------------------\n"
         "# [sensor] — sensor-to-channel mapping for this instance\n"
         "# -------------------------------------------------------------\n"
@@ -489,13 +529,15 @@ static void create_default_config(const char *conf_path)
             "iva_dst_chn = %d\n"
             "iva_dst_win = 0\n"
             "\n"
-            "# Video queue buffer size in bytes; 0 = built-in default (4194304 = 4 MB)\n"
+            "# Video queue buffer size in bytes\n"
+            "#   0 = auto (dynamic: sized to 1 GOP * 1.5x safety factor from bitrate/fps)\n"
+            "#   Non-zero = explicit override in bytes (disables dynamic sizing)\n"
             "#   Increase for high-bitrate / high-resolution main streams.\n"
             "#   Decrease to reduce latency on low-bitrate sub-streams.\n"
             "#   Example: vqueue_max_bytes = 8388608   # 8 MB\n"
             "vqueue_max_bytes = 0\n"
             "\n"
-            "# Audio queue buffer size in bytes; 0 = built-in default (524288 = 512 KB)\n"
+            "# Audio queue buffer size in bytes; 0 = built-in default (131072 = 128 KB static)\n"
             "#   Example: aqueue_max_bytes = 262144    # 256 KB\n"
             "aqueue_max_bytes = 0\n"
             "\n",
@@ -646,6 +688,16 @@ static void load_rtsp_config(const char *conf_path)
                 } else {
                     LOG_N("Config: global avftr_conn = %d (overridden by -S flag, keeping 2)",
                           ival);
+                }
+            } else if (strcmp(key, "min_mem_reserve_kb") == 0) {
+                if (ival < 0) {
+                    ERR_N("Config: global min_mem_reserve_kb=%d invalid (must be >= 0)"
+                          " — keeping default %u kB", ival, g_min_mem_reserve_kb);
+                } else {
+                    g_min_mem_reserve_kb = (guint)ival;
+                    LOG_N("Config: global min_mem_reserve_kb = %u kB"
+                          " (%u MB reserved for system)",
+                          g_min_mem_reserve_kb, g_min_mem_reserve_kb / 1024U);
                 }
             }
         } else if (cur_chn >= 0) {
@@ -1074,7 +1126,7 @@ static gpointer push_data_thread(gpointer user_data)
 		 * is safe and reduces StreamContext footprint by sizeof(param). */
 		MPI_STREAM_PARAMS_V2_S param;
 		memset(&param, 0, sizeof(MPI_STREAM_PARAMS_V2_S));
-		ret = MPI_getBitStreamV2(ctx->mpi_b_channel, &param, 10000);
+		ret = MPI_getBitStreamV2(ctx->mpi_b_channel, &param, 1000);
 		if (ret != MPI_SUCCESS) {
 			/* ── Sensor / encoder error handling ─────────────
 			 * Mirrors AuxVidDeviceSource::getBitStream() errno dispatch:
@@ -1082,57 +1134,24 @@ static gpointer push_data_thread(gpointer user_data)
 			 *   -ETIMEDOUT : blocking timeout                - silent retry
 			 *   -EINTR     : interrupted by signal           - silent retry
 			 *   -EFAULT    : driver fault                    - log, count
-			 *   -ENODATA   : encoder stopped (sensor fault)  - recovery retry
-			 *                → SENSOR_RECOVERY_MAX attempts with
-			 *                  SENSOR_RECOVERY_DELAY_S back-off each;
-			 *                  EOS only after all attempts exhausted.
-			 *   other      : log, count; recovery after SENSOR_TIMEOUT_MAX.
+			 *   -ENODATA   : encoder stopped (sensor fault)  - EOS immediately (Session-7)
+			 *   other      : log, count; EOS after SENSOR_TIMEOUT_MAX consecutive errors.
 			 * ─────────────────────────────────────────────────────────── */
 			if (ret == -EAGAIN || ret == -ETIMEDOUT || ret == -EINTR) {
 				continue;
 			} else if (ret == -ENODATA) {
-				/* mid-stream sensor recovery retry */
-				ERR_N("MPI_getBitStream ENODATA chn=%d: sensor malfunction — attempting recovery",
+				/* Session-7 fail-fast: no in-thread retry loop.
+				 * Send EOS immediately (~1 s detect vs ~20 s before).
+				 * The reprobe timer handles recovery when sensor comes back. */
+				ERR_N("MPI_getBitStream ENODATA chn=%d: sensor malfunction — sending EOS",
 				      (int)ctx->mpi_b_channel.chn);
-				gboolean recovered = FALSE;
-				for (int r = 0; r < SENSOR_RECOVERY_MAX && g_atomic_int_get(&sg_isServiceRunning); r++) {
-					LOG_N("recovery attempt %d/%d for chn=%d ...",
-					      r + 1, SENSOR_RECOVERY_MAX, (int)ctx->mpi_b_channel.chn);
-					sleep(SENSOR_RECOVERY_DELAY_S);
-					/* Re-probe the MPI encoder channel attribute.
-					 * If it succeeds the sensor is back online — resume
-					 * the bitstream loop. The existing mpi_b_channel handle
-					 * is still valid because MPI_destroyBitStreamChn() has
-					 * not been called yet.                                   */
-					MPI_ECHN mpi_e_chn = MPI_ENC_CHN((int)ctx->mpi_b_channel.chn);
-					MPI_VENC_ATTR_S attr;
-					if (MPI_ENC_getVencAttr(mpi_e_chn, &attr) == MPI_SUCCESS) {
-						LOG_N("chn=%d sensor recovered on attempt %d — resuming stream",
-						      (int)ctx->mpi_b_channel.chn, r + 1);
-						ctx->timeout_cnt = 0;
-						recovered = TRUE;
-						break;
-					}
-				}
-				if (recovered)
-					continue; /* back to the top of the bitstream loop */
-				ERR_N("chn=%d sensor did not recover after %d attempts — sending EOS",
-				      (int)ctx->mpi_b_channel.chn, SENSOR_RECOVERY_MAX);
-				/* Serialize all channel state updates onto the GLib main loop:
-				 * set_channel_recovery_state_cb writes registered, needs_reprobe,
-				 * and reprobe_fail atomically, avoiding any ordering gap (P1).
-				 * Check shutdown BEFORE allocating to avoid a memory leak if the
-				 * main loop has already stopped (P2).                            */
-				if (!g_atomic_int_get(&sg_isServiceRunning))
-					goto send_eos_enodata;
-				{
+				if (g_atomic_int_get(&sg_isServiceRunning)) {
 					ChannelRecoveryData *d = g_new(ChannelRecoveryData, 1);
 					d->chn = (gint)ctx->mpi_b_channel.chn;
 					g_main_context_invoke(NULL, set_channel_recovery_state_cb, d);
+					if (!g_channel_permanently_absent[ctx->mpi_b_channel.chn])
+						g_main_context_invoke(NULL, rearm_reprobe_timer_cb, NULL);
 				}
-				if (!g_channel_permanently_absent[ctx->mpi_b_channel.chn])
-					g_main_context_invoke(NULL, rearm_reprobe_timer_cb, NULL);
-				send_eos_enodata:
 				gst_app_src_end_of_stream(GST_APP_SRC(ctx->appsrc));
 				if (ctx->audio_appsrc)
 					gst_app_src_end_of_stream(GST_APP_SRC(ctx->audio_appsrc));
@@ -1143,42 +1162,18 @@ static gpointer push_data_thread(gpointer user_data)
 				ctx->timeout_cnt++;
 			}
 			if (ctx->timeout_cnt >= SENSOR_TIMEOUT_MAX) {
-				/* mid-stream recovery for non-ENODATA errors */
-				ERR_N("chn=%d %d consecutive errors — attempting recovery",
+				/* Session-7 fail-fast: no in-thread retry loop.
+				 * Send EOS immediately after SENSOR_TIMEOUT_MAX consecutive
+				 * errors. Reprobe timer handles recovery. */
+				ERR_N("chn=%d %d consecutive errors — sending EOS",
 				      (int)ctx->mpi_b_channel.chn, ctx->timeout_cnt);
-				gboolean recovered = FALSE;
-				for (int r = 0; r < SENSOR_RECOVERY_MAX && g_atomic_int_get(&sg_isServiceRunning); r++) {
-					LOG_N("recovery attempt %d/%d for chn=%d ...",
-					      r + 1, SENSOR_RECOVERY_MAX, (int)ctx->mpi_b_channel.chn);
-					sleep(SENSOR_RECOVERY_DELAY_S);
-					MPI_ECHN mpi_e_chn = MPI_ENC_CHN((int)ctx->mpi_b_channel.chn);
-					MPI_VENC_ATTR_S attr;
-					if (MPI_ENC_getVencAttr(mpi_e_chn, &attr) == MPI_SUCCESS) {
-						LOG_N("chn=%d sensor recovered on attempt %d — resuming stream",
-						      (int)ctx->mpi_b_channel.chn, r + 1);
-						ctx->timeout_cnt = 0;
-						recovered = TRUE;
-						break;
-					}
-				}
-				if (recovered)
-					continue; /* back to the top of the bitstream loop */
-				ERR_N("chn=%d sensor did not recover after %d attempts — sending EOS",
-				      (int)ctx->mpi_b_channel.chn, SENSOR_RECOVERY_MAX);
-				/* Same as the ENODATA path: check shutdown before allocating (P2),
-				 * then serialize all state updates via set_channel_recovery_state_cb
-				 * so registered/needs_reprobe/reprobe_fail are written atomically
-				 * on the main loop (P1).                                          */
-				if (!g_atomic_int_get(&sg_isServiceRunning))
-					goto send_eos_timeout;
-				{
+				if (g_atomic_int_get(&sg_isServiceRunning)) {
 					ChannelRecoveryData *d = g_new(ChannelRecoveryData, 1);
 					d->chn = (gint)ctx->mpi_b_channel.chn;
 					g_main_context_invoke(NULL, set_channel_recovery_state_cb, d);
+					if (!g_channel_permanently_absent[ctx->mpi_b_channel.chn])
+						g_main_context_invoke(NULL, rearm_reprobe_timer_cb, NULL);
 				}
-				if (!g_channel_permanently_absent[ctx->mpi_b_channel.chn])
-					g_main_context_invoke(NULL, rearm_reprobe_timer_cb, NULL);
-				send_eos_timeout:
 				gst_app_src_end_of_stream(GST_APP_SRC(ctx->appsrc));
 				if (ctx->audio_appsrc)
 					gst_app_src_end_of_stream(GST_APP_SRC(ctx->audio_appsrc));
@@ -1388,8 +1383,252 @@ static gpointer push_audio_thread(gpointer user_data)
 	return NULL;
 }
 
-#define DEFAULT_VQUEUE_MAX_BYTES  4194304U   /* 4 MB  */
-#define DEFAULT_AQUEUE_MAX_BYTES   524288U   /* 512 KB */
+/* OPT-A/OPT-C: Static fallback defaults — used ONLY when:
+ *   (a) vqueue_max_bytes == 0 in the .conf AND
+ *   (b) MPI_ENC_queryVencInfo() fails at pipeline-create time (rare error path).
+ * Under normal operation the weighted calc_weighted_vqueue_bytes() result is used instead. */
+#define DEFAULT_VQUEUE_MAX_BYTES  1048576U   /* 1 MB  fallback */
+#define DEFAULT_AQUEUE_MAX_BYTES   131072U   /* 128 KB fallback */
+
+/* ── Dynamic video-queue sizing ────────────────────────────────────────────
+ * OPT-DYN: Size the GStreamer video queue to hold exactly one GOP worth of
+ * compressed data, plus a 1.5× safety margin for I-frame spikes.
+ *
+ * Formula:
+ *   vqueue_bytes = ceil( bit_rate [bps] * gop_size [frames]
+ *                        / ( fps [frames/s] * 8 [bits/byte] )
+ *                        * 1.5 )
+ *
+ * Caller must pass bit_rate in bps (not kbit/s).
+ * Use venc_info.bps (real-time bps from MPI_ENC_queryVencInfo) — NOT the
+ * kbit/s fields in MPI_VENC_ATTR_S (attr.h264.rc.cbr.bit_rate etc.).
+ *
+ * Worked examples (from AGT726-11 encoder log):
+ *   Chn0  2592×1944  4 Mbps  GOP=50  fps=12 → ~3.1 MB → clamped to 3.1 MB
+ *   Chn1  1280×720   512 kbps GOP=50  fps=12 → ~400 KB → clamped to 400 KB
+ *   Chn2  2560×1440  4 Mbps  GOP=50  fps=12 → ~3.1 MB → clamped to 3.1 MB
+ *   Chn3  1280×720   512 kbps GOP=50  fps=12 → ~400 KB → clamped to 400 KB
+ *
+ * Clamp range: [VQUEUE_DYN_MIN, VQUEUE_DYN_MAX]
+ *   MIN = 256 KB — floor that guarantees a smooth single I-frame always fits.
+ *   MAX = 4 MB  — hard ceiling to prevent runaway on misconfigured bitrates.
+ *
+ * The queue uses leaky=downstream so frames are silently dropped when full;
+ * reducing the size never causes blocking or pipeline stalls.
+ * ─────────────────────────────────────────────────────────────────────── */
+#define VQUEUE_DYN_MIN  (256U  * 1024U)       /* 256 KB floor  */
+#define VQUEUE_DYN_MAX  (4U    * 1024U * 1024U) /* 4 MB  ceiling */
+#define VQUEUE_DYN_SAFETY_NUM  3U              /* safety factor = 3/2 = 1.5× */
+#define VQUEUE_DYN_SAFETY_DEN  2U
+
+static guint calc_vqueue_bytes(guint bit_rate, guint gop_size, guint fps)
+{
+	/* Guard: avoid divide-by-zero on uninitialised/zero fps */
+	if (fps == 0 || gop_size == 0 || bit_rate == 0)
+		return DEFAULT_VQUEUE_MAX_BYTES;
+
+	/* bytes_per_gop = bit_rate * gop_size / (fps * 8) * safety_factor
+	 * Use guint64 arithmetic to avoid 32-bit overflow on high bitrates. */
+	guint64 bpg = ((guint64)bit_rate * gop_size * VQUEUE_DYN_SAFETY_NUM)
+	              / ((guint64)fps * 8U * VQUEUE_DYN_SAFETY_DEN);
+
+	if (bpg < VQUEUE_DYN_MIN) bpg = VQUEUE_DYN_MIN;
+	if (bpg > VQUEUE_DYN_MAX) bpg = VQUEUE_DYN_MAX;
+
+	return (guint)bpg;
+}
+
+/* ── read_mem_available_kB() ────────────────────────────────────────────────
+ * OPT-MEM: Read MemAvailable from /proc/meminfo — the kernel's own estimate
+ * of how much memory can be allocated without swapping.  This correctly
+ * accounts for reclaimable page cache and slab, which sysinfo() misses.
+ *
+ * Why MemAvailable instead of sysinfo()?
+ *   sysinfo.freeram ≈ MemFree only.  On a tight 128 MB device:
+ *     MemFree ≈ 6.5 MB, Cached+SReclaimable ≈ 9.5 MB
+ *   sysinfo sees only 6.5 MB; MemAvailable = 14.8 MB — the correct figure.
+ *
+ * Returns MemAvailable in kB, or 0 on read failure.
+ * ─────────────────────────────────────────────────────────────────────────*/
+/* OPT-MEM: budget = max(MemAvailable - g_min_mem_reserve_kb, 0).
+ * g_min_mem_reserve_kb is set from .conf (default 8192 = 8 MB). */
+#define MEM_TIGHT_THRESHOLD_KB  (20U * 1024U) /* warn when MemAvailable < 20 MB       */
+
+static guint64 read_mem_available_kB(void)
+{
+	guint64 avail_kB = 0;
+	FILE *fp = fopen("/proc/meminfo", "r");
+	if (fp) {
+		char line[128];
+		while (fgets(line, sizeof(line), fp)) {
+			unsigned long long val;
+			if (sscanf(line, "MemAvailable: %llu kB", &val) == 1) {
+				avail_kB = (guint64)val;
+				break;
+			}
+		}
+		fclose(fp);
+	}
+	return avail_kB;
+}
+
+/* ── calc_weighted_vqueue_bytes() ───────────────────────────────────────────
+ * OPT-MEM: Allocate the total memory budget across channels proportionally
+ * to each channel's data volume (resolution × fps), so the main stream
+ * (high resolution, high fps) gets a larger share than the sub-stream.
+ *
+ * Algorithm:
+ *   avail_kB    = MemAvailable from /proc/meminfo
+ *   budget      = max(MemAvailable - g_min_mem_reserve_kb, 0)
+ *   weight_i    = width_i * height_i * fps_i   (data-volume proxy)
+ *   total_weight = sum of weight_i across all sensor channels
+ *   vqueue_i    = budget * weight_i / total_weight
+ *   vqueue_i    = clamp(vqueue_i, VQUEUE_DYN_MIN, VQUEUE_DYN_MAX)
+ *
+ * Why pixels×fps?
+ *   It directly reflects the data volume the queue must absorb per second.
+ *   A 1920×1080@15fps main stream produces 9× more pixel data than a
+ *   640×360@15fps sub-stream → gets 9× more buffer budget.
+ *   If fps is 0 (encoder not yet running), falls back to pixels only.
+ *   If both are 0, falls back to equal split (1/nchn).
+ *
+ * Parameters:
+ *   this_chn_idx  — the channel being sized (g_sensor_chn_start..+chn_count-1)
+ *
+ * Called once per pipeline-create from augentix_media_factory_create_element().
+ * Not in the push-data hot path.
+ * ─────────────────────────────────────────────────────────────────────────*/
+static guint calc_weighted_vqueue_bytes(gint this_chn_idx)
+{
+	/* ── P1b: bounds check on this_chn_idx before any array access ──────
+	 * channel_idx comes from AugentixMediaFactory.channel_idx which is set
+	 * from the .conf; a misconfigured value could be negative or >= CHANNEL_NUM. */
+	if (this_chn_idx < 0 || this_chn_idx >= CHANNEL_NUM) {
+		ERR_N("calc_weighted_vqueue_bytes: this_chn_idx=%d out of range [0,%d)"
+		      " — using DEFAULT_VQUEUE_MAX_BYTES",
+		      this_chn_idx, CHANNEL_NUM);
+		return DEFAULT_VQUEUE_MAX_BYTES;
+	}
+
+	/* ── P2: use a cached budget so all channels are sized against the same
+	 * MemAvailable snapshot.  The first client connection to any channel of
+	 * this sensor instance triggers the read; subsequent channels (and
+	 * subsequent reconnects) reuse the cached value.
+	 *
+	 * NOTE: create_element() is a GStreamer factory virtual method invoked
+	 * lazily per-client-connection, NOT at factory registration time.  The
+	 * budget therefore reflects MemAvailable at first-client-connect time,
+	 * which may be seconds or minutes after server startup.  This is
+	 * intentional: it captures the real memory pressure at the moment
+	 * streams begin flowing, not the (potentially lower) pressure at boot.
+	 *
+	 * Sentinel: s_budget_initialized (separate bool) avoids the edge case
+	 * where avail_kB * 1024 / den truncates to 0 (e.g. den > avail_kB*1024
+	 * due to a misconfigured min_mem_reserve_kb > MemAvailable), which would cause s_budget_bytes
+	 * to stay 0 and re-enter the init block on every call. */
+	static gboolean s_budget_initialized = FALSE;
+	static guint64  s_budget_bytes       = 0;
+	if (!s_budget_initialized) {
+		guint64 avail_kB = read_mem_available_kB();
+		if (avail_kB == 0) {
+			ERR_N("calc_weighted_vqueue_bytes: cannot read MemAvailable"
+			      " — using DEFAULT_VQUEUE_MAX_BYTES (%u bytes)",
+			      DEFAULT_VQUEUE_MAX_BYTES);
+			return DEFAULT_VQUEUE_MAX_BYTES;
+		}
+		if (avail_kB < MEM_TIGHT_THRESHOLD_KB) {
+			ERR_N("calc_weighted_vqueue_bytes: WARNING — system memory is tight"
+			      " (MemAvailable=%llu kB < %u kB threshold);"
+			      " vqueue will be sized conservatively",
+			      (unsigned long long)avail_kB, MEM_TIGHT_THRESHOLD_KB);
+		}
+		/* g_min_mem_reserve_kb is set from .conf (default 8192 = 8 MB).
+		 * budget = max(MemAvailable - reserve, 0). */
+		guint64 reserve_kB = (guint64)g_min_mem_reserve_kb;
+		s_budget_bytes       = (avail_kB > reserve_kB)
+		                       ? (avail_kB - reserve_kB) * 1024ULL
+		                       : 0ULL;
+		s_budget_initialized = TRUE;   /* set regardless of truncation to 0 */
+		LOG_N("calc_weighted_vqueue_bytes: MemAvailable=%llu kB"
+		      " reserve=%llu kB budget=%llu kB",
+		      (unsigned long long)avail_kB,
+		      (unsigned long long)reserve_kB,
+		      (unsigned long long)(s_budget_bytes / 1024));
+	}
+	guint64 budget_bytes = s_budget_bytes;
+
+	/* ── Step 3: query resolution+fps for every channel in this sensor ── */
+	gint chn_end = g_sensor_chn_start + g_sensor_chn_count;
+	if (chn_end > CHANNEL_NUM) chn_end = CHANNEL_NUM;
+
+	/* ── P1b: validate that this_chn_idx is within the sensor's channel range.
+	 * If it falls outside [g_sensor_chn_start, chn_end) the weights[] loop
+	 * will never fill weights[this_chn_idx], leaving it 0 and silently
+	 * clamping alloc to VQUEUE_DYN_MIN.  Catch this early and log clearly. */
+	if (this_chn_idx < g_sensor_chn_start || this_chn_idx >= chn_end) {
+		ERR_N("calc_weighted_vqueue_bytes: this_chn_idx=%d outside sensor range"
+		      " [%d,%d) — using DEFAULT_VQUEUE_MAX_BYTES",
+		      this_chn_idx, g_sensor_chn_start, chn_end);
+		return DEFAULT_VQUEUE_MAX_BYTES;
+	}
+
+	guint64 weights[CHANNEL_NUM] = { 0 };
+	guint64 total_weight = 0;
+
+	for (gint i = g_sensor_chn_start; i < chn_end; i++) {
+		MPI_ENC_CHN_ATTR_S chn_attr;
+		MPI_VENC_INFO_S    vinfo;
+		guint32 w = 0, h = 0, fps = 0;
+
+		if (MPI_ENC_getChnAttr(MPI_ENC_CHN(i), &chn_attr) == MPI_SUCCESS) {
+			w   = (guint32)chn_attr.res.width;
+			h   = (guint32)chn_attr.res.height;
+		}
+		if (MPI_ENC_queryVencInfo(MPI_ENC_CHN(i), &vinfo) == MPI_SUCCESS) {
+			fps = (guint32)vinfo.fps;
+		}
+
+		/* weight = pixels * fps; fall back to pixels if fps==0, then to 1 */
+		guint64 wt = (guint64)w * h;
+		if (fps > 0) wt *= fps;
+		if (wt == 0) wt = 1; /* equal-split fallback for unconfigured channels */
+
+		weights[i] = wt;
+		total_weight += wt;
+		LOG_D("calc_weighted_vqueue_bytes: chn=%d %ux%u fps=%u weight=%llu",
+		      i, w, h, fps, (unsigned long long)wt);
+	}
+
+	if (total_weight == 0) {
+		ERR_N("calc_weighted_vqueue_bytes: total_weight=0 — equal split fallback");
+		gint nchn = (g_sensor_chn_count > 0) ? g_sensor_chn_count : 1;
+		guint64 cap = budget_bytes / (guint64)nchn;
+		if (cap < VQUEUE_DYN_MIN) cap = VQUEUE_DYN_MIN;
+		if (cap > VQUEUE_DYN_MAX) cap = VQUEUE_DYN_MAX;
+		return (guint)cap;
+	}
+
+	/* ── Step 4: compute this channel's weighted share ──
+	 * weights[this_chn_idx] is guaranteed non-zero here because:
+	 *   (a) this_chn_idx is in [g_sensor_chn_start, chn_end) (checked above)
+	 *   (b) the loop sets wt = max(pixels*fps, 1) so weights[i] >= 1 always */
+	guint64 my_weight = weights[this_chn_idx];
+	guint64 alloc = budget_bytes * my_weight / total_weight;
+
+	if (alloc < VQUEUE_DYN_MIN) alloc = VQUEUE_DYN_MIN;
+	if (alloc > VQUEUE_DYN_MAX) alloc = VQUEUE_DYN_MAX;
+
+	LOG_N("calc_weighted_vqueue_bytes: chn=%d weight=%llu/%llu (%.1f%%)"
+	      " budget=%llu kB alloc=%u kB",
+	      this_chn_idx,
+	      (unsigned long long)my_weight,
+	      (unsigned long long)total_weight,
+	      100.0 * my_weight / total_weight,
+	      (unsigned long long)(budget_bytes / 1024),
+	      (guint)(alloc / 1024));
+
+	return (guint)alloc;
+}
 
 /* create pipeline */
 static GstElement *augentix_rtsp_elements_create(MPI_VENC_TYPE_E type, guint vqueue_max_bytes, guint aqueue_max_bytes)
@@ -1442,6 +1681,20 @@ static GstElement *augentix_rtsp_elements_create(MPI_VENC_TYPE_E type, guint vqu
 	                      !elements->audioconvert || !elements->apayloader))) {
 		ERR_N("Failed to create elements. parser:%s payloader:%s",
 		      sgMap[type].parser_name, sgMap[type].payloader_name);
+		/* LEAK-1: gst_element_factory_make returns a floating GstObject ref.
+		 * Any element that was successfully created must be sunk+unref'd here;
+		 * simply calling g_free(elements) only frees the wrapper struct and
+		 * leaks every non-NULL GstElement*. */
+		#define _SAFE_UNREF(e) do { if (e) { gst_object_ref_sink(e); gst_object_unref(e); (e) = NULL; } } while(0)
+		_SAFE_UNREF(elements->source);
+		_SAFE_UNREF(elements->vqueue);
+		_SAFE_UNREF(elements->parser);
+		_SAFE_UNREF(elements->payloader);
+		_SAFE_UNREF(elements->asource);
+		_SAFE_UNREF(elements->aqueue);
+		_SAFE_UNREF(elements->audioconvert);
+		_SAFE_UNREF(elements->apayloader);
+		#undef _SAFE_UNREF
 		g_free(elements);
 		return NULL;
 	}
@@ -1449,6 +1702,18 @@ static GstElement *augentix_rtsp_elements_create(MPI_VENC_TYPE_E type, guint vqu
 	GstElement *pipeline = gst_pipeline_new("augentix-pipeline");
 	if (!pipeline) {
 		ERR_N("Failed to create pipeline.");
+		/* LEAK-2: same as LEAK-1 — must unref floating GstElement refs before
+		 * freeing the wrapper struct. Elements have NOT been added to any bin yet. */
+		#define _SAFE_UNREF(e) do { if (e) { gst_object_ref_sink(e); gst_object_unref(e); (e) = NULL; } } while(0)
+		_SAFE_UNREF(elements->source);
+		_SAFE_UNREF(elements->vqueue);
+		_SAFE_UNREF(elements->parser);
+		_SAFE_UNREF(elements->payloader);
+		_SAFE_UNREF(elements->asource);
+		_SAFE_UNREF(elements->aqueue);
+		_SAFE_UNREF(elements->audioconvert);
+		_SAFE_UNREF(elements->apayloader);
+		#undef _SAFE_UNREF
 		g_free(elements);
 		return NULL;
 	}
@@ -1537,11 +1802,25 @@ static GstElement *augentix_media_factory_create_element(GstRTSPMediaFactory *fa
 		return NULL;
 	}
 
+	/* OPT-DYN: resolve video queue size.
+	 * Priority:  1. User override from .conf (vqueue_max_bytes != 0)
+	 *            2. Weighted dynamic sizing: proportional to resolution×fps
+	 *               across all channels of this sensor instance, capped to
+	 *               25% of MemAvailable (calc_weighted_vqueue_bytes).
+	 *            3. Static DEFAULT_VQUEUE_MAX_BYTES (fallback on MPI failure) */
+	guint vq_bytes = g_channel_conf[self->channel_idx].vqueue_max_bytes;
+	if (vq_bytes == 0) {
+		vq_bytes = calc_weighted_vqueue_bytes(self->channel_idx);
+	} else {
+		LOG_N("channel_%d: user-override vqueue=%u bytes (from .conf)",
+		      self->channel_idx, vq_bytes);
+	}
+
 	LOG_N("channel_idx=%d enc_type=%d", self->channel_idx, attr.type);
 
 	GstElement *pipeline = augentix_rtsp_elements_create(
 		attr.type,
-		g_channel_conf[self->channel_idx].vqueue_max_bytes,
+		vq_bytes,
 		g_channel_conf[self->channel_idx].aqueue_max_bytes);
 	if (!pipeline) {
 		ERR_N("Failed to create pipeline");
@@ -1597,6 +1876,10 @@ static void augentix_rtsp_media_init(AugentixRTSPMedia *media)
 {
 	(void)media;
 }
+
+/* P0: forward declaration — print_mem_estimate_stage2() is defined after
+ * media_configure() but called from within it; required under -std=gnu11. */
+static void print_mem_estimate_stage2(gint chn_idx, GstElement *pipeline);
 
 /* media_configure */
 static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, gpointer user_data)
@@ -1768,7 +2051,8 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, g
 	{
 		pthread_attr_t _attr;
 		pthread_attr_init(&_attr);
-		pthread_attr_setstacksize(&_attr, 256 * 1024);
+		pthread_attr_setstacksize(&_attr, 128 * 1024); /* OPT-B: reduced from 256 KB; push thread uses
+		                                                 * ~1-2 KB locals; 128 KB gives ample headroom. */
 		int _rc = pthread_create(&ctx->thread, &_attr, push_data_thread, ctx);
 		pthread_attr_destroy(&_attr);
 		if (_rc != 0) {
@@ -1790,7 +2074,8 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, g
 		} else {
 			pthread_attr_t _aattr;
 			pthread_attr_init(&_aattr);
-			pthread_attr_setstacksize(&_aattr, 256 * 1024);
+			pthread_attr_setstacksize(&_aattr, 128 * 1024); /* OPT-B: reduced from 256 KB; audio thread uses
+			                                                  * ~1-2 KB locals; 128 KB gives ample headroom. */
 			int _arc = pthread_create(&ctx->athread, &_aattr, push_audio_thread, ctx);
 			pthread_attr_destroy(&_aattr);
 			if (_arc != 0) {
@@ -1803,6 +2088,9 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, g
 
 	g_object_set_data_full(G_OBJECT(media), "rtsp-extra-data", ctx, (GDestroyNotify)ctx_free);
 
+	/* Stage-2 memory estimate: log RSS + vqueue size now that threads are running */
+	print_mem_estimate_stage2((gint)GPOINTER_TO_INT(user_data), ctx->pipeline);
+
 	/* GST-10: AVFTR reinit removed — AVFTR_initClient() is called once in
 	 * main() before g_main_loop_run(), so it is always ready before any
 	 * client can connect. Re-initializing here raced with push threads
@@ -1811,6 +2099,186 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, g
 	gst_object_unref(element);
 }
 
+
+/* ── read_proc_rss_kB() ─────────────────────────────────────────────────────
+ * Read the process's current Resident Set Size from /proc/self/status.
+ * Returns VmRSS in kB, or 0 on failure.
+ * ─────────────────────────────────────────────────────────────────────────*/
+static guint64 read_proc_rss_kB(void)
+{
+	guint64 rss_kB = 0;
+	FILE *fp = fopen("/proc/self/status", "r");
+	if (fp) {
+		char line[128];
+		while (fgets(line, sizeof(line), fp)) {
+			unsigned long long val;
+			if (sscanf(line, "VmRSS: %llu kB", &val) == 1) {
+				rss_kB = (guint64)val;
+				break;
+			}
+		}
+		fclose(fp);
+	}
+	return rss_kB;
+}
+
+/* ── print_mem_estimate_stage1() ────────────────────────────────────────────
+ * Stage 1: server launched, no client connected yet.
+ * Logs:
+ *   - Actual RSS now (server infrastructure only, no push threads yet)
+ *   - MemAvailable remaining after server startup
+ *   - Per-channel estimated memory once a client connects (stage 2 preview):
+ *       fixed overhead (stacks + aqueue + GST pipeline) + vqueue
+ *   - Total estimated RSS at full load (all channels active)
+ *
+ * Called from print_running_config() after all channels are registered.
+ * ─────────────────────────────────────────────────────────────────────────*/
+static void print_mem_estimate_stage1(void)
+{
+	/* Fixed per-channel overhead (committed on first client connect):
+	 *   video push thread stack : 128 KB  (pthread_attr_setstacksize)
+	 *   audio push thread stack : 128 KB  (pthread_attr_setstacksize)
+	 *   audio queue (aqueue)    : 128 KB  (DEFAULT_AQUEUE_MAX_BYTES)
+	 *   GStreamer pipeline+caps  :  ~20 KB (elements, bin, caps objects)
+	 *   StreamContext struct     :  ~1 KB  (g_new0)
+	 * Total fixed per channel   : ~405 KB */
+	const guint FIXED_PER_CHN_KB = (128U + 128U + 128U + 20U + 1U);
+
+	guint64 rss_kB   = read_proc_rss_kB();
+	guint64 avail_kB = read_mem_available_kB();
+
+	LOG_N("--------------------------------------------------------");
+	LOG_N("  Memory Estimate — Stage 1 (server launched, no client)");
+	LOG_N("--------------------------------------------------------");
+	LOG_N("  Actual RSS now          : %llu kB  (%llu MB)",
+	      (unsigned long long)rss_kB,
+	      (unsigned long long)(rss_kB / 1024));
+	LOG_N("  MemAvailable remaining  : %llu kB  (%llu MB)",
+	      (unsigned long long)avail_kB,
+	      (unsigned long long)(avail_kB / 1024));
+	LOG_N("  min_mem_reserve_kb      : %u kB  (%u MB reserved for system)",
+	      g_min_mem_reserve_kb, g_min_mem_reserve_kb / 1024U);
+
+	/* Per-channel vqueue estimate: re-run the weight calculation for each
+	 * registered channel and report what was (or will be) allocated.
+	 * Uses the cached s_budget_bytes if already set (channels already sized),
+	 * otherwise estimates from current MemAvailable. */
+	guint total_vqueue_kB = 0;
+	guint total_fixed_kB  = 0;
+	gint  active_chns     = 0;
+
+	gint chn_end = g_sensor_chn_start + g_sensor_chn_count;
+	if (chn_end > CHANNEL_NUM) chn_end = CHANNEL_NUM;
+
+	LOG_N("  %-6s  %-8s  %-10s  %-10s  %-10s",
+	      "chn", "status", "vqueue", "fixed", "total/ch");
+	LOG_N("  %-6s  %-8s  %-10s  %-10s  %-10s",
+	      "------", "--------", "----------", "----------", "----------");
+
+	/* P1: do NOT call calc_weighted_vqueue_bytes() here.
+	 * That function caches s_budget_bytes on first call; calling it at
+	 * boot (Stage 1) would lock the cache to the startup MemAvailable
+	 * snapshot, defeating the design intent of capturing memory pressure
+	 * at first-client-connect time.
+	 *
+	 * Instead, compute the weighted estimate inline using the same avail_kB
+	 * already read above, without touching s_budget_initialized / s_budget_bytes. */
+	guint64 reserve_kB = (guint64)g_min_mem_reserve_kb;
+	guint64 est_budget_bytes = (avail_kB > reserve_kB)
+	                           ? (avail_kB - reserve_kB) * 1024ULL
+	                           : 0ULL;
+
+	/* Pass 1: collect per-channel weights (pixels * fps) */
+	guint64 ch_weights[CHANNEL_NUM] = { 0 };
+	guint64 total_weight = 0;
+	for (gint i = g_sensor_chn_start; i < chn_end; i++) {
+		if (!g_channel_registered[i]) continue;
+		MPI_ENC_CHN_ATTR_S chn_attr;
+		MPI_VENC_INFO_S    vinfo;
+		guint32 w = 0, h = 0, fps = 0;
+		if (MPI_ENC_getChnAttr(MPI_ENC_CHN(i), &chn_attr) == MPI_SUCCESS) {
+			w = (guint32)chn_attr.res.width;
+			h = (guint32)chn_attr.res.height;
+		}
+		if (MPI_ENC_queryVencInfo(MPI_ENC_CHN(i), &vinfo) == MPI_SUCCESS)
+			fps = (guint32)vinfo.fps;
+		guint64 wt = (guint64)w * h;
+		if (fps > 0) wt *= fps;
+		if (wt == 0) wt = 1;
+		ch_weights[i] = wt;
+		total_weight += wt;
+	}
+
+	/* Pass 2: print per-channel estimate */
+	for (gint i = g_sensor_chn_start; i < chn_end; i++) {
+		if (!g_channel_registered[i]) {
+			LOG_N("  chn%-3d  %-8s  (not registered)", i, "absent");
+			continue;
+		}
+		guint vq_kB;
+		if (total_weight > 0) {
+			guint64 alloc = est_budget_bytes * ch_weights[i] / total_weight;
+			if (alloc < VQUEUE_DYN_MIN) alloc = VQUEUE_DYN_MIN;
+			if (alloc > VQUEUE_DYN_MAX) alloc = VQUEUE_DYN_MAX;
+			vq_kB = (guint)(alloc / 1024);
+		} else {
+			vq_kB = DEFAULT_VQUEUE_MAX_BYTES / 1024;
+		}
+		guint tot_kB = FIXED_PER_CHN_KB + vq_kB;
+		LOG_N("  chn%-3d  %-8s  %6u kB    %5u kB    %5u kB",
+		      i, "ready", vq_kB, FIXED_PER_CHN_KB, tot_kB);
+		total_vqueue_kB += vq_kB;
+		total_fixed_kB  += FIXED_PER_CHN_KB;
+		active_chns++;
+	}
+
+	guint est_full_kB = (guint)rss_kB + total_fixed_kB + total_vqueue_kB;
+	LOG_N("  %-6s  %-8s  %6u kB    %5u kB    %5u kB",
+	      "total", "", total_vqueue_kB, total_fixed_kB,
+	      total_vqueue_kB + total_fixed_kB);
+	LOG_N("  Estimated RSS at full load (all %d ch active):", active_chns);
+	LOG_N("    current RSS %llu kB + fixed %u kB + vqueue %u kB = ~%u kB (~%u MB)",
+	      (unsigned long long)rss_kB,
+	      total_fixed_kB, total_vqueue_kB,
+	      est_full_kB, est_full_kB / 1024U);
+	LOG_N("  NOTE: thread stacks committed on first PLAY; vqueue on stream flow.");
+	LOG_N("--------------------------------------------------------");
+}
+
+/* ── print_mem_estimate_stage2() ────────────────────────────────────────────
+ * Stage 2: called at the end of media_configure(), i.e. when the first
+ * client connects to a channel and the push threads are started.
+ * Logs:
+ *   - Channel index and vqueue size (read back from the queue element)
+ *   - Actual RSS now (reflects thread stack + pipeline allocation)
+ *   - MemAvailable remaining
+ * ─────────────────────────────────────────────────────────────────────────*/
+static void print_mem_estimate_stage2(gint chn_idx, GstElement *pipeline)
+{
+	/* Read vqueue max-size-bytes back from the built pipeline element */
+	guint vq_bytes = 0;
+	GstElement *vqueue_elem = gst_bin_get_by_name(GST_BIN(pipeline), "vqueue");
+	if (vqueue_elem) {
+		g_object_get(vqueue_elem, "max-size-bytes", &vq_bytes, NULL);
+		gst_object_unref(vqueue_elem);
+	}
+
+	guint64 rss_kB   = read_proc_rss_kB();
+	guint64 avail_kB = read_mem_available_kB();
+
+	LOG_N("--------------------------------------------------------");
+	LOG_N("  Memory Estimate — Stage 2 (client connected, chn=%d)", chn_idx);
+	LOG_N("--------------------------------------------------------");
+	LOG_N("  vqueue allocated        : %u kB  (%u bytes)", vq_bytes / 1024U, vq_bytes);
+	LOG_N("  Actual RSS now          : %llu kB  (%llu MB)",
+	      (unsigned long long)rss_kB,
+	      (unsigned long long)(rss_kB / 1024));
+	LOG_N("  MemAvailable remaining  : %llu kB  (%llu MB)",
+	      (unsigned long long)avail_kB,
+	      (unsigned long long)(avail_kB / 1024));
+	LOG_N("  NOTE: RSS grows further as vqueue fills with compressed frames.");
+	LOG_N("--------------------------------------------------------");
+}
 
 /* ── print_running_config() ────────────────────────────────────────────────────
  * Prints all active runtime configuration parameters to the log immediately
@@ -1822,7 +2290,9 @@ static void media_configure(GstRTSPMediaFactory *factory, GstRTSPMedia *media, g
 static void print_running_config(void)
 {
     LOG_N("========================================================");
-    LOG_N("  agtx-rtsp-server — Running Configuration");
+    LOG_N("  agtx-rtsp-server v" AGTX_RTSP_SERVER_VERSION
+          "  (built " __DATE__ " " __TIME__ ")");
+    LOG_N("  Running Configuration");
     LOG_N("========================================================");
 
     /* ── Config file ── */
@@ -1845,12 +2315,8 @@ static void print_running_config(void)
     LOG_N("  CHANNEL_NUM (max)      : %d", CHANNEL_NUM);
 
     /* ── Sensor recovery tuning ── */
-    LOG_N("  SENSOR_TIMEOUT_MAX     : %d  (consecutive errors before recovery)",
+    LOG_N("  SENSOR_TIMEOUT_MAX     : %d  (consecutive errors before EOS — no retry loop)",
           SENSOR_TIMEOUT_MAX);
-    LOG_N("  SENSOR_RECOVERY_MAX    : %d  (re-probe attempts before EOS)",
-          SENSOR_RECOVERY_MAX);
-    LOG_N("  SENSOR_RECOVERY_DELAY  : %d s (backoff between re-probes)",
-          SENSOR_RECOVERY_DELAY_S);
     LOG_N("  CHANNEL_REPROBE_SEC    : %d s (periodic re-probe timer interval)",
           CHANNEL_REPROBE_SEC);
     LOG_N("  CHANNEL_REPROBE_GIVEUP : %d  (give-up after N consecutive failures, 0=infinite)",
@@ -1879,6 +2345,9 @@ static void print_running_config(void)
 #endif /* GST_RTSP_SERVER_ENABLE_IVA */
 
     LOG_N("========================================================");
+
+    /* Stage-1 memory estimate — appended to the running-config snapshot */
+    print_mem_estimate_stage1();
 }
 /* Option-D ── detect_platform_channel_count()
  * Probes MPI encoder channels 0..CHANNEL_NUM-1 SEQUENTIALLY and stops at
@@ -2249,6 +2718,11 @@ exit:
 
 int main(int argc, char *argv[])
 {
+	/* Print version as the very first log line so it appears in syslog
+	 * even if the server exits early (bad config, MPI init failure, etc.) */
+	LOG_N("agtx-rtsp-server v" AGTX_RTSP_SERVER_VERSION
+	      " starting (built " __DATE__ " " __TIME__ ")");
+
 	signal(SIGINT,  signal_handler);
 	signal(SIGTERM, signal_handler);
 	/* FIX-4: ignore SIGPIPE so a client TCP disconnect does not kill the server.

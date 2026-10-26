@@ -1,0 +1,6 @@
+AUGENTIX COMMON
+M:	Will Chuang <shichu@qti.qualcomm.com>
+S:	Maintained
+F:	board/augentix/common/
+F:	arch/arm/mach-augentix/
+F:	include/configs/augentix_common.h

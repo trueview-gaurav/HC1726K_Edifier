@@ -1,0 +1,22 @@
+# Shared board settings.
+
+config EFUSE_FSM_AUTOBURN
+	bool "Enable eFuse Auto-Burn"
+	select MMC
+	select DM_MMC
+	select MMC_DW
+	select BOUNCE_BUFFER
+	select FS_FAT
+	select BOARD_LATE_INIT
+	select ARM_SMCCC if AUGENTIX_SOC_SAPPORO
+	default n
+	help
+	  Enable automatic eFuse burning during factory boot when factory_mode=1.
+	  SPL eFuse API table at SPL+0x60 (0xFFE00860) is always built-in.
+
+config EB_SMC
+	bool
+	default y if ARM_SMCCC && AUGENTIX_OPTEE
+	help
+	  Route the eFuse ops through OP-TEE. Unset reaches the controller
+	  registers directly at EB_CTRL_BASE.

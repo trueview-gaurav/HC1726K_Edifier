@@ -13,8 +13,34 @@
 ### END INIT INFO
 
 ZRAM_DEV="/dev/zram0"
-ZRAM_SIZE="4M"      # 壓縮前大小，建議約 50% RAM
-COMP_ALG="lz4"       # 壓縮演算法
+DEFAULT_ZRAM_SIZE="4M"      # 未提供 product 設定時的預設值，建壓縮前大小，建議約 50% RAM 
+ZRAM_SIZE="$DEFAULT_ZRAM_SIZE"
+COMP_ALG="lz4"              # 壓縮演算法
+
+# Product-specific settings are provided through
+# rootfs/add.list.d/<product>/assets.
+# A reboot is required for changes to /etc/zram_size.conf to take effect.
+CONFIG_FILE="/etc/zram_size.conf"
+
+
+if [ -r "$CONFIG_FILE" ]; then
+    CONFIG_ZRAM_SIZE=$(awk -F'"' '
+        /^ZRAM_SIZE="/ {
+            value = $2
+            if (value ~ /^[0-9]+[KMG]$/)
+                print value
+            exit
+        }
+    ' "$CONFIG_FILE")
+
+    if [ -n "$CONFIG_ZRAM_SIZE" ]; then
+        ZRAM_SIZE="$CONFIG_ZRAM_SIZE"
+    else
+        echo "Warning: invalid ZRAM_SIZE in $CONFIG_FILE; use default $DEFAULT_ZRAM_SIZE"
+    fi
+fi
+
+
 
 case "$1" in
   start)

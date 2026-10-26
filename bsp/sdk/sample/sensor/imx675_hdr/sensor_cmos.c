@@ -60,11 +60,11 @@ typedef enum {
 	IDX_L_GAIN_1,
 	IDX_L_GAIN_2,
 	/* Short exposure */
-    IDX_S_SHS_1,
-    IDX_S_SHS_2,
-    IDX_S_SHS_3,
-    IDX_S_GAIN_1,
-    IDX_S_GAIN_2,
+	IDX_S_SHS_1,
+	IDX_S_SHS_2,
+	IDX_S_SHS_3,
+	IDX_S_GAIN_1,
+	IDX_S_GAIN_2,
 
 	IDX_NUM,
 } I2C_DATA_IDX_E;
@@ -209,8 +209,8 @@ static int SENSOR_getRegsInfo(MPI_PATH idx, MPI_SNS_REGS_TABLE_S *regs)
 static void SENSOR_globalInit(MPI_PATH idx)
 {
 	int64_t pclk = PCLK;
-    int line_pixel = INIT_LINE_LEN;
-    int frame_line = INIT_FRAME_LINE;
+	int line_pixel = INIT_LINE_LEN;
+	int frame_line = INIT_FRAME_LINE;
 
 	g_sensor_state[idx.path].sensor_gain = 32;
 	g_sensor_state[idx.path].pclk = pclk;
@@ -241,39 +241,40 @@ static void SENSOR_globalInit(MPI_PATH idx)
 
 	/* ---------- Long exposure (LEF) ---------- */
 	uint32_t effc_frame_line = INIT_FRAME_LINE * 2;
-	uint32_t long_exp_max = effc_frame_line - RHS1 - LONG_EXP_LINE_GAP;
 
 	g_sns_state[idx.path]->exp_info[0].effective_frame_line = effc_frame_line;
-    g_sns_state[idx.path]->exp_info[0].exp_gap = LONG_EXP_LINE_GAP;
-    g_sns_state[idx.path]->exp_info[0].hard_exp_max = long_exp_max;
-    g_sns_state[idx.path]->exp_info[0].curr_exp_max = long_exp_max;
-    g_sns_state[idx.path]->exp_info[0].exp_min = LONG_EXP_LINE_MIN;
-    g_sns_state[idx.path]->exp_info[0].exp_line = LONG_EXP_LINE_MIN;
-    g_sns_state[idx.path]->exp_info[0].inttime = 30;
-    g_sns_state[idx.path]->exp_info[0].sensor_gain = 32;
+	g_sns_state[idx.path]->exp_info[0].exp_gap = LONG_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[0].hard_exp_max = SENSOR_FRAME_LINES_MAX * 2 - RHS1 - LONG_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[0].curr_exp_max = INIT_FRAME_LINE * 2 - RHS1 - LONG_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[0].exp_min = LONG_EXP_LINE_MIN;
+	// FIXME: set a value that is accepted by both settings?
+	g_sns_state[idx.path]->exp_info[0].exp_line = 1056;
+	g_sns_state[idx.path]->exp_info[0].inttime = 16000;
+	g_sns_state[idx.path]->exp_info[0].sensor_gain = 32;
 
-    g_sns_state[idx.path]->exp_info[0].shs_idx[0] = IDX_L_SHS_1;
-    g_sns_state[idx.path]->exp_info[0].shs_idx[1] = IDX_L_SHS_2;
-    g_sns_state[idx.path]->exp_info[0].shs_idx[2] = IDX_L_SHS_3;
-    g_sns_state[idx.path]->exp_info[0].gain_idx[0] = IDX_L_GAIN_1;
+	g_sns_state[idx.path]->exp_info[0].shs_idx[0] = IDX_L_SHS_1;
+	g_sns_state[idx.path]->exp_info[0].shs_idx[1] = IDX_L_SHS_2;
+	g_sns_state[idx.path]->exp_info[0].shs_idx[2] = IDX_L_SHS_3;
+	g_sns_state[idx.path]->exp_info[0].gain_idx[0] = IDX_L_GAIN_1;
 	g_sns_state[idx.path]->exp_info[0].gain_idx[1] = IDX_L_GAIN_2;
 
 	/* ---------- Short exposure (SEF) ---------- */
-    effc_frame_line = RHS1;
+	effc_frame_line = RHS1;
 
-    g_sns_state[idx.path]->exp_info[1].effective_frame_line = effc_frame_line;
-    g_sns_state[idx.path]->exp_info[1].exp_gap = SHORT_EXP_LINE_GAP;
-    g_sns_state[idx.path]->exp_info[1].hard_exp_max = effc_frame_line - SHORT_EXP_LINE_GAP;
-    g_sns_state[idx.path]->exp_info[1].curr_exp_max = effc_frame_line - SHORT_EXP_LINE_GAP;
-    g_sns_state[idx.path]->exp_info[1].exp_min = SHORT_EXP_LINE_MIN;
-    g_sns_state[idx.path]->exp_info[1].exp_line = SHORT_EXP_LINE_MIN;
-    g_sns_state[idx.path]->exp_info[1].inttime = 30;
-    g_sns_state[idx.path]->exp_info[1].sensor_gain = 32;
+	g_sns_state[idx.path]->exp_info[1].effective_frame_line = effc_frame_line;
+	g_sns_state[idx.path]->exp_info[1].exp_gap = SHORT_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[1].hard_exp_max = effc_frame_line - SHORT_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[1].curr_exp_max = effc_frame_line - SHORT_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[1].exp_min = SHORT_EXP_LINE_MIN;
+	// FIXME: set a value that is accepted by both settings?
+	g_sns_state[idx.path]->exp_info[1].exp_line = 132;
+	g_sns_state[idx.path]->exp_info[1].inttime = 2000;
+	g_sns_state[idx.path]->exp_info[1].sensor_gain = 32;
 
-    g_sns_state[idx.path]->exp_info[1].shs_idx[0] = IDX_S_SHS_1;
-    g_sns_state[idx.path]->exp_info[1].shs_idx[1] = IDX_S_SHS_2;
-    g_sns_state[idx.path]->exp_info[1].shs_idx[2] = IDX_S_SHS_3;
-    g_sns_state[idx.path]->exp_info[1].gain_idx[0] = IDX_S_GAIN_1;
+	g_sns_state[idx.path]->exp_info[1].shs_idx[0] = IDX_S_SHS_1;
+	g_sns_state[idx.path]->exp_info[1].shs_idx[1] = IDX_S_SHS_2;
+	g_sns_state[idx.path]->exp_info[1].shs_idx[2] = IDX_S_SHS_3;
+	g_sns_state[idx.path]->exp_info[1].gain_idx[0] = IDX_S_GAIN_1;
 	g_sns_state[idx.path]->exp_info[1].gain_idx[1] = IDX_S_GAIN_2;
 
 }
@@ -281,18 +282,18 @@ static void SENSOR_globalInit(MPI_PATH idx)
 static int32_t SENSOR_setInttimeHdr( MPI_PATH idx, uint32_t image_idx, uint32_t time_us, uint32_t *effective_time)
 {
 	uint32_t hard_exp_max = g_sns_state[idx.path]->exp_info[image_idx].hard_exp_max;
-    uint32_t curr_exp_max = g_sns_state[idx.path]->exp_info[image_idx].curr_exp_max;
-    uint32_t exp_min      = g_sns_state[idx.path]->exp_info[image_idx].exp_min;
+	uint32_t curr_exp_max = g_sns_state[idx.path]->exp_info[image_idx].curr_exp_max;
+	uint32_t exp_min = g_sns_state[idx.path]->exp_info[image_idx].exp_min;
 
-    if (time_us <= 0) {
+	if (time_us <= 0) {
 		sensor_log_err("Exposure time must be greater than than 0.");
 		return MPI_FAILURE;
 	}
-    if (g_sns_state[idx.path]->row_time[0] <= 0) {
+	if (g_sns_state[idx.path]->row_time[0] <= 0) {
 		sensor_log_err("Internal parameters might not be correctly initialized.");
 		return MPI_FAILURE;
 	}
-    if (image_idx >= HDR_IMAGE_NUM) {
+	if (image_idx >= HDR_IMAGE_NUM) {
 		sensor_log_err("Sub image index exceeds the current limit.");
 		return MPI_FAILURE;
 	}
@@ -322,48 +323,47 @@ static int32_t SENSOR_setInttimeHdr( MPI_PATH idx, uint32_t image_idx, uint32_t 
 	g_sns_state[idx.path]->exp_info[image_idx].inttime = time_tmp;
 
 	if (effective_time)
-        *effective_time = time_tmp;
+		*effective_time = time_tmp;
 
-    uint32_t shs;
-    if (image_idx == 0) {
-        /* Long exposure */
-        uint32_t long_exp_max = g_sns_state[idx.path]->exp_info[0].effective_frame_line
-                                - RHS1
-                                - LONG_EXP_LINE_GAP;
-        if (exp_line > long_exp_max) {
-            exp_line = long_exp_max;
-        }
-        shs = g_sns_state[idx.path]->exp_info[0].effective_frame_line - exp_line;
+	uint32_t shs;
+	if (image_idx == 0) {
+		/* Long exposure */
+		uint32_t long_exp_max =
+		        g_sns_state[idx.path]->exp_info[0].effective_frame_line - RHS1 - LONG_EXP_LINE_GAP;
+		if (exp_line > long_exp_max) {
+			exp_line = long_exp_max;
+		}
+		shs = g_sns_state[idx.path]->exp_info[0].effective_frame_line - exp_line;
 
-        uint32_t shs_min = RHS1 + LONG_EXP_LINE_GAP;
-        if (shs < shs_min) {
-            shs = shs_min;
-        }
-    } else {
-        /* Short exposure */
-        uint32_t short_exp_max = RHS1 - SHORT_EXP_LINE_GAP;
-        if (exp_line > short_exp_max) {
-            exp_line = short_exp_max;
-        }
-        shs = RHS1 - exp_line;
+		uint32_t shs_min = RHS1 + LONG_EXP_LINE_GAP;
+		if (shs < shs_min) {
+			shs = shs_min;
+		}
+	} else {
+		/* Short exposure */
+		uint32_t short_exp_max = RHS1 - SHORT_EXP_LINE_GAP;
+		if (exp_line > short_exp_max) {
+			exp_line = short_exp_max;
+		}
+		shs = RHS1 - exp_line;
 
-        if (shs < SHORT_EXP_LINE_GAP) {
-            shs = SHORT_EXP_LINE_GAP;
-        }
-    }
+		if (shs < SHORT_EXP_LINE_GAP) {
+			shs = SHORT_EXP_LINE_GAP;
+		}
+	}
 
 	int i0 = g_sns_state[idx.path]->exp_info[image_idx].shs_idx[0];
-    int i1 = g_sns_state[idx.path]->exp_info[image_idx].shs_idx[1];
-    int i2 = g_sns_state[idx.path]->exp_info[image_idx].shs_idx[2];
+	int i1 = g_sns_state[idx.path]->exp_info[image_idx].shs_idx[1];
+	int i2 = g_sns_state[idx.path]->exp_info[image_idx].shs_idx[2];
 
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i0].reg_data = (shs & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i1].reg_data = (shs >> 8) & 0xFF;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i2].reg_data = (shs >> 16) & 0x0F;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i0].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i1].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[i2].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i0].reg_data = (shs & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i1].reg_data = (shs >> 8) & 0xFF;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i2].reg_data = (shs >> 16) & 0x0F;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i0].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[i2].is_update = true;
 
-    return MPI_SUCCESS;
+	return MPI_SUCCESS;
 }
 
 static int32_t SENSOR_setInttime(MPI_PATH idx, uint32_t time_us, uint32_t *effective_time)
@@ -373,122 +373,115 @@ static int32_t SENSOR_setInttime(MPI_PATH idx, uint32_t time_us, uint32_t *effec
 
 static int32_t SENSOR_setSensorGainHdr(MPI_PATH idx, uint32_t image_idx, uint32_t gain)
 {
-    if (image_idx >= HDR_IMAGE_NUM)
-        return MPI_FAILURE;
+	if (image_idx >= HDR_IMAGE_NUM)
+		return MPI_FAILURE;
 
-    if (gain < SENSOR_GAIN_MIN || gain > SENSOR_GAIN_MAX)
-        return MPI_FAILURE;
+	if (gain < SENSOR_GAIN_MIN || gain > SENSOR_GAIN_MAX)
+		return MPI_FAILURE;
 
-    g_sns_state[idx.path]->exp_info[image_idx].sensor_gain = gain;
+	g_sns_state[idx.path]->exp_info[image_idx].sensor_gain = gain;
 
-    int target_bin = binary_search_nr(gain, sony_gain_val, 0, SONY_BIN - 1);
-    int diff_low  = gain - sony_gain_val[target_bin];
-    int diff_high = sony_gain_val[target_bin + 1] - gain;
-    int gain_sensor_bin = diff_low < diff_high ? sony_gain_bin[target_bin] : sony_gain_bin[target_bin + 1];
+	int target_bin = binary_search_nr(gain, sony_gain_val, 0, SONY_BIN - 1);
+	int diff_low = gain - sony_gain_val[target_bin];
+	int diff_high = sony_gain_val[target_bin + 1] - gain;
+	int gain_sensor_bin = diff_low < diff_high ? sony_gain_bin[target_bin] : sony_gain_bin[target_bin + 1];
 
-    int idx0 = g_sns_state[idx.path]->exp_info[image_idx].gain_idx[0];
-    int idx1 = g_sns_state[idx.path]->exp_info[image_idx].gain_idx[1];
+	int idx0 = g_sns_state[idx.path]->exp_info[image_idx].gain_idx[0];
+	int idx1 = g_sns_state[idx.path]->exp_info[image_idx].gain_idx[1];
 
-    g_sns_state[idx.path]->regs_info[0].i2c_data[idx0].reg_data = (gain_sensor_bin & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[idx1].reg_data = (gain_sensor_bin >> 8) & 0x01;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[idx0].reg_data = (gain_sensor_bin & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[idx1].reg_data = (gain_sensor_bin >> 8) & 0x01;
 
-    g_sns_state[idx.path]->regs_info[0].i2c_data[idx0].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[idx1].is_update = true;
-    return MPI_SUCCESS;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[idx0].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[idx1].is_update = true;
+	return MPI_SUCCESS;
 }
 
 static int32_t SENSOR_setSensorGain(MPI_PATH idx, uint32_t gain)
 {
-    return SENSOR_setSensorGainHdr(idx, 0, gain);
+	return SENSOR_setSensorGainHdr(idx, 0, gain);
 }
 
 static int32_t SENSOR_setFramrate(MPI_PATH idx, float fps, RANGE_S *inttime)
 {
-    if (fps <= 0.0f) {
-        sensor_log_err("FPS must be greater than 0.");
-        return MPI_FAILURE;
-    }
+	if (fps <= 0.0f) {
+		sensor_log_err("FPS must be greater than 0.");
+		return MPI_FAILURE;
+	}
 
-    if (g_sns_state[idx.path]->line_pixel[0] == 0 || g_sns_state[idx.path]->row_time[0] == 0) {
+	if (g_sns_state[idx.path]->line_pixel[0] == 0 || g_sns_state[idx.path]->row_time[0] == 0) {
 		sensor_log_err("Internal parameters might not be correctly initialized.");
 		return MPI_FAILURE;
 	}
 
-    int32_t line_pixel = g_sns_state[idx.path]->line_pixel[0];
+	int32_t line_pixel = g_sns_state[idx.path]->line_pixel[0];
 
-    /* HDR: sensor effectively runs 2 frames per output frame */
-    int64_t pclk = g_sns_state[idx.path]->pclk;
+	/* HDR: sensor effectively runs 2 frames per output frame */
+	int64_t pclk = g_sns_state[idx.path]->pclk;
 
-    int64_t sec_line =(((int64_t)pclk << FPS_PRC) + (line_pixel >> 1)) / line_pixel;
+	int64_t sec_line = (((int64_t)pclk << FPS_PRC) + (line_pixel >> 1)) / line_pixel;
 
-    if (sec_line == 0)
-        return MPI_FAILURE;
+	if (sec_line == 0)
+		return MPI_FAILURE;
 
-    int32_t fps_i = (int32_t)(fps * FPS_UNIT);
-    int32_t frame_line = (sec_line + (fps_i >> 1)) / fps_i / 2;
-    frame_line = (frame_line < 1) ? 1 : frame_line;
+	int32_t fps_i = (int32_t)(fps * FPS_UNIT);
+	int32_t frame_line = (sec_line + (fps_i >> 1)) / fps_i / 2;
+	frame_line -= frame_line % 2;
+	frame_line = (frame_line < 2) ? 2 : frame_line;
 
-    if (frame_line > SENSOR_FRAME_LINES_MAX || frame_line < SENSOR_FRAME_LINES_MIN) {
-        sensor_log_err("Requested fps exceeds driver limit.");
-        return MPI_FAILURE;
-    }
+	if (frame_line > SENSOR_FRAME_LINES_MAX || frame_line < SENSOR_FRAME_LINES_MIN) {
+		sensor_log_err("Requested fps exceeds driver limit.");
+		return MPI_FAILURE;
+	}
 
-    /* ---------- HDR exposure constraints ---------- */
-    int32_t effc_frame_line = frame_line * 2;
+	/* ---------- HDR exposure constraints ---------- */
+	int32_t effc_frame_line = frame_line * 2;
 
-    g_sns_state[idx.path]->frame_line[0] = frame_line;
-    g_sns_state[idx.path]->exp_info[0].effective_frame_line = effc_frame_line;
+	g_sns_state[idx.path]->frame_line[0] = frame_line;
+	g_sns_state[idx.path]->exp_info[0].effective_frame_line = effc_frame_line;
 
-    /* Long exposure max */
-    g_sns_state[idx.path]->exp_info[0].curr_exp_max =
-        effc_frame_line - RHS1 - LONG_EXP_LINE_GAP;
+	/* Long exposure max */
+	g_sns_state[idx.path]->exp_info[0].curr_exp_max = effc_frame_line - RHS1 - LONG_EXP_LINE_GAP;
 
-    /* Short exposure max */
-    g_sns_state[idx.path]->exp_info[1].curr_exp_max =
-        RHS1 - SHORT_EXP_LINE_GAP;
+	/* Short exposure max */
+	g_sns_state[idx.path]->exp_info[1].curr_exp_max = RHS1 - SHORT_EXP_LINE_GAP;
 
-    /* ---------- Update exposure for each image ---------- */
-    for (int image_idx = 0; image_idx < HDR_IMAGE_NUM; image_idx++) {
+	/* ---------- Update exposure for each image ---------- */
+	for (int image_idx = 0; image_idx < HDR_IMAGE_NUM; image_idx++) {
+		int32_t row_time = g_sns_state[idx.path]->row_time[0];
+		uint32_t exp_line_max = g_sns_state[idx.path]->exp_info[image_idx].curr_exp_max;
 
-        int32_t row_time = g_sns_state[idx.path]->row_time[0];
-        uint32_t exp_line_max =
-            g_sns_state[idx.path]->exp_info[image_idx].curr_exp_max;
+		uint32_t inttime_max = ((exp_line_max * row_time + (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
 
-        uint32_t inttime_max =
-            ((exp_line_max * row_time + (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
+		uint32_t inttime_min =
+		        ((g_sns_state[idx.path]->exp_info[image_idx].exp_min * row_time + (ROW_TIME_UNIT >> 1)) >>
+		         ROW_TIME_PRC) +
+		        1;
 
-        uint32_t inttime_min =
-            ((g_sns_state[idx.path]->exp_info[image_idx].exp_min *
-              row_time + (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
+		inttime_max += IMX675_INT_ERROR;
+		inttime_min += IMX675_INT_ERROR;
 
-        inttime_max += IMX675_INT_ERROR;
-        inttime_min += IMX675_INT_ERROR;
+		if (g_sns_state[idx.path]->exp_info[image_idx].exp_line > exp_line_max) {
+			SENSOR_setInttimeHdr(idx, image_idx, inttime_max, NULL);
+		} else {
+			SENSOR_setInttimeHdr(idx, image_idx, g_sns_state[idx.path]->exp_info[image_idx].inttime, NULL);
+		}
 
-        if (g_sns_state[idx.path]->exp_info[image_idx].exp_line > exp_line_max)
-            SENSOR_setInttimeHdr(idx, image_idx, inttime_max, NULL);
-        else
-            SENSOR_setInttimeHdr(idx, image_idx,
-                                 g_sns_state[idx.path]->exp_info[image_idx].inttime,
-                                 NULL);
+		if (image_idx == 0 && inttime) {
+			inttime->max = inttime_max;
+			inttime->min = inttime_min;
+		}
+	}
 
-        if (image_idx == 0 && inttime) {
-            inttime->max = inttime_max;
-            inttime->min = inttime_min;
-        }
-    }
+	/* ---------- Write VMAX ---------- */
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data = (frame_line & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data = ((frame_line >> 8) & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].reg_data = ((frame_line >> 16) & 0x0F);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].is_update = true;
 
-    /* ---------- Write VMAX ---------- */
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data =
-        (frame_line & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data =
-        ((frame_line >> 8) & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].reg_data =
-        ((frame_line >> 16) & 0x0F);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].is_update = true;
-
-    return MPI_SUCCESS;
+	return MPI_SUCCESS;
 }
 
 static int32_t SENSOR_setSlowInttimeHdr(MPI_PATH idx, uint32_t image_idx, uint32_t time_us, float *fps)
@@ -513,37 +506,39 @@ static int32_t SENSOR_setSlowInttimeHdr(MPI_PATH idx, uint32_t image_idx, uint32
 	if (exp_line <= 0) {
 		sensor_log_err("Invalid integration time.");
 		return MPI_FAILURE;
-    }
+	}
 
-    int32_t effc_frame_line = exp_line + RHS1 + LONG_EXP_LINE_GAP;
+	int32_t fsc = exp_line + RHS1 + LONG_EXP_LINE_GAP;
+	fsc += 4 - (fsc % 4);
 
-    int vmax = effc_frame_line;
+	int vmax = fsc / 2;
 
-    if (effc_frame_line > SENSOR_FRAME_LINES_MAX || effc_frame_line < SENSOR_FRAME_LINES_MIN) {
-        sensor_log_err("Exposure time or FPS exceeds hardware limit.");
-        return MPI_FAILURE;
+	if (vmax > SENSOR_FRAME_LINES_MAX || vmax < SENSOR_FRAME_LINES_MIN) {
+		sensor_log_err("Exposure time or FPS exceeds hardware limit.");
+		return MPI_FAILURE;
 	}
 	if (fps) {
-        int64_t temp = (int64_t)effc_frame_line * g_sns_state[idx.path]->line_pixel[0];
-	*fps = (float)g_sns_state[idx.path]->pclk / (float)temp / 2;
-    }
+		int64_t temp = (int64_t)fsc * g_sns_state[idx.path]->line_pixel[0];
+		*fps = (float)g_sns_state[idx.path]->pclk / (float)temp / 2;
+	}
 
-    g_sns_state[idx.path]->exp_info[0].effective_frame_line = vmax;
-    g_sns_state[idx.path]->exp_info[0].curr_exp_max = effc_frame_line - RHS1 - LONG_EXP_LINE_GAP;
+	g_sns_state[idx.path]->exp_info[0].effective_frame_line = fsc;
+	g_sns_state[idx.path]->exp_info[0].curr_exp_max = fsc - RHS1 - LONG_EXP_LINE_GAP;
 
-    int ret = SENSOR_setInttimeHdr(idx, image_idx, time_us, NULL);
-    if (ret != MPI_SUCCESS)
-        return ret;
+	int ret = SENSOR_setInttimeHdr(idx, image_idx, time_us, NULL);
+	if (ret != MPI_SUCCESS) {
+		return ret;
+	}
 
-    g_sns_state[idx.path]->frame_line[0] = vmax;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data = (vmax & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data = ((vmax >> 8) & 0xFF);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].reg_data = ((vmax >> 16) & 0x0F);
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
-    g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].is_update = true;
+	g_sns_state[idx.path]->frame_line[0] = vmax;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].reg_data = (vmax & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].reg_data = ((vmax >> 8) & 0xFF);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].reg_data = ((vmax >> 16) & 0x0F);
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_1].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_2].is_update = true;
+	g_sns_state[idx.path]->regs_info[0].i2c_data[IDX_VMAX_3].is_update = true;
 
-    return MPI_SUCCESS;
+	return MPI_SUCCESS;
 }
 
 static int32_t SENSOR_setSlowInttime(MPI_PATH idx, uint32_t time_us, float *fps)
@@ -553,28 +548,28 @@ static int32_t SENSOR_setSlowInttime(MPI_PATH idx, uint32_t time_us, float *fps)
 
 static int SENSOR_getAeDefault(MPI_PATH idx, MPI_AE_SNS_DEFAULT_S *dft)
 {
-    /* ---------- HDR basic info ---------- */
-    dft->hdr.image_num = HDR_IMAGE_NUM;
+	/* ---------- HDR basic info ---------- */
+	dft->hdr.image_num = HDR_IMAGE_NUM;
 
-    for (int i = 0; i < HDR_IMAGE_NUM; i++) {
-        dft->hdr.hdr_inttime_range[i].max =
-            ((g_sns_state[idx.path]->exp_info[i].hard_exp_max *
-              g_sns_state[idx.path]->row_time[0] +
-              (ROW_TIME_UNIT >> 1)) >> ROW_TIME_PRC);
+	for (int i = 0; i < HDR_IMAGE_NUM; i++) {
+		dft->hdr.hdr_inttime_range[i].max =
+		        ((g_sns_state[idx.path]->exp_info[i].hard_exp_max * g_sns_state[idx.path]->row_time[0] +
+		          (ROW_TIME_UNIT >> 1)) >>
+		         ROW_TIME_PRC);
 
-	dft->hdr.hdr_inttime_range[i].min =
-		((g_sns_state[idx.path]->exp_info[i].exp_min * g_sns_state[idx.path]->row_time[0] +
-		  (ROW_TIME_UNIT >> 1)) >>
-		 ROW_TIME_PRC) +
-		1;
-    }
+		dft->hdr.hdr_inttime_range[i].min =
+		        ((g_sns_state[idx.path]->exp_info[i].exp_min * g_sns_state[idx.path]->row_time[0] +
+		          (ROW_TIME_UNIT >> 1)) >>
+		         ROW_TIME_PRC) +
+		        1;
+	}
 
-    /* ---------- AE main exposure uses LE (index 0) ---------- */
-    dft->inttime_range.max = dft->hdr.hdr_inttime_range[0].max;
-    dft->inttime_range.min = dft->hdr.hdr_inttime_range[0].min;
-	 /* ---------- Gain ranges (sensor spec) ---------- */
-    dft->sensor_gain_range.max = SENSOR_GAIN_MAX;
-    dft->sensor_gain_range.min = SENSOR_GAIN_MIN;
+	/* ---------- AE main exposure uses LE (index 0) ---------- */
+	dft->inttime_range.max = dft->hdr.hdr_inttime_range[0].max;
+	dft->inttime_range.min = dft->hdr.hdr_inttime_range[0].min;
+	/* ---------- Gain ranges (sensor spec) ---------- */
+	dft->sensor_gain_range.max = SENSOR_GAIN_MAX;
+	dft->sensor_gain_range.min = SENSOR_GAIN_MIN;
 
 	dft->target_sys_gain_range.max = 3200;
 	dft->target_sys_gain_range.min = 32;
@@ -644,36 +639,31 @@ static int SENSOR_getCalDefault(MPI_PATH idx, MPI_CAL_SNS_DEFAULT_S *cal)
 static int SENSOR_regCallback(MPI_PATH idx)
 {
 	MPI_SNS_CALLBACK_S sensor_callback = {
-		.dip =
-		        {
-						.global_init = SENSOR_globalInit,
-						.get_regs_info = SENSOR_getRegsInfo,
-		                .init = SENSOR_configInit,
-		                .get_sns_op_info = SENSOR_getOpInfo,
-		                .get_dip_default = SENSOR_getDipDefault,
-		                .exit = SENSOR_configExit,
-
-		        },
-		.cal =
-		        {
-		                .get_black_level = SENSOR_getBlackLevel,
-		                .get_cal_default = SENSOR_getCalDefault,
-		        },
-		.ae =
-		        {
-						.set_framerate = SENSOR_setFramrate,
-						.set_inttime = SENSOR_setInttime,
-						.set_sensor_gain = SENSOR_setSensorGain,
-		                .get_ae_default = SENSOR_getAeDefault,
-		                .set_slow_inttime = SENSOR_setSlowInttime,
-		                .set_slow_inttime_hdr = SENSOR_setSlowInttimeHdr,
-		                .set_inttime_hdr = SENSOR_setInttimeHdr,
-		                .set_sensor_gain_hdr = SENSOR_setSensorGainHdr,
-		        },
-		.awb =
-		        {
-		                .get_awb_default = SENSOR_getAwbDefault,
-		        },
+		.dip = {
+			.global_init = SENSOR_globalInit,
+			.get_regs_info = SENSOR_getRegsInfo,
+			.init = SENSOR_configInit,
+			.get_sns_op_info = SENSOR_getOpInfo,
+			.get_dip_default = SENSOR_getDipDefault,
+			.exit = SENSOR_configExit,
+		},
+		.cal = {
+			.get_black_level = SENSOR_getBlackLevel,
+			.get_cal_default = SENSOR_getCalDefault,
+		},
+		.ae = {
+			.set_framerate = SENSOR_setFramrate,
+			.set_inttime = SENSOR_setInttime,
+			.set_sensor_gain = SENSOR_setSensorGain,
+			.get_ae_default = SENSOR_getAeDefault,
+			.set_slow_inttime = SENSOR_setSlowInttime,
+			.set_slow_inttime_hdr = SENSOR_setSlowInttimeHdr,
+			.set_inttime_hdr = SENSOR_setInttimeHdr,
+			.set_sensor_gain_hdr = SENSOR_setSensorGainHdr,
+		},
+		.awb = {
+			.get_awb_default = SENSOR_getAwbDefault,
+		},
 	};
 
 	MPI_regSnsCallback(idx, SENSOR_ID, &sensor_callback);
